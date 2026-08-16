@@ -1,0 +1,10 @@
+# pnpm 11 reads settings from this file rather than the "pnpm" key in package.json.
+# This is NOT a workspace declaration — there is no `packages:` key, and api/ is a
+# separate ecosystem that pnpm must never manage. See CLAUDE.md.
+
+# MSW's install script only writes public/mockServiceWorker.js, which browser-mode
+# mocking needs. Tests use msw/node, which doesn't. Denied explicitly so installs are
+# reproducible and never prompt. If a Playwright test ever needs browser-mode MSW,
+# flip this to true and commit the regenerated lockfile.
+allowBuilds:
+  msw: false
