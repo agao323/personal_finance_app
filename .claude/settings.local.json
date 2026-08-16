@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/allengao/Downloads/**)",
+      "Bash(unzip -o \"/Users/allengao/Downloads/personal-finance-app-plan.zip\" -d /private/tmp/claude-501/-Users-allengao-Claude-personal-finance-app/f1b8049b-f653-45de-8667-ac0e7c7fda74/scratchpad/plan)"
+    ]
+  }
+}

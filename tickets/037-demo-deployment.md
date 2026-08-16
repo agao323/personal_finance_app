@@ -1,0 +1,49 @@
+# 037 — Demo deployment
+Status: todo
+Wave: 3   Lane: —
+Blocked by: 036, 018
+Read first: docs/SECURITY.md#demo-isolation
+
+## Goal
+A public demo at `demo.<domain>`: separate Fly apps, **a separate Neon project**, synthetic
+seed, writes rejected. The boundary is infrastructure, not a flag.
+
+## Acceptance criteria
+- [ ] Separate Fly apps and a **separate Neon project** — not a branch of the real project — for the demo
+- [ ] Demo database seeded by the synthetic generator only
+- [ ] `DEMO_MODE=true` rejects all mutating verbs — defense in depth, **not** the boundary
+- [ ] Demo credentials verifiably cannot reach the real database
+- [ ] No auth on the demo; indexed and publicly linkable
+- [ ] A banner making it obvious the data is synthetic
+- [ ] CI asserts the two database URLs differ **and belong to different Neon projects**
+- [ ] **Edge caching on the demo hostname** with a long TTL — the dataset is static and read-only. Verified that a repeat visit is served by Cloudflare without waking Neon.
+- [ ] Cold-start budget: a first click on a fully idle demo renders in under 3s; a cached click is instant
+- [ ] Confirmed the real app hostname is **never** edge-cached
+- [ ] Documented reseed procedure, including cache purge
+- [ ] `docs/adr/0003-demo-isolation.md`
+- [ ] Tests: CI guard workflow for the URL assertion; functional asserting every mutating verb returns 405 under `DEMO_MODE`
+
+## Files
+- `fly.demo-api.toml`
+- `fly.demo-web.toml`
+- `.github/workflows/demo-guard.yml`
+- `docs/adr/0003-demo-isolation.md`
+
+## Notes
+The most security-sensitive ticket in the project. The failure mode is handing out a public
+link that shows real finances.
+
+Verify by connecting to the demo database directly and confirming only synthetic data is
+present. Separate Neon **projects**, not branches — branches share a project and an account,
+which is a weaker boundary than separate credentials, and this is the one boundary that must
+not be weak.
+
+The demo is read-only in v1. Allowing writes against synthetic data is safe in principle but
+adds a public unauthenticated write surface needing rate limiting and a reseed cron — noted in
+SECURITY.md as a fast follow, not a v1 commitment.
+
+Read-only is also what makes the edge caching trivial, and the caching is doing two jobs: it
+keeps demo compute inside Neon's free CU-hour allowance when crawlers hit an indexed public
+site, and it removes the cold start on an uncached first visit. Neon autosuspends after 5
+minutes idle and Fly machines auto-stop — without caching, someone opening the demo link cold
+waits several seconds on a blank page and reasonably concludes it's broken.
