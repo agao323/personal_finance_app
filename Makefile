@@ -51,6 +51,16 @@ smoke: .env ## Bring up the deploy-shaped stack and assert it actually works
 	@$(PROD_COMPOSE) exec -T web wget -qO- http://api:8000/health \
 		| grep -q '"ok"' && echo "  ok: api /health answered from inside web" \
 		|| (echo "  FAIL: web cannot reach api" >&2; exit 1)
+	@echo "── the full browser path: host → web → proxy → api → postgres ──"
+	@curl -fsS "http://localhost:$(or $(WEB_PORT),3000)/api/ready" \
+		| grep -q '"database":true' \
+		&& echo "  ok: /api/ready reports the database reachable" \
+		|| (echo "  FAIL: proxy did not reach the API, or the database is down" >&2; exit 1)
+	@echo "── proxy passes upstream status through ──"
+	@test "$$(curl -s -o /dev/null -w '%{http_code}' \
+		"http://localhost:$(or $(WEB_PORT),3000)/api/nope")" = "404" \
+		&& echo "  ok: unknown route proxies back a 404, not a 200 or a 502" \
+		|| (echo "  FAIL: proxy masked the upstream status" >&2; exit 1)
 	@echo "── smoke passed ──"
 
 # ── Test ──────────────────────────────────────────────────────────────────────

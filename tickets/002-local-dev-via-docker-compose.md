@@ -15,7 +15,7 @@ both, so no session ever needs host-installed Python or Node to run the stack.
 - [x] Postgres data persisted in a named volume
 - [x] The API service is **not** published to the host; only `web` maps a port
 - [x] `.env.example` documents every variable, including the split between the public web origin and the internal API URL
-- [~] `make dev` starts all three; the web container reaches the API over the internal network. **The `/api/*` proxy route itself is ticket 004** — there is no route handler to exercise yet, so `make smoke` asserts container-to-container reachability instead. 004 should extend it to go through the proxy.
+- [x] `make dev` starts all three and the web app reaches the API through its server-side proxy — completed in 004, which added the route handler and extended `make smoke` to exercise the full browser path.
 - [x] Tests: a `make smoke` target asserting all three containers report healthy and the web app can reach the API
 
 ## Files
