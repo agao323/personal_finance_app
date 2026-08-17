@@ -1,0 +1,110 @@
+name: CI
+
+# Every branch, not just main. Wave 2 runs three lanes in parallel, and a lane needs
+# to find out it broke the contract before the merge rather than after.
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # CI supplies Postgres as a service container, so the Makefile must not try to
+  # start one with docker compose.
+  CI: "true"
+  TEST_DATABASE_URL: postgresql+psycopg://pfa:pfa_local_dev@localhost:5432/pfa_test
+
+jobs:
+  build:
+    name: lint, test, contract, guards
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: pfa
+          POSTGRES_PASSWORD: pfa_local_dev
+          POSTGRES_DB: pfa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pfa"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install API dependencies
+        working-directory: api
+        run: uv sync --frozen
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      # ── correctness ────────────────────────────────────────────────────────
+      - name: Lint and typecheck
+        run: make lint
+
+      - name: Test
+        run: make test
+
+      # ── the contract ───────────────────────────────────────────────────────
+      # Regenerates api-types.ts from the Pydantic models and fails if it differs
+      # from what was committed. This is what stops a response-model change from
+      # reaching Wave 2's lanes without the frontend types following it.
+      - name: Contract drift
+        run: make types-check
+
+      # ── architectural guards ───────────────────────────────────────────────
+      # Guards are tested first: one that never fires looks exactly like one that
+      # is broken.
+      - name: Guard self-tests
+        run: ./scripts/test_guards.sh
+
+      - name: No float in a money column
+        run: ./scripts/check_no_float.sh
+
+      - name: No public API URL in the browser bundle
+        run: ./scripts/check_no_public_api_url.sh
+
+      # ── secrets ────────────────────────────────────────────────────────────
+      # --redact so a finding never prints the secret into a build log, which would
+      # turn a near-miss into an actual disclosure.
+      - name: Secret scan
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+            detect --source=/repo --no-banner --redact --verbose
+
+      # ── coverage ───────────────────────────────────────────────────────────
+      # Reported, never gated. A percentage gate is satisfied by tests that execute
+      # code without asserting anything, which is worse than no gate at all.
+      - name: Coverage report
+        if: always()
+        run: |
+          echo "### Coverage" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          (cd api && uv run coverage report 2>/dev/null || echo "no api coverage data") \
+            >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

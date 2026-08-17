@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help dev down logs smoke test test-api test-web lint lint-api lint-web format types seed migrate upgrade
+.PHONY: help dev down logs smoke test test-api test-web guards lint lint-api lint-web format types types-check seed migrate upgrade
 
 # Compose merges docker-compose.override.yml automatically. PROD_COMPOSE opts out,
 # so smoke tests exercise the deploy-shaped images rather than the dev ones.
@@ -64,12 +64,18 @@ smoke: .env ## Bring up the deploy-shaped stack and assert it actually works
 	@echo "── smoke passed ──"
 
 # ── Test ──────────────────────────────────────────────────────────────────────
-test: test-api test-web ## Run both test suites
+test: guards test-api test-web ## Run both test suites and the guard self-tests
+
+guards: ## Run the architectural guards and their self-tests
+	@./scripts/test_guards.sh
+	@./scripts/check_no_float.sh
+	@./scripts/check_no_public_api_url.sh
 
 test-api: .env
 	@# The suite runs against real Postgres, not SQLite — see api/tests/conftest.py.
-	@# Idempotent and fast when it is already up.
-	@docker compose up -d --wait postgres >/dev/null
+	@# Idempotent and fast when it is already up. CI supplies its own service
+	@# container, so it must not start a second one.
+	@if [ -z "$$CI" ]; then docker compose up -d --wait postgres >/dev/null; fi
 	@# pytest exits 5 when it collects nothing, which was the expected state during
 	@# scaffolding. Kept so an empty suite is never mistaken for a failure.
 	@cd api && uv run pytest; status=$$?; [ $$status -eq 0 ] || [ $$status -eq 5 ]
