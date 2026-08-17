@@ -1,22 +1,53 @@
 """Application entrypoint.
 
-This is a boot stub. Ticket 003 replaces it with structured settings, a SQLAlchemy
-session dependency, and the real health endpoints. It exists now only because a
-container needs something to serve and the Docker healthcheck needs something to
-answer — see ``api/Dockerfile`` and ``docker-compose.yml``.
+No CORS middleware, deliberately. The browser never calls this service — it talks
+only to the Next.js origin, which proxies over the private network. See
+docs/ARCHITECTURE.md#request-path.
 """
 
-from fastapi import FastAPI
+from typing import Literal
+
+from fastapi import FastAPI, Response
+from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.db import get_engine
 
 app = FastAPI(title="Personal finance API")
 
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    """Liveness only: the process is up.
+class HealthResponse(BaseModel):
+    status: Literal["ok"]
 
-    Deliberately does not touch the database. Ticket 003 adds ``/ready`` for
-    database reachability — a health check that fails on a transient database blip
-    would have the platform restart a perfectly healthy process.
+
+class ReadyResponse(BaseModel):
+    status: Literal["ok", "unavailable"]
+    database: bool
+
+
+@app.get("/health")
+def health() -> HealthResponse:
+    """Liveness: the process is up and serving.
+
+    Touches no database, by design. Fly probes this endpoint, and a check that fails
+    on a transient database blip would have the platform restart instances that are
+    perfectly healthy — turning a brief database problem into an outage.
     """
-    return {"status": "ok"}
+    return HealthResponse(status="ok")
+
+
+@app.get("/ready", responses={503: {"model": ReadyResponse}})
+def ready(response: Response) -> ReadyResponse:
+    """Readiness: the database is reachable.
+
+    Returns 503 rather than raising, so the body shape is the same either way and a
+    caller can distinguish "unreachable" from "the API itself is broken".
+    """
+    try:
+        with get_engine().connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        response.status_code = 503
+        return ReadyResponse(status="unavailable", database=False)
+    return ReadyResponse(status="ok", database=True)

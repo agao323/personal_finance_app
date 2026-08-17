@@ -56,9 +56,12 @@ smoke: .env ## Bring up the deploy-shaped stack and assert it actually works
 # ── Test ──────────────────────────────────────────────────────────────────────
 test: test-api test-web ## Run both test suites
 
-test-api:
-	@# pytest exits 5 when it collects nothing. During scaffolding that is the
-	@# expected state, not a failure. Once tests exist this passes through normally.
+test-api: .env
+	@# The suite runs against real Postgres, not SQLite — see api/tests/conftest.py.
+	@# Idempotent and fast when it is already up.
+	@docker compose up -d --wait postgres >/dev/null
+	@# pytest exits 5 when it collects nothing, which was the expected state during
+	@# scaffolding. Kept so an empty suite is never mistaken for a failure.
 	@cd api && uv run pytest; status=$$?; [ $$status -eq 0 ] || [ $$status -eq 5 ]
 
 test-web:
