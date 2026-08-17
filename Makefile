@@ -5,6 +5,10 @@
 # so smoke tests exercise the deploy-shaped images rather than the dev ones.
 PROD_COMPOSE := docker compose -f docker-compose.yml
 
+# Alembic runs on the host, so it needs localhost rather than the compose service
+# name the API container uses.
+LOCAL_DB_URL := postgresql+psycopg://pfa:pfa_local_dev@localhost:5432/pfa
+
 # Stub targets fail loudly rather than silently doing nothing — a no-op target is
 # indistinguishable from a passing one, and that hides an unimplemented ticket.
 define not_yet
@@ -119,8 +123,19 @@ types-check: types ## Fail if the committed types drift from the Pydantic models
 seed: ## Load synthetic data into the local dev database
 	$(call not_yet,seed,018)
 
-migrate: ## Create a migration: make migrate m="add ownership stakes"
-	$(call not_yet,migrate,009)
+migrate: .env ## Create a migration: make migrate m="add ownership stakes"
+	@test -n "$(m)" || (echo 'usage: make migrate m="what it does"' >&2; exit 1)
+	@docker compose up -d --wait postgres >/dev/null
+	@# --autogenerate proposes; a human reviews. Never commit one unread.
+	@cd api && ALEMBIC_DATABASE_URL="$(LOCAL_DB_URL)" \
+		uv run alembic revision --autogenerate -m "$(m)"
+	@echo ""
+	@echo "Review it line by line before committing. Autogenerate misses CHECK"
+	@echo "constraints, partial indexes, enum value changes, and every data migration."
 
-upgrade: ## Apply migrations up to head
-	$(call not_yet,upgrade,009)
+upgrade: .env ## Apply migrations up to head
+	@docker compose up -d --wait postgres >/dev/null
+	@cd api && ALEMBIC_DATABASE_URL="$(LOCAL_DB_URL)" uv run alembic upgrade head
+
+downgrade: .env ## Roll back one migration
+	@cd api && ALEMBIC_DATABASE_URL="$(LOCAL_DB_URL)" uv run alembic downgrade -1

@@ -1,0 +1,56 @@
+"""Users and their passkey credentials.
+
+v1 ships with one row. The second is a partner: insert it, add the identity to the
+Cloudflare Access policy, register a passkey. No invitations, no roles, no sharing UI.
+
+The `users` table is also the auth allowlist — there is no separate allowlist config,
+so there is no way for the two to disagree.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, LargeBinary, String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    credentials: Mapped[list[Credential]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Credential(Base):
+    """A registered WebAuthn authenticator. Populated by ticket 034."""
+
+    __tablename__ = "credentials"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    credential_id: Mapped[bytes] = mapped_column(LargeBinary, unique=True, nullable=False)
+    public_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    # Authenticators report a counter that only increases. A value that goes backwards
+    # suggests a cloned credential, and 034 rejects it.
+    sign_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    transports: Mapped[str | None] = mapped_column(String(120))
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    last_used_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship(back_populates="credentials")

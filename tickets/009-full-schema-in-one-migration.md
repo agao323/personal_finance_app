@@ -1,5 +1,5 @@
 # 009 — Full v1 schema in one reviewed migration
-Status: todo
+Status: done
 Wave: 1   Lane: —
 Blocked by: 008
 Read first: docs/ARCHITECTURE.md#data-model, docs/ARCHITECTURE.md#users-and-ownership
@@ -10,19 +10,19 @@ schema changes are incremental and serialised through a single lane — which is
 Wave 2's three parallel lanes safe.
 
 ## Acceptance criteria
-- [ ] Alembic configured against the app's metadata; `make migrate` and `make upgrade` work
-- [ ] The pytest fixture from 003 now runs `alembic upgrade head`. **No `metadata.create_all()` anywhere.**
-- [ ] Tables: `users`, `credentials`, `institutions`, `accounts`, `ownership_stakes`, `balance_snapshots`, `categories`, `transactions`, `categorization_rules`, `import_mappings`, `data_marker`
-- [ ] `accounts`: `kind`, `subtype`, `source`, `currency` with `CHECK (currency = 'USD')`, `institution_id`, `closed_at` nullable
-- [ ] `ownership_stakes`: `account_id`, `owner_user_id` FK `users`, `percentage`, `effective_from`, `effective_to` nullable
-- [ ] `balance_snapshots`: `account_id`, `as_of`, `balance`, `source`; unique on (`account_id`, `as_of`)
-- [ ] `categories`: `parent_id` nullable for a two-level taxonomy, `kind` enum `income|expense|transfer`
-- [ ] `transactions`: `external_id`, `account_id`, `posted_at`, `amount`, `merchant`, `description`, `category_id`, `category_source` enum `import|rule|manual`, `transfer_group_id` nullable
-- [ ] Unique on (`account_id`, `external_id`) where `external_id` is not null
-- [ ] All money columns `NUMERIC(19,2)`. No `Float` anywhere.
-- [ ] Seed data in the migration: default categories across all three kinds; one `users` row from config; one `data_marker` row
-- [ ] Migration hand-reviewed line by line, not blind autogenerate
-- [ ] Tests: unit for every enum and CHECK constraint; functional asserting `upgrade → downgrade → upgrade` is clean
+- [x] Alembic configured against the app's metadata; `make migrate` and `make upgrade` work
+- [x] The pytest fixture from 003 now runs `alembic upgrade head`. **No `metadata.create_all()` anywhere.**
+- [x] Tables: `users`, `credentials`, `institutions`, `accounts`, `ownership_stakes`, `balance_snapshots`, `categories`, `transactions`, `categorization_rules`, `import_mappings`, `data_marker`
+- [x] `accounts`: `kind`, `subtype`, `source`, `currency` with `CHECK (currency = 'USD')`, `institution_id`, `closed_at` nullable
+- [x] `ownership_stakes`: `account_id`, `owner_user_id` FK `users`, `percentage`, `effective_from`, `effective_to` nullable
+- [x] `balance_snapshots`: `account_id`, `as_of`, `balance`, `source`; unique on (`account_id`, `as_of`)
+- [x] `categories`: `parent_id` nullable for a two-level taxonomy, `kind` enum `income|expense|transfer`
+- [x] `transactions`: `external_id`, `account_id`, `posted_at`, `amount`, `merchant`, `description`, `category_id`, `category_source` enum `import|rule|manual`, `transfer_group_id` nullable
+- [x] Unique on (`account_id`, `external_id`) where `external_id` is not null
+- [x] All money columns `NUMERIC(19,2)`. No `Float` anywhere.
+- [x] Seed data in the migration: default categories across all three kinds; one `users` row from config; one `data_marker` row
+- [x] Migration hand-reviewed line by line, not blind autogenerate
+- [x] Tests: unit for every enum and CHECK constraint; functional asserting `upgrade → downgrade → upgrade` is clean
 
 ## Files
 - `api/alembic.ini`

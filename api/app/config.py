@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     # Required. No default on purpose — see module docstring.
     database_url: str
 
+    # The household's first user, seeded by the initial migration. The `users` table
+    # is also the auth allowlist (ticket 034), so this is the one place an identity
+    # is declared — there is no second list that could disagree with it.
+    owner_email: str = "owner@example.invalid"
+    owner_display_name: str = "Owner"
+
     # Rejects mutating verbs on the public demo deployment. Nothing reads this until
     # ticket 037; it is defined now so the demo deployment is a configuration change
     # rather than a code change. Defense in depth only — the real boundary is that
