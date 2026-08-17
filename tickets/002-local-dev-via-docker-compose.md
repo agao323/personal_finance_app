@@ -1,5 +1,5 @@
 # 002 — Local dev via Docker Compose
-Status: todo
+Status: done
 Wave: 0   Lane: —
 Blocked by: 001
 Read first: docs/ARCHITECTURE.md#shape, docs/ARCHITECTURE.md#request-path
@@ -9,14 +9,14 @@ Read first: docs/ARCHITECTURE.md#shape, docs/ARCHITECTURE.md#request-path
 both, so no session ever needs host-installed Python or Node to run the stack.
 
 ## Acceptance criteria
-- [ ] `docker-compose.yml` with `postgres`, `api`, `web` services
-- [ ] `api/Dockerfile` and `web/Dockerfile`, multi-stage, production-capable — `web` uses Next.js standalone output
-- [ ] Source mounted for hot reload in the compose override; the base Dockerfiles stay deploy-ready
-- [ ] Postgres data persisted in a named volume
-- [ ] The API service is **not** published to the host; only `web` maps a port
-- [ ] `.env.example` documents every variable, including the split between the public web origin and the internal API URL
-- [ ] `make dev` starts all three and the web app reaches the API through its server-side proxy
-- [ ] Tests: a `make smoke` target asserting all three containers report healthy and the web app can reach the API
+- [x] `docker-compose.yml` with `postgres`, `api`, `web` services
+- [x] `api/Dockerfile` and `web/Dockerfile`, multi-stage, production-capable — `web` uses Next.js standalone output
+- [x] Source mounted for hot reload in the compose override; the base Dockerfiles stay deploy-ready — verified: WatchFiles reloads the API on edit, `next dev` serves the web app
+- [x] Postgres data persisted in a named volume
+- [x] The API service is **not** published to the host; only `web` maps a port
+- [x] `.env.example` documents every variable, including the split between the public web origin and the internal API URL
+- [~] `make dev` starts all three; the web container reaches the API over the internal network. **The `/api/*` proxy route itself is ticket 004** — there is no route handler to exercise yet, so `make smoke` asserts container-to-container reachability instead. 004 should extend it to go through the proxy.
+- [x] Tests: a `make smoke` target asserting all three containers report healthy and the web app can reach the API
 
 ## Files
 - `docker-compose.yml`

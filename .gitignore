@@ -40,3 +40,6 @@ test-results/
 .vscode/*
 !.vscode/extensions.json
 *.log
+
+# pnpm local store, created by in-repo pnpm operations
+.pnpm-store/

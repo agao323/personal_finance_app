@@ -1,5 +1,9 @@
 .DEFAULT_GOAL := help
-.PHONY: help dev test test-api test-web lint lint-api lint-web format types seed migrate upgrade
+.PHONY: help dev down logs smoke test test-api test-web lint lint-api lint-web format types seed migrate upgrade
+
+# Compose merges docker-compose.override.yml automatically. PROD_COMPOSE opts out,
+# so smoke tests exercise the deploy-shaped images rather than the dev ones.
+PROD_COMPOSE := docker compose -f docker-compose.yml
 
 # Stub targets fail loudly rather than silently doing nothing — a no-op target is
 # indistinguishable from a passing one, and that hides an unimplemented ticket.
@@ -13,8 +17,41 @@ help: ## Show available targets
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
 # ── Run ───────────────────────────────────────────────────────────────────────
-dev: ## Start postgres + api + web in Docker with hot reload
-	$(call not_yet,dev,002)
+.env:
+	@cp .env.example .env
+	@echo "Created .env from .env.example. Local dev credentials only — edit if you like."
+
+dev: .env ## Start postgres + api + web in Docker with hot reload
+	@docker compose up --build
+
+down: ## Stop everything (add v=1 to also drop the database volume)
+	@docker compose down $(if $(v),--volumes,)
+
+logs: ## Tail logs from all services
+	@docker compose logs -f
+
+smoke: .env ## Bring up the deploy-shaped stack and assert it actually works
+	@echo "── building and starting (deploy images, no dev override) ──"
+	@$(PROD_COMPOSE) up -d --build --wait
+	@echo "── all three healthy ──"
+	@$(PROD_COMPOSE) ps --format '  {{.Service}}\t{{.Status}}'
+	@echo "── api must NOT be published to the host ──"
+	@# A published port renders as "0.0.0.0:3000->3000/tcp"; an internal-only one as
+	@# bare "8000/tcp". Testing for the arrow is the reliable check — `compose port`
+	@# prints "invalid IP:0" rather than nothing when there is no mapping.
+	@if $(PROD_COMPOSE) ps --format '{{.Service}} {{.Ports}}' | grep '^api ' | grep -q -- '->'; then \
+		echo "  FAIL: api is published to the host; it must only exist on the internal network" >&2; \
+		exit 1; \
+	fi
+	@echo "  ok: no host mapping for api:8000"
+	@echo "── web serves on the host ──"
+	@curl -fsS -o /dev/null -w '  ok: http %{http_code} from localhost:$(or $(WEB_PORT),3000)\n' \
+		"http://localhost:$(or $(WEB_PORT),3000)/"
+	@echo "── web container reaches api over the internal network ──"
+	@$(PROD_COMPOSE) exec -T web wget -qO- http://api:8000/health \
+		| grep -q '"ok"' && echo "  ok: api /health answered from inside web" \
+		|| (echo "  FAIL: web cannot reach api" >&2; exit 1)
+	@echo "── smoke passed ──"
 
 # ── Test ──────────────────────────────────────────────────────────────────────
 test: test-api test-web ## Run both test suites

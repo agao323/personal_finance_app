@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+coverage/
+.turbo/
+*.tsbuildinfo
+.git/
+README.md
+AGENTS.md
+CLAUDE.md

@@ -1,0 +1,31 @@
+# Local development only. Compose merges this over docker-compose.yml automatically;
+# `make smoke` ignores it (-f docker-compose.yml) so the deploy-shaped images are
+# what actually get verified.
+#
+# Nothing here changes which image is built for the API — it mounts source over the
+# runtime image and swaps the command. The web service is the exception: `next dev`
+# cannot run against standalone output, so it targets the `dev` stage.
+
+services:
+  postgres:
+    # Published for host-side psql and, from ticket 009, Alembic. The base file
+    # keeps it unpublished.
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  api:
+    volumes:
+      - ./api/app:/app/app:ro
+    command:
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  web:
+    build:
+      target: dev
+    volumes:
+      - ./web:/app
+      # Anonymous volumes keep the image's node_modules and build output from being
+      # shadowed by the host mount — the host has neither installed for Alpine.
+      - /app/node_modules
+      - /app/.next
+    command: ["pnpm", "dev"]

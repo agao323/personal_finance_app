@@ -1,0 +1,54 @@
+# Production-shaped: the images built here are the ones that ship to Fly, and the
+# topology mirrors production — only `web` is reachable, and it talks to `api` over
+# an internal network. Hot reload and host-published debugging ports live in
+# docker-compose.override.yml, which Compose merges automatically.
+
+name: pfa
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./api
+      target: runtime
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    # No `ports:`, deliberately. The API has no public address in production and
+    # must not have one here either — a hand-written browser fetch to the API
+    # should fail in dev rather than work locally and break on deploy.
+    # See docs/ARCHITECTURE.md#request-path.
+
+  web:
+    build:
+      context: ./web
+      target: runtime
+    environment:
+      INTERNAL_API_URL: ${INTERNAL_API_URL}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
