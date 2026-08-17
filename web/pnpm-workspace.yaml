@@ -1,18 +1,22 @@
 # pnpm 11 reads settings from this file rather than the "pnpm" key in package.json.
 # This is NOT a workspace declaration — there is no `packages:` key, and api/ is a
 # separate ecosystem that pnpm must never manage. See CLAUDE.md.
-
-# MSW's install script only writes public/mockServiceWorker.js, which browser-mode
-# mocking needs. Tests use msw/node, which doesn't. Denied explicitly so installs are
-# reproducible and never prompt. If a Playwright test ever needs browser-mode MSW,
-# flip this to true and commit the regenerated lockfile.
+#
 # Local installs keep pnpm's default isolated (symlinked) layout. The Docker build
-# appends `nodeLinker: hoisted` to this file — see web/Dockerfile for why. That
-# setting is deliberately not here: it only relayouts a node_modules built from
-# scratch, and forcing it locally means a multi-minute reinstall for no benefit.
+# appends `nodeLinker: hoisted` — see web/Dockerfile for why. That setting is
+# deliberately not here: it only relayouts a node_modules built from scratch, so
+# forcing it locally means a multi-minute reinstall for no benefit.
 
 allowBuilds:
+  # Only writes public/mockServiceWorker.js, which browser-mode mocking needs.
+  # Tests use msw/node, which does not.
   msw: false
+
+  # Downloads a platform binary used to upload source maps to Sentry. Nothing does
+  # that yet — next.config.ts has no Sentry wrapper — so denying it keeps installs
+  # offline-reproducible. Flip to true when source-map upload is wired up.
+  "@sentry/cli": false
+
   # Native resolver behind eslint's import plugin. Its install script links the
   # correct platform binary, so it must run — denying it builds fine on macOS and
   # then fails inside the linux/arm64 image, which is how it was found.

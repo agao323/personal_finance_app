@@ -5,6 +5,8 @@ only to the Next.js origin, which proxies over the private network. See
 docs/ARCHITECTURE.md#request-path.
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, Response
@@ -12,9 +14,30 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.config import get_settings
 from app.db import get_engine
+from app.logging import configure_logging
+from app.middleware import RequestContextMiddleware
+from app.observability import configure_sentry
 
-app = FastAPI(title="Personal finance API")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Configure logging and Sentry once the process is actually starting.
+
+    Deliberately not at import time: `scripts/export_openapi.py` imports this module
+    to build the schema, and CI runs it with no DATABASE_URL. Reading settings on
+    import would make the contract pipeline depend on a configured environment it
+    has no reason to need.
+    """
+    settings = get_settings()
+    configure_logging(settings.log_level)
+    configure_sentry(settings.sentry_dsn)
+    yield
+
+
+app = FastAPI(title="Personal finance API", lifespan=lifespan)
+app.add_middleware(RequestContextMiddleware)
 
 
 class HealthResponse(BaseModel):

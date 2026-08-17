@@ -1,5 +1,5 @@
 # 007 — Observability: structured logs and error tracking
-Status: todo
+Status: done
 Wave: 0   Lane: —
 Blocked by: 006
 Read first: docs/ARCHITECTURE.md#operations, docs/SECURITY.md#handling-real-data-during-development
@@ -9,13 +9,13 @@ Structured JSON logging with request context on the API, Sentry on both services
 redaction filter that keeps financial values out of logs.
 
 ## Acceptance criteria
-- [ ] structlog JSON logging with request id, method, path, status, and duration on every request
-- [ ] Request id generated per request and returned in a response header
-- [ ] **Redaction filter**: any log field named like a monetary value (`balance`, `amount`, `total`, `net_worth`, ...) is replaced before emission
-- [ ] Sentry in `api/` and `web/`, DSN from env, cleanly disabled when unset
-- [ ] Sentry configured to scrub request bodies — no financial payloads leave the app
-- [ ] Unhandled exceptions produce one structured log line and one Sentry event
-- [ ] Tests: unit for the redaction filter across nested dicts and lists; functional asserting a 500 emits exactly one log line carrying the request id and no monetary value
+- [x] structlog JSON logging with request id, method, path, status, and duration on every request
+- [x] Request id generated per request and returned in a response header
+- [x] **Redaction filter**: any log field named like a monetary value (`balance`, `amount`, `total`, `net_worth`, ...) is replaced before emission
+- [x] Sentry in `api/` and `web/`, DSN from env, cleanly disabled when unset
+- [x] Sentry configured to scrub request bodies — no financial payloads leave the app
+- [x] Unhandled exceptions produce one structured log line and one Sentry event
+- [x] Tests: unit for the redaction filter across nested dicts and lists; functional asserting a 500 emits exactly one log line carrying the request id and no monetary value
 
 ## Files
 - `api/app/logging.py`
