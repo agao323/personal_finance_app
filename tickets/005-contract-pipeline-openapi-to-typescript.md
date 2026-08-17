@@ -1,5 +1,5 @@
 # 005 — Contract pipeline: OpenAPI to TypeScript
-Status: todo
+Status: done
 Wave: 0   Lane: —
 Blocked by: 004
 Read first: docs/ARCHITECTURE.md#the-api-contract
@@ -10,13 +10,13 @@ it via `openapi-typescript`. The generated file is committed. This is the mechan
 keeps the three Wave 2 lanes in sync.
 
 ## Acceptance criteria
-- [ ] Script exports `openapi.json` from the FastAPI app without booting a server
-- [ ] `openapi-typescript` generates `web/src/lib/api-types.ts`
-- [ ] `make types` runs both steps
-- [ ] Generated file is committed and its header marks it generated — do not edit
-- [ ] `apiFetch` from 004 is retyped against the generated types, with path and response type inferred from the route string
-- [ ] A documented drift check: regenerate, fail if `git diff` is non-empty
-- [ ] Tests: unit asserting the export script emits a schema containing a known path and that the generated file compiles under `tsc`
+- [x] Script exports `openapi.json` from the FastAPI app without booting a server
+- [x] `openapi-typescript` generates `web/src/lib/api-types.ts`
+- [x] `make types` runs both steps
+- [x] Generated file is committed and its header marks it generated — do not edit
+- [x] `apiFetch` from 004 is retyped against the generated types, with path and response type inferred from the route string
+- [x] A documented drift check: regenerate, fail if `git diff` is non-empty
+- [x] Tests: unit asserting the export script emits a schema containing a known path and that the generated file compiles under `tsc`
 
 ## Files
 - `Makefile`

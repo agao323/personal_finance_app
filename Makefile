@@ -92,7 +92,21 @@ format: ## Autoformat both sides
 
 # ── Contract ──────────────────────────────────────────────────────────────────
 types: ## Regenerate web/src/lib/api-types.ts from the API's OpenAPI schema
-	$(call not_yet,types,005)
+	@cd api && uv run python scripts/export_openapi.py >/dev/null
+	@cd web && pnpm exec openapi-typescript ../api/openapi.json -o src/lib/api-types.ts
+	@cd web && pnpm exec prettier --write --ignore-path /dev/null src/lib/api-types.ts >/dev/null
+	@echo "web/src/lib/api-types.ts regenerated — commit it."
+
+types-check: types ## Fail if the committed types drift from the Pydantic models
+	@if ! git diff --quiet -- web/src/lib/api-types.ts; then \
+		echo ""; \
+		echo "  web/src/lib/api-types.ts is out of date with the API's response models." >&2; \
+		echo "  Run 'make types' and commit the result." >&2; \
+		echo ""; \
+		git --no-pager diff --stat -- web/src/lib/api-types.ts >&2; \
+		exit 1; \
+	fi
+	@echo "contract is in sync"
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 seed: ## Load synthetic data into the local dev database

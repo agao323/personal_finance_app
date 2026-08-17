@@ -1,11 +1,59 @@
 /**
- * Browser-side API client.
+ * Browser-side API client, typed from the generated contract.
  *
  * Every call is a **relative** path against this origin, handled by the proxy at
  * `src/app/api/[...path]/route.ts`. There is deliberately no API base URL here and
- * no `NEXT_PUBLIC_API_URL` anywhere in `web/` — the browser must not know that the
- * API exists as a separate service. See docs/ARCHITECTURE.md#request-path.
+ * no `NEXT_PUBLIC_API_URL` anywhere in `web/` — the browser must not know the API
+ * exists as a separate service. See docs/ARCHITECTURE.md#request-path.
+ *
+ * Path and response type are inferred from the route string, so a typo in a URL or
+ * a wrong assumption about a response shape is a compile error rather than a
+ * runtime surprise. Never hand-write a response type; run `make types`.
  */
+
+import type { paths } from "./api-types";
+
+export type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
+
+/**
+ * Route strings that support `M`.
+ *
+ * openapi-typescript emits unimplemented verbs as `put?: never` rather than omitting
+ * them, so testing for key presence matches everything. Requiring `responses` is what
+ * actually distinguishes a real operation.
+ */
+export type PathsWith<M extends HttpMethod> = {
+  [P in keyof paths]: paths[P] extends { [K in M]: infer Operation }
+    ? Operation extends { responses: unknown }
+      ? P
+      : never
+    : never;
+}[keyof paths];
+
+/** The JSON body of the success response for `P` + `M`. */
+export type ResponseOf<P extends keyof paths, M extends HttpMethod> = paths[P][M] extends {
+  responses: infer R;
+}
+  ? R extends { 200: { content: { "application/json": infer Body } } }
+    ? Body
+    : R extends { 201: { content: { "application/json": infer Body } } }
+      ? Body
+      : void
+  : never;
+
+/** The declared query parameters for `P` + `M`, if it takes any. */
+export type QueryOf<P extends keyof paths, M extends HttpMethod> = paths[P][M] extends {
+  parameters: { query?: infer Q };
+}
+  ? Q
+  : never;
+
+/** The declared request body for `P` + `M`, if it takes one. */
+export type BodyOf<P extends keyof paths, M extends HttpMethod> = paths[P][M] extends {
+  requestBody: { content: { "application/json": infer B } };
+}
+  ? B
+  : never;
 
 export type QueryValue = string | number | boolean | null | undefined;
 
@@ -22,11 +70,11 @@ export class ApiError extends Error {
 /**
  * Build a relative API path.
  *
- * Rejects absolute URLs rather than passing them through: an absolute origin here
- * is the exact mistake the architecture is built to prevent, and failing loudly in
+ * Rejects absolute URLs rather than passing them through: an absolute origin here is
+ * the exact mistake the architecture exists to prevent, and failing loudly in
  * development is much cheaper than discovering it after deploy.
  */
-export function apiPath(path: string, query?: Record<string, QueryValue>): string {
+export function apiPath(path: string, query?: Record<string, QueryValue> | null): string {
   if (/^[a-z]+:\/\//i.test(path)) {
     throw new Error(
       `apiFetch takes a relative path, got an absolute URL: ${path}. The browser must ` +
@@ -43,29 +91,47 @@ export function apiPath(path: string, query?: Record<string, QueryValue>): strin
   return `/api${normalised}${search ? `?${search}` : ""}`;
 }
 
+type Options<P extends keyof paths, M extends HttpMethod> = {
+  method?: M;
+  signal?: AbortSignal;
+  headers?: HeadersInit;
+} & ([QueryOf<P, M>] extends [never] ? { query?: never } : { query?: QueryOf<P, M> }) &
+  ([BodyOf<P, M>] extends [never] ? { body?: never } : { body: BodyOf<P, M> });
+
 /**
  * Fetch JSON from the API through the proxy.
  *
- * Returns `unknown` on purpose. Ticket 005 generates `api-types.ts` from the API's
- * OpenAPI schema and callers narrow against it; hand-written response types are
- * exactly the drift this project is designed to make impossible.
+ * ```ts
+ * const ready = await apiFetch("/ready");                        // ReadyResponse
+ * await apiFetch("/accounts", { method: "post", body: { … } });  // body is typed
+ * ```
+ *
+ * `M` defaults to `"get"`, so read calls need no type arguments; for other verbs it
+ * is inferred from `options.method`.
  */
-export async function apiFetch(
-  path: string,
-  options: { query?: Record<string, QueryValue> } & RequestInit = {},
-): Promise<unknown> {
-  const { query, ...init } = options;
-  const response = await fetch(apiPath(path, query), {
-    ...init,
-    headers: { accept: "application/json", ...init.headers },
+export async function apiFetch<M extends HttpMethod = "get", P extends PathsWith<M> = PathsWith<M>>(
+  path: P,
+  options: Options<P & keyof paths, M> = {} as Options<P & keyof paths, M>,
+): Promise<ResponseOf<P & keyof paths, M>> {
+  const { method = "get", query, body, headers, signal } = options;
+
+  const response = await fetch(apiPath(path as string, query as Record<string, QueryValue>), {
+    method: method.toUpperCase(),
+    signal,
+    headers: {
+      accept: "application/json",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+      ...headers,
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 
   if (!response.ok) {
     let detail = response.statusText;
     try {
-      const body: unknown = await response.json();
-      if (body && typeof body === "object" && "detail" in body) {
-        detail = String((body as { detail: unknown }).detail);
+      const errorBody: unknown = await response.json();
+      if (errorBody && typeof errorBody === "object" && "detail" in errorBody) {
+        detail = String((errorBody as { detail: unknown }).detail);
       }
     } catch {
       // Non-JSON error body — the status line is all we have.
@@ -73,5 +139,6 @@ export async function apiFetch(
     throw new ApiError(response.status, detail);
   }
 
-  return response.json();
+  if (response.status === 204) return undefined as ResponseOf<P & keyof paths, M>;
+  return (await response.json()) as ResponseOf<P & keyof paths, M>;
 }

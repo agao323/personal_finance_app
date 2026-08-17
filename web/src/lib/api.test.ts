@@ -67,12 +67,30 @@ describe("apiFetch", () => {
     await expect(apiFetch("/ready")).resolves.toEqual({ status: "ok", database: true });
   });
 
-  it("forwards method and body", async () => {
-    const spy = stubFetch(Response.json({}));
+  it("defaults to GET and asks for JSON", async () => {
+    const spy = stubFetch(Response.json({ status: "ok" }));
 
-    await apiFetch("/accounts", { method: "POST", body: JSON.stringify({ name: "x" }) });
+    await apiFetch("/health");
 
-    expect(spy.mock.calls[0][1]).toMatchObject({ method: "POST" });
+    expect(spy.mock.calls[0][1]).toMatchObject({ method: "GET" });
+    expect(spy.mock.calls[0][1].headers).toMatchObject({ accept: "application/json" });
+  });
+
+  it("sends no content-type when there is no body", async () => {
+    const spy = stubFetch(Response.json({ status: "ok" }));
+
+    await apiFetch("/health");
+
+    expect(spy.mock.calls[0][1].headers).not.toHaveProperty("content-type");
+  });
+
+  it("forwards an abort signal", async () => {
+    const spy = stubFetch(Response.json({ status: "ok" }));
+    const controller = new AbortController();
+
+    await apiFetch("/ready", { signal: controller.signal });
+
+    expect(spy.mock.calls[0][1].signal).toBe(controller.signal);
   });
 
   it("throws ApiError carrying the status and detail", async () => {
@@ -90,4 +108,21 @@ describe("apiFetch", () => {
 
     await expect(apiFetch("/ready")).rejects.toBeInstanceOf(ApiError);
   });
+});
+
+describe("contract enforcement", () => {
+  it("rejects routes the API does not declare", () => {
+    // Compile-time guarantee, asserted here so the reason is discoverable. The line
+    // below is the whole point of ticket 005: /accounts does not exist yet, so it is
+    // not a valid argument until a Pydantic model puts it in the contract.
+    //
+    // @ts-expect-error "/accounts" is not a path in the generated contract
+    const rejected = () => apiFetch("/accounts");
+
+    expect(typeof rejected).toBe("function");
+  });
+
+  // Write verbs get runtime coverage in 013, the first ticket with a write endpoint.
+  // There is no POST in the contract yet, so `PathsWith<"post">` is `never` and no
+  // call can be written — which is the pipeline behaving correctly.
 });

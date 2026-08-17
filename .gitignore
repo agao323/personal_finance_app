@@ -43,3 +43,7 @@ test-results/
 
 # pnpm local store, created by in-repo pnpm operations
 .pnpm-store/
+
+# Derived from the Pydantic models by `make types`. The committed artifact is
+# web/src/lib/api-types.ts, generated from this.
+api/openapi.json
