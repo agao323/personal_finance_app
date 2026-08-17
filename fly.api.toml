@@ -1,0 +1,44 @@
+# FastAPI service.
+#
+# THERE IS NO SERVICES BLOCK HERE, AND THERE MUST NEVER BE ONE.
+#
+# A Fly app becomes publicly addressable when it declares an [http_service] or
+# [[services]] block and gets an IP allocated. Omitting them entirely makes public
+# exposure structurally impossible rather than a setting someone could flip. The web
+# service reaches this app over Fly's private IPv6 network at
+# `http://<app>.internal:8000`, which requires no public address at all.
+#
+# scripts/check_fly_api_private.sh enforces this, and CI runs it.
+# See docs/ARCHITECTURE.md#request-path and docs/adr/0001-hosting.md.
+
+app = "pfa-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "api/Dockerfile"
+
+[deploy]
+  # Migrations run once, before the new version takes traffic. On boot instead, two
+  # starting machines would race the same migration.
+  release_command = "alembic upgrade head"
+
+[env]
+  PORT = "8000"
+
+# Deliberately no [[vm]] auto_stop: with `.internal` there is no Fly proxy in front
+# to autostart a stopped machine, so a sleeping API would simply be unreachable.
+# One shared-cpu-1x machine is a couple of dollars a month. The web app — which does
+# sit behind the proxy — is where autostop earns its keep.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[checks.health]
+  type = "http"
+  port = 8000
+  path = "/health"
+  interval = "15s"
+  timeout = "3s"
+  grace_period = "10s"
+  # /health, never /ready: a transient database blip must not cause Fly to restart
+  # an otherwise-healthy process. See docs/ARCHITECTURE.md#operations.

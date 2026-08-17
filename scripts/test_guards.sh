@@ -109,6 +109,44 @@ expect 0 "passes on relative paths, ignoring test files" \
 
 expect 2 "errors on a missing directory" "$here/check_no_public_api_url.sh" "$work/nope"
 
+# ── check_fly_api_private ─────────────────────────────────────────────────────
+echo "check_fly_api_private.sh"
+
+cat >"$work/fly_services.toml" <<'TOML'
+app = "pfa-api"
+[[services]]
+  internal_port = 8000
+TOML
+expect 1 "fails on [[services]]" "$here/check_fly_api_private.sh" "$work/fly_services.toml"
+
+cat >"$work/fly_http.toml" <<'TOML'
+app = "pfa-api"
+[http_service]
+  internal_port = 8000
+TOML
+expect 1 "fails on [http_service]" "$here/check_fly_api_private.sh" "$work/fly_http.toml"
+
+cat >"$work/fly_ports.toml" <<'TOML'
+app = "pfa-api"
+[[services.ports]]
+ports = [80, 443]
+TOML
+expect 1 "fails on a ports declaration" "$here/check_fly_api_private.sh" "$work/fly_ports.toml"
+
+cat >"$work/fly_clean.toml" <<'TOML'
+app = "pfa-api"
+# There must never be an [http_service] or [[services]] block here — naming them in
+# the comment that explains the rule must not trip the guard.
+[deploy]
+  release_command = "alembic upgrade head"
+[checks.health]
+  type = "http"
+  port = 8000
+TOML
+expect 0 "passes on a private-only config" "$here/check_fly_api_private.sh" "$work/fly_clean.toml"
+
+expect 2 "errors on a missing file" "$here/check_fly_api_private.sh" "$work/nope.toml"
+
 # ── result ────────────────────────────────────────────────────────────────────
 echo ""
 echo "guards: $passed passed, $failed failed"

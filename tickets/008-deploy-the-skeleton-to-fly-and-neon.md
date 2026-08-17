@@ -1,5 +1,5 @@
 # 008 — Deploy the skeleton to Fly and Neon
-Status: todo
+Status: in-progress
 Wave: 0   Lane: —
 Blocked by: 007
 Read first: docs/ARCHITECTURE.md#hosting, docs/ARCHITECTURE.md#request-path
@@ -9,17 +9,17 @@ Read first: docs/ARCHITECTURE.md#hosting, docs/ARCHITECTURE.md#request-path
 migrations wired as a release command. The app is an empty skeleton. That is the point.
 
 ## Acceptance criteria
-- [ ] `fly.api.toml` and `fly.web.toml`
-- [ ] **The API app declares no public services** — reachable only over the Fly private network
-- [ ] Neon project provisioned; **pooled** connection string stored in Fly secrets
-- [ ] Migrations run as a Fly **release command**, not on boot
-- [ ] Custom domain on the web app with TLS, HSTS, and `noindex`
-- [ ] Web app reaches the API over `.flycast`; verified from outside that the API is unreachable
-- [ ] `auto_stop_machines` enabled so idle cost stays near zero
-- [ ] No secret in the repo; `.env.example` documents each one
-- [ ] Deploy documented in the README as a runnable sequence
-- [ ] `docs/adr/0001-hosting.md` written **while** deciding, not after
-- [ ] Tests: a CI job asserting `fly.api.toml` declares no `[[services]]` or `http_service` block
+- [x] `fly.api.toml` and `fly.web.toml`
+- [x] **The API app declares no public services** — reachable only over the Fly private network
+- [ ] Neon project provisioned; **pooled** connection string stored in Fly secrets — BLOCKED: needs an account
+- [x] Migrations run as a Fly **release command**, not on boot
+- [ ] Custom domain on the web app with TLS, HSTS, and `noindex` — BLOCKED: needs a registered domain (`noindex` already shipped in 004's layout)
+- [ ] Web app reaches the API over the private network; verified from outside that the API is unreachable — BLOCKED: needs a deploy. **Deviation:** uses `.internal`, not `.flycast` — flycast requires a services block, which would make public exposure a misconfiguration away rather than impossible. See ADR 0001.
+- [x] `auto_stop_machines` enabled so idle cost stays near zero
+- [x] No secret in the repo; `.env.example` documents each one
+- [x] Deploy documented in the README as a runnable sequence
+- [x] `docs/adr/0001-hosting.md` written **while** deciding, not after
+- [x] Tests: a CI job asserting `fly.api.toml` declares no `[[services]]` or `http_service` block
 
 ## Files
 - `fly.api.toml`
@@ -39,3 +39,15 @@ same migration.
 
 There is no migration to run yet. Wire the release command anyway and let it no-op — 009 is
 the first one that does anything, and you want the mechanism proven before it matters.
+
+## Status — 2026-08-17
+
+Every artifact is written and verified locally. Three criteria are blocked on account
+creation and a domain purchase, which need a payment method:
+
+1. Create a Neon project and copy the **pooled** connection string.
+2. Register a domain (Cloudflare Registrar) and add it to Cloudflare.
+3. `brew install flyctl && fly auth signup`.
+
+Then follow the deploy sequence in the README. Reopen this ticket to check off the
+remaining three and confirm `fly ips list -a pfa-api` is empty.

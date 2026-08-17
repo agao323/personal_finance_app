@@ -21,6 +21,81 @@ Postgres, deployed on Fly.io behind Cloudflare Access.
 | `tickets/` | The build plan. 39 tickets across 5 waves. |
 | `data/` | Real financial exports. Gitignored. Never leaves this directory. |
 
+## Running it locally
+
+```bash
+make dev
+```
+
+Brings up Postgres, the API, and the web app in Docker with hot reload on both, then
+serves the app at http://localhost:3000. `make down` stops it; `make down v=1` also drops
+the database volume.
+
+| Command | What |
+|---|---|
+| `make dev` | Full stack, hot reload |
+| `make test` | Guards, pytest, vitest |
+| `make lint` | ruff + mypy + eslint + tsc + prettier |
+| `make smoke` | Builds the deploy images and asserts the whole request path works |
+| `make types` | Regenerate `web/src/lib/api-types.ts` from the Pydantic models |
+| `make types-check` | Fail if the committed types have drifted |
+
+## Deploying
+
+One-time setup. **These steps need accounts and a payment method, so they are yours to
+run** — everything after them is scripted.
+
+1. **Register a domain.** [Cloudflare Registrar](https://domains.cloudflare.com) is at-cost
+   and puts DNS in the same account as Access and R2. Add it to your Cloudflare account.
+2. **Create a Neon project** at [neon.tech](https://neon.tech) (free tier). Copy the
+   **pooled** connection string — the one whose host contains `-pooler`. The unpooled one
+   will exhaust connections. See `api/app/db.py` for why the pool is configured the way it
+   is.
+3. **Install flyctl and sign in:**
+   ```bash
+   brew install flyctl && fly auth signup
+   ```
+
+Then, from the repo root:
+
+```bash
+# Create both apps without deploying yet.
+fly apps create pfa-api
+fly apps create pfa-web
+
+# The API's database URL. Use the POOLED Neon string.
+fly secrets set -a pfa-api DATABASE_URL='postgresql+psycopg://…-pooler…/neondb?sslmode=require'
+
+# Optional: error tracking. Both services no-op cleanly without it.
+fly secrets set -a pfa-api SENTRY_DSN='…'
+fly secrets set -a pfa-web SENTRY_DSN='…'
+
+# API first — the web app needs it reachable on the private network.
+fly deploy -c fly.api.toml
+fly deploy -c fly.web.toml
+
+# Public hostname and TLS for the web app only.
+fly certs add -a pfa-web app.<your-domain>
+```
+
+Then verify the two things that matter:
+
+```bash
+# The API must NOT have a public address. Expect an empty list.
+fly ips list -a pfa-api
+
+# The web app answers, and reaches the API over the private network.
+curl -fsS https://app.<your-domain>/api/ready
+```
+
+`fly ips list -a pfa-api` returning nothing is the whole security posture in one command.
+The API is reachable only at `pfa-api.internal:8000` over Fly's private IPv6 network, so
+there is no origin to leave unprotected — see
+[docs/adr/0001-hosting.md](docs/adr/0001-hosting.md).
+
+Migrations run as a Fly `release_command`, before the new version takes traffic. Deploying
+a broken migration aborts the release rather than half-migrating under live requests.
+
 ## Starting the build
 
 ```bash

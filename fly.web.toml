@@ -1,0 +1,39 @@
+# Next.js service — the only publicly addressable app in this project.
+#
+# Cloudflare sits in front of it (DNS, TLS, HSTS, Access). Everything the browser
+# touches arrives here; requests for the API are proxied server-side over the private
+# network. See docs/ARCHITECTURE.md#request-path.
+
+app = "pfa-web"
+primary_region = "iad"
+
+[build]
+  dockerfile = "web/Dockerfile"
+
+[env]
+  PORT = "3000"
+  NODE_ENV = "production"
+  # Private network address of the API. Never a public hostname, and never exposed
+  # to the browser — see the NEXT_PUBLIC_API_URL guard in CI.
+  INTERNAL_API_URL = "http://pfa-api.internal:8000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  # One household's traffic. The machine sleeps when idle and the Fly proxy wakes it
+  # on the next request, so idle cost is near zero.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[checks.health]
+  type = "http"
+  port = 3000
+  path = "/"
+  interval = "15s"
+  timeout = "5s"
+  grace_period = "20s"
