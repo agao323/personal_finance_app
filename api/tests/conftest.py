@@ -12,6 +12,7 @@ needs nothing installed beyond Docker.
 import datetime as dt
 import os
 from collections.abc import Callable, Iterator
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -174,6 +175,50 @@ def make_account(db_session: Session) -> Callable[..., int]:
                     "VALUES (:i, :n, :k, :s, 'manual', 'USD', :c) RETURNING id"
                 ),
                 {"i": institution_id, "n": name, "k": kind, "s": subtype, "c": closed_at},
+            ).scalar_one()
+        )
+
+    return _make
+
+
+@pytest.fixture
+def category_ids(db_session: Session) -> dict[str, int]:
+    """Seeded category ids by name, for tests that need to categorise something."""
+    return {
+        name: cid for name, cid in db_session.execute(text("SELECT name, id FROM categories")).all()
+    }
+
+
+@pytest.fixture
+def make_transaction(db_session: Session) -> Callable[..., int]:
+    """Insert a transaction. Outflows are negative, matching the wire convention."""
+
+    def _make(
+        account_id: int,
+        posted_at: dt.date,
+        amount: str,
+        merchant: str = "Test Merchant",
+        category_id: int | None = None,
+        external_id: str | None = None,
+        category_source: str | None = None,
+    ) -> int:
+        return int(
+            db_session.execute(
+                text(
+                    "INSERT INTO transactions "
+                    "(account_id, posted_at, amount, merchant, category_id, "
+                    " external_id, category_source) "
+                    "VALUES (:a, :d, :amt, :m, :c, :e, :cs) RETURNING id"
+                ),
+                {
+                    "a": account_id,
+                    "d": posted_at,
+                    "amt": Decimal(amount),
+                    "m": merchant,
+                    "c": category_id,
+                    "e": external_id,
+                    "cs": category_source,
+                },
             ).scalar_one()
         )
 
