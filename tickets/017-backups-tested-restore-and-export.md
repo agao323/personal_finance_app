@@ -36,3 +36,37 @@ lives in Lane A because Lane A is the shallowest.
 
 The alerting is not optional garnish: a backup job that silently stops working is worse than no
 backup, because it is trusted.
+
+## Status — 2026-08-18: code done, four manual steps remain
+
+Everything authorable is written, tested, and merged. `GET /export` is live.
+
+**These need accounts and a payment method, so they are yours to run.** Until they are
+done there are no backups, which is why this ticket gates ticket 024.
+
+1. **Create an R2 bucket** — Cloudflare dashboard → R2 → Create bucket, name it
+   `pfa-backups`. Then Manage API tokens → create one scoped to that bucket with
+   Object Read & Write. Note the account ID for the endpoint URL.
+
+2. **Generate an encryption key and store it in your password manager**, not anywhere
+   else:
+   ```bash
+   cd api && uv run python scripts/backup.py --print-key
+   ```
+   Losing this loses every backup. That is the deliberate trade in ADR 0004.
+
+3. **Create a healthchecks.io check** (free tier). Period: 1 day, grace: 6 hours —
+   GitHub delays scheduled runs under load, so a tight grace period alerts on
+   lateness rather than failure. Copy its ping URL.
+
+4. **Add the GitHub Actions secrets** (Settings → Secrets and variables → Actions):
+   `BACKUP_DATABASE_URL` (the **unpooled** Neon string — `pg_dump` opens one long
+   connection and does not want PgBouncer), `R2_BUCKET`, `R2_ENDPOINT_URL`,
+   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `BACKUP_ENCRYPTION_KEY`,
+   `BACKUP_HEALTHCHECK_URL`.
+
+Then trigger it once by hand — Actions → Nightly backup → Run workflow — and confirm
+an object lands in the bucket.
+
+**Then run the restore drill** in `api/scripts/restore.md` and record it in the table
+in ADR 0004. That drill, not the backup job, is this ticket's acceptance criterion.
