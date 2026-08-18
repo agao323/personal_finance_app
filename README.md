@@ -78,7 +78,7 @@ make deploy-api
 make deploy-web
 
 # Public hostname and TLS for the web app only.
-fly certs add -a pfa-web app.allofmymoney.com
+fly certs add -a pfa-web allofmymoney.com
 ```
 
 Then verify the two things that matter:
@@ -88,7 +88,7 @@ Then verify the two things that matter:
 fly ips list -a pfa-api
 
 # The web app answers, and reaches the API over the private network.
-curl -fsS https://app.allofmymoney.com/api/ready
+curl -fsS https://allofmymoney.com/api/ready
 ```
 
 `fly ips list -a pfa-api` returning nothing is the whole security posture in one command.

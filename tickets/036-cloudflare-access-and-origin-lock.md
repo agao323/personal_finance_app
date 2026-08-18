@@ -5,11 +5,11 @@ Blocked by: 035, 008
 Read first: docs/SECURITY.md#auth, docs/ARCHITECTURE.md#request-path
 
 ## Goal
-The real app reachable only through Cloudflare Access, at `app.<domain>`, with the API
+The real app reachable only through Cloudflare Access, at `<domain>`, with the API
 verifiably private.
 
 ## Acceptance criteria
-- [ ] Cloudflare Access application on `app.<domain>` with a policy allowing exactly the household identities
+- [ ] Cloudflare Access application on `<domain>` with a policy allowing exactly the household identities
 - [ ] **The API remains private** — no public Fly address, verified by attempting to reach it from outside
 - [ ] Next.js validates the `Cf-Access-Jwt-Assertion` JWT and rejects requests that did not pass Access
 - [ ] HSTS and `noindex` on the real deployment

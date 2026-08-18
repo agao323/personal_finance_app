@@ -6,7 +6,7 @@
         ┌────────────────────────── Cloudflare ──────────────────────────┐
         │  DNS · TLS · HSTS · Access policy (household identities only)  │
         └───────────────────────────────┬────────────────────────────────┘
-                                        │   app.<domain> is the only public origin
+                                        │   <domain> is the only public origin
                                         ▼
    browser ───────────────►  ┌──────────────────────────────┐
    (one origin, ever)        │  Next.js  (web/)             │
@@ -30,7 +30,7 @@ Two deployments of the same code:
 
 | | real | demo |
 |---|---|---|
-| host | `app.<domain>` | `demo.<domain>` |
+| host | `<domain>` | `demo.<domain>` |
 | auth | Cloudflare Access + passkey | none (public) |
 | database | real Neon project | **separate Neon project**, synthetic seed |
 | writes | yes | rejected at the API layer |
@@ -41,7 +41,7 @@ security boundary — not a feature flag. See [SECURITY.md](SECURITY.md#demo-iso
 
 ## Request path
 
-**The browser only ever talks to `app.<domain>`.** Next.js route handlers under `/api/*`
+**The browser only ever talks to `<domain>`.** Next.js route handlers under `/api/*`
 proxy to the FastAPI service over Fly's private network. The API has no public address at
 all.
 

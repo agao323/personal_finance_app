@@ -63,10 +63,56 @@ half-migrating under live requests.
 [ARCHITECTURE.md#why-not-kubernetes](../ARCHITECTURE.md#why-not-kubernetes). Wrong tool
 by two orders of magnitude at one household of traffic.
 
+## Amendments
+
+### 2026-08-18 — TLS mode: Full (strict), not Automatic
+
+Cloudflare sits in front of the web app, so it also terminates TLS and re-encrypts to
+Fly. That leg is set to **Full (strict)** — Cloudflare validates Fly's certificate —
+rather than Cloudflare's recommended **Automatic** mode.
+
+On the happy path the two are identical: Automatic probes the origin, finds a valid
+Let's Encrypt certificate, and selects Full (strict) itself. They differ only in what
+happens when something breaks. Automatic exists to keep a site *up* by adapting
+downward if the origin's certificate stops validating; Full (strict) fails closed.
+
+For this app that trade runs the wrong way. The Cloudflare-to-Fly leg carries a
+complete financial picture, and the difference between the settings is precisely
+whether that leg can become unvalidated — or, at Flexible, unencrypted — without
+anyone deciding it should. An app that breaks because a certificate lapsed is an
+afternoon's annoyance noticed immediately. An app quietly serving over a weaker
+channel for six weeks is not noticed at all.
+
+This is the same shape as the two decisions above: the API has no public address
+rather than a protected one, and demo isolation is a separate deployment rather than
+a flag. Prefer the configuration that cannot silently degrade, and accept a louder
+failure in exchange.
+
+*Cost, accepted:* a failed certificate renewal takes the site down instead of
+degrading it. Fly renews over HTTP-01, which Cloudflare's proxy can interfere with; if
+`fly certs check` ever reports a renewal failure, `fly certs setup` switches to DNS
+validation.
+
+### 2026-08-18 — The app lives at the apex
+
+The real app is `allofmymoney.com`; the demo will be `demo.allofmymoney.com`. The
+earlier `app.` prefix was dropped — it is a distinction that means something only to
+people who build web apps, and the apex is the name that gets said out loud.
+
+Two consequences worth recording:
+
+- **The session cookie must stay host-only.** Set without a `Domain` attribute it is
+  confined to the apex and never sent to `demo.`. Setting `Domain=allofmymoney.com`
+  would send it to every subdomain including the public demo. Ticket 034.
+- **The WebAuthn RP ID becomes `allofmymoney.com`.** A passkey scoped to the apex is
+  usable on every subdomain, which is broader than scoping it to a single host would
+  have been. Acceptable here because the demo bypasses authentication at build time
+  and has no login to present a passkey to.
+
 ## Consequences
 
 **Easy.** The API cannot be reached from the internet, so there is no origin to lock
-down, no CORS, and one Access policy. Deploys are `fly deploy -c fly.<service>.toml`.
+down, no CORS, and one Access policy. Deploys are `make deploy-api` / `make deploy-web`.
 Idle cost is close to zero because the web machine sleeps. Neon's free tier covers
 both databases with room to spare.
 

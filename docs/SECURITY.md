@@ -22,7 +22,7 @@ free. It's the intuitive worry and the least of the actual ones. Enforce HSTS an
 
 Two independent layers on the real deployment:
 
-1. **Cloudflare Access** in front of `app.<domain>`. Identity enforced at the edge — requests
+1. **Cloudflare Access** in front of `<domain>`. Identity enforced at the edge — requests
    from unauthorized identities never reach the origin. Zero auth code in the request path.
 2. **Passkeys (WebAuthn)** implemented in the application, with the `users` table as a hard
    allowlist. Phishing-resistant.

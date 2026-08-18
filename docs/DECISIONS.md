@@ -34,7 +34,7 @@ two users is a household, and the anti-scale position in PRODUCT.md is unchanged
 
 ### The browser never calls the API directly — Next.js is a BFF
 
-**All browser traffic goes to `app.<domain>`. Next.js route handlers under `/api/*` proxy to
+**All browser traffic goes to `<domain>`. Next.js route handlers under `/api/*` proxy to
 FastAPI over Fly's private network. The API has no public address.**
 
 *Why:* the original plan configured CORS for a browser-to-API call, which forces three
