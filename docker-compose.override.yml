@@ -16,8 +16,16 @@ services:
   api:
     volumes:
       - ./api/app:/app/app:ro
+    # Migrations run here rather than as a separate step so `make dev` gives a
+    # working database from a clean clone. Production keeps the release-command
+    # shape instead — there, two starting machines would race this. In dev there is
+    # exactly one API container, so there is nothing to race.
     command:
-      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+      - sh
+      - -c
+      - |
+        alembic upgrade head
+        exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   web:
     build:

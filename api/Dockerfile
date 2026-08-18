@@ -22,7 +22,12 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
+# alembic/ and alembic.ini ship with the image because the Fly release command runs
+# `alembic upgrade head` inside it. Without them the release command fails on the
+# first deploy that has a migration to apply — which is every deploy after 009.
 COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 

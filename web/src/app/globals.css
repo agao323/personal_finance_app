@@ -1,26 +1,181 @@
 @import "tailwindcss";
 
+/* Theme toggle wins over the OS setting in both directions. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * One palette for the app and the charts.
+ *
+ * Chart colours are not a separate system bolted on at ticket 027 — series hues,
+ * status colours, and page chrome are declared together here so a chart never
+ * looks like a foreign object dropped into the page. Retrofitting that is
+ * expensive; this file is the cheap moment.
+ *
+ * The categorical slot ORDER is a colourblind-safety mechanism, not decoration:
+ * adjacent slots are the pairs a reader has to tell apart in a stacked bar or a
+ * multi-line chart, and this order clears the CVD separation gate in both modes.
+ * Assign slots in order. Never cycle, never skip to "the nice one".
+ *
+ * Status colours are reserved. They never double as a series colour, and they
+ * always ship with an icon and a label — hue alone is not an accessible signal.
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  --surface-2: #ffffff;
+  --surface-1: #fcfcfb;
+  --surface-0: #f9f9f7;
+
+  --ink-primary: #0b0b0b;
+  --ink-secondary: #52514e;
+  --ink-muted: #898781;
+
+  --line-hairline: #e1e0d9;
+  --line-axis: #c3c2b7;
+  --line-border: rgba(11, 11, 11, 0.1);
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  /* Delta ink. Direction is never carried by colour alone — an arrow glyph
+     accompanies it, because "up" is not universally good. */
+  --delta-up: #006300;
+  --delta-down: #d03b3b;
+
+  --accent: #2a78d6;
+  --accent-bg: #eaf2fd;
+  /* Text sitting ON accent-bg. The accent itself is only 3.9:1 there — fine for a
+     14px label under the large-text rule, short of the 4.5:1 body threshold it
+     actually is. A darker step of the same hue clears it without changing the
+     colour's identity. */
+  --accent-strong: #184f95;
+  /* Status hues are tuned as marks, not as body text. --status-critical measures
+     4.37:1 on the page plane — above the 3:1 mark threshold, below the 4.5:1 one
+     for the 14px text that error titles actually are. Text gets a darker step. */
+  --critical-text: #a12626;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --surface-2: #212120;
+    --surface-1: #1a1a19;
+    --surface-0: #0d0d0d;
+
+    --ink-primary: #ffffff;
+    --ink-secondary: #c3c2b7;
+    --ink-muted: #898781;
+
+    --line-hairline: #2c2c2a;
+    --line-axis: #383835;
+    --line-border: rgba(255, 255, 255, 0.1);
+
+    /* Not an automatic flip: each hue is re-stepped for the dark surface and
+       validated as a set against it. */
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+
+    --delta-up: #0ca30c;
+    --delta-down: #e66767;
+
+    --accent: #3987e5;
+    --accent-bg: #14243a;
+    --accent-strong: #9ec5f4;
+    --critical-text: #f09595;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-2: #212120;
+  --surface-1: #1a1a19;
+  --surface-0: #0d0d0d;
+
+  --ink-primary: #ffffff;
+  --ink-secondary: #c3c2b7;
+  --ink-muted: #898781;
+
+  --line-hairline: #2c2c2a;
+  --line-axis: #383835;
+  --line-border: rgba(255, 255, 255, 0.1);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+
+  --delta-up: #0ca30c;
+  --delta-down: #e66767;
+
+  --accent: #3987e5;
+  --accent-bg: #14243a;
+  --accent-strong: #9ec5f4;
+  --critical-text: #f09595;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-surface-2: var(--surface-2);
+  --color-surface-1: var(--surface-1);
+  --color-surface-0: var(--surface-0);
+
+  --color-ink: var(--ink-primary);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+
+  --color-hairline: var(--line-hairline);
+  --color-axis: var(--line-axis);
+
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
+  --color-series-5: var(--series-5);
+  --color-series-6: var(--series-6);
+  --color-series-7: var(--series-7);
+  --color-series-8: var(--series-8);
+
+  --color-good: var(--status-good);
+  --color-warning: var(--status-warning);
+  --color-serious: var(--status-serious);
+  --color-critical: var(--status-critical);
+
+  --color-delta-up: var(--delta-up);
+  --color-delta-down: var(--delta-down);
+
+  --color-accent: var(--accent);
+  --color-accent-bg: var(--accent-bg);
+  --color-accent-strong: var(--accent-strong);
+  --color-critical-text: var(--critical-text);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface-0);
+  color: var(--ink-primary);
 }

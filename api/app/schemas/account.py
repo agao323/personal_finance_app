@@ -124,7 +124,7 @@ class AccountList(Schema):
 
 
 class AccountDetail(AccountRead):
-    stakes: list[StakeRead] = Field(default_factory=list)
+    stakes: list[StakeRead]
 
 
 class AccountHistory(Schema):

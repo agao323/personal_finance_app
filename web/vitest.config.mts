@@ -15,6 +15,9 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // jsdom refuses localStorage on an opaque origin (about:blank), so anything
+    // reading a persisted preference throws. Give it a real origin.
+    environmentOptions: { jsdom: { url: "http://localhost:3000" } },
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     // Next.js build output and E2E specs are not vitest's business.

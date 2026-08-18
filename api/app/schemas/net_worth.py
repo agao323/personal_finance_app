@@ -24,9 +24,12 @@ class NetWorthRead(Schema):
         description="Positive. Net worth subtracts this — liabilities are stored positive."
     )
     breakdown: list[KindBreakdown]
+    # Required, not default_factory. Pydantic leaves a default_factory field out of
+    # `required`, which makes it optional in the generated TypeScript — and then every
+    # component has to guard a value the server always sends. A response field the API
+    # always populates should be required in the contract that describes it.
     stale_account_ids: list[int] = Field(
-        default_factory=list,
-        description="Accounts contributing a balance carried forward more than 90 days.",
+        description="Accounts contributing a balance carried forward more than 90 days."
     )
 
 

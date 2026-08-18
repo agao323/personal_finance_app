@@ -521,7 +521,7 @@ export interface components {
       name: string;
       source: components["schemas"]["DataSource"];
       /** Stakes */
-      stakes?: components["schemas"]["StakeRead"][];
+      stakes: components["schemas"]["StakeRead"][];
       subtype: components["schemas"]["AccountSubtype"];
     };
     /**
@@ -997,7 +997,7 @@ export interface components {
        * Stale Account Ids
        * @description Accounts contributing a balance carried forward more than 90 days.
        */
-      stale_account_ids?: number[];
+      stale_account_ids: number[];
       view: components["schemas"]["ViewScope"];
     };
     /**

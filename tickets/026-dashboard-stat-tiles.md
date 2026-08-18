@@ -1,5 +1,5 @@
 # 026 — Dashboard stat tiles: net worth and runway
-Status: todo
+Status: done
 Wave: 2   Lane: C
 Blocked by: 025
 Integrates with: 014, 016
@@ -10,13 +10,13 @@ The top of the dashboard: current net worth with period delta, and months of run
 rate.
 
 ## Acceptance criteria
-- [ ] Net worth tile with value, absolute and percentage change vs. prior month
-- [ ] Runway tile with months remaining and trailing gross burn
-- [ ] Assets and liabilities subtotals
-- [ ] **Mine / Household toggle**, persisted across navigation
-- [ ] Loading skeletons and error states — not spinners over blank space
-- [ ] Values typed from `api-types.ts`. No hand-written response shapes.
-- [ ] Tests: component tests against MSW fixtures covering loaded, loading, error, empty-history, and household-vs-mine states
+- [x] Net worth tile with value, absolute and percentage change vs. prior month
+- [x] Runway tile with months remaining and trailing gross burn
+- [x] Assets and liabilities subtotals
+- [x] **Mine / Household toggle**, persisted across navigation
+- [x] Loading skeletons and error states — not spinners over blank space
+- [x] Values typed from `api-types.ts`. No hand-written response shapes.
+- [x] Tests: component tests against MSW fixtures covering loaded, loading, error, empty-history, and household-vs-mine states
 
 ## Files
 - `web/src/app/(dashboard)/page.tsx`
