@@ -42,6 +42,9 @@ LIVE_PATHS = {
     "/accounts/{account_id}/history",  # 019
     "/accounts/{account_id}/balances",  # 019
     "/accounts/{account_id}/stakes",  # 019
+    "/rules",  # 022
+    "/rules/{rule_id}",  # 022
+    "/rules/apply",  # 022
 }
 
 
@@ -123,8 +126,6 @@ def test_every_operation_is_either_live_or_stubbed() -> None:
 #: doubles as proof that the request schemas accept sensible input — a schema nothing
 #: can satisfy would otherwise sit undetected until a lane tried to use it.
 VALID_BODIES: dict[tuple[str, str], dict[str, Any]] = {
-    ("POST", "/rules"): {"pattern": "COFFEE", "category_id": 1},
-    ("POST", "/rules/apply"): {},
     ("POST", "/transactions/bulk-categorise"): {"transaction_ids": [1], "category_id": 1},
     ("POST", "/import/csv/commit"): {
         "account_id": 1,
@@ -133,7 +134,6 @@ VALID_BODIES: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("POST", "/auth/register/verify"): {"challenge_id": "abc", "credential": {}},
     ("POST", "/auth/login/verify"): {"challenge_id": "abc", "credential": {}},
-    ("PATCH", "/rules/{rule_id}"): {},
     ("PATCH", "/transactions/{transaction_id}"): {"category_id": 1},
 }
 
