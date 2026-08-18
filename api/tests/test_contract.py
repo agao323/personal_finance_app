@@ -37,6 +37,11 @@ LIVE_PATHS = {
     "/spend",  # 015
     "/runway",  # 016
     "/export",  # 017
+    "/accounts",  # 019
+    "/accounts/{account_id}",  # 019
+    "/accounts/{account_id}/history",  # 019
+    "/accounts/{account_id}/balances",  # 019
+    "/accounts/{account_id}/stakes",  # 019
 }
 
 
@@ -92,9 +97,23 @@ def _stub_operations() -> list[tuple[str, str]]:
     return sorted(operations)
 
 
-def test_there_are_stub_routes_to_check() -> None:
-    """Guards the parametrisation below from silently collapsing to nothing."""
-    assert len(_stub_operations()) >= 20
+def test_every_operation_is_either_live_or_stubbed() -> None:
+    """Guards the parametrisation below from silently collapsing to nothing.
+
+    Asserting the partition rather than a count: a fixed threshold needed revising
+    every time a ticket landed, which trains people to edit the guard instead of
+    reading it.
+    """
+    declared = {
+        (method.upper(), path)
+        for path, methods in _openapi()["paths"].items()
+        for method in methods
+    }
+    live = {(m, p) for m, p in declared if p in LIVE_PATHS}
+    stubbed = set(_stub_operations())
+
+    assert live | stubbed == declared
+    assert not (live & stubbed)
 
 
 #: Minimal valid bodies for routes that require one.
@@ -104,13 +123,6 @@ def test_there_are_stub_routes_to_check() -> None:
 #: doubles as proof that the request schemas accept sensible input — a schema nothing
 #: can satisfy would otherwise sit undetected until a lane tried to use it.
 VALID_BODIES: dict[tuple[str, str], dict[str, Any]] = {
-    ("POST", "/accounts"): {"name": "Checking", "kind": "liquid_asset", "subtype": "checking"},
-    ("POST", "/accounts/{account_id}/balances"): {"as_of": "2026-01-01", "balance_cents": 1000},
-    ("POST", "/accounts/{account_id}/stakes"): {
-        "owner_user_id": 1,
-        "percentage_bps": 5000,
-        "effective_from": "2026-01-01",
-    },
     ("POST", "/rules"): {"pattern": "COFFEE", "category_id": 1},
     ("POST", "/rules/apply"): {},
     ("POST", "/transactions/bulk-categorise"): {"transaction_ids": [1], "category_id": 1},
@@ -121,7 +133,6 @@ VALID_BODIES: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("POST", "/auth/register/verify"): {"challenge_id": "abc", "credential": {}},
     ("POST", "/auth/login/verify"): {"challenge_id": "abc", "credential": {}},
-    ("PATCH", "/accounts/{account_id}"): {},
     ("PATCH", "/rules/{rule_id}"): {},
     ("PATCH", "/transactions/{transaction_id}"): {"category_id": 1},
 }

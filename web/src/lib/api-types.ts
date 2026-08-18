@@ -11,11 +11,25 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List Accounts */
-    get: operations["list_accounts_accounts_get"];
+    /**
+     * List All
+     * @description Accounts grouped by kind, with raw and ownership-adjusted subtotals.
+     *
+     *     Both values are exposed deliberately. A 50%-owned rental should visibly show the
+     *     full property value and your share — that distinction is the feature, and showing
+     *     only one of them throws it away.
+     */
+    get: operations["list_all_accounts_get"];
     put?: never;
-    /** Create Account */
-    post: operations["create_account_accounts_post"];
+    /**
+     * Create
+     * @description Create an account, its explicit 100% stake, and any opening balance.
+     *
+     *     All in one transaction. An account with no stake row contributes to no net worth
+     *     figure, so a partial success would create something that exists and is
+     *     simultaneously invisible.
+     */
+    post: operations["create_accounts_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -29,15 +43,21 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Get Account */
-    get: operations["get_account_accounts__account_id__get"];
+    /** Detail */
+    get: operations["detail_accounts__account_id__get"];
     put?: never;
     post?: never;
     delete?: never;
     options?: never;
     head?: never;
-    /** Update Account */
-    patch: operations["update_account_accounts__account_id__patch"];
+    /**
+     * Update
+     * @description Rename, re-file, or close an account.
+     *
+     *     Closing is a date, not a deletion: the history stays intact and net worth simply
+     *     stops counting it from that day — see docs/ARCHITECTURE.md#data-model.
+     */
+    patch: operations["update_accounts__account_id__patch"];
     trace?: never;
   };
   "/accounts/{account_id}/balances": {
@@ -49,8 +69,11 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Record Account Balance */
-    post: operations["record_account_balance_accounts__account_id__balances_post"];
+    /**
+     * Add Balance
+     * @description Record a snapshot. Re-recording the same date replaces the value.
+     */
+    post: operations["add_balance_accounts__account_id__balances_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -64,8 +87,8 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Get Account History */
-    get: operations["get_account_history_accounts__account_id__history_get"];
+    /** History */
+    get: operations["history_accounts__account_id__history_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -84,10 +107,14 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Set Account Stake
-     * @description Closes the stake in force and opens a new one. See services/ownership.py.
+     * Set Stake
+     * @description Close the stake in force and open a new one, atomically.
+     *
+     *     Historical net worth is untouched: the old row is closed on the new row's start
+     *     date rather than edited, so every figure before that date still reads the old
+     *     percentage.
      */
-    post: operations["set_account_stake_accounts__account_id__stakes_post"];
+    post: operations["set_stake_accounts__account_id__stakes_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1417,11 +1444,12 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  list_accounts_accounts_get: {
+  list_all_accounts_get: {
     parameters: {
       query?: {
         view?: components["schemas"]["ViewScope"];
         include_closed?: boolean;
+        as_of?: string | null;
       };
       header?: never;
       path?: never;
@@ -1458,7 +1486,7 @@ export interface operations {
       };
     };
   };
-  create_account_accounts_post: {
+  create_accounts_post: {
     parameters: {
       query?: never;
       header?: never;
@@ -1500,9 +1528,11 @@ export interface operations {
       };
     };
   };
-  get_account_accounts__account_id__get: {
+  detail_accounts__account_id__get: {
     parameters: {
-      query?: never;
+      query?: {
+        view?: components["schemas"]["ViewScope"];
+      };
       header?: never;
       path: {
         account_id: number;
@@ -1540,7 +1570,7 @@ export interface operations {
       };
     };
   };
-  update_account_accounts__account_id__patch: {
+  update_accounts__account_id__patch: {
     parameters: {
       query?: never;
       header?: never;
@@ -1584,7 +1614,7 @@ export interface operations {
       };
     };
   };
-  record_account_balance_accounts__account_id__balances_post: {
+  add_balance_accounts__account_id__balances_post: {
     parameters: {
       query?: never;
       header?: never;
@@ -1628,7 +1658,7 @@ export interface operations {
       };
     };
   };
-  get_account_history_accounts__account_id__history_get: {
+  history_accounts__account_id__history_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -1668,7 +1698,7 @@ export interface operations {
       };
     };
   };
-  set_account_stake_accounts__account_id__stakes_post: {
+  set_stake_accounts__account_id__stakes_post: {
     parameters: {
       query?: never;
       header?: never;
