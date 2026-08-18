@@ -1,0 +1,53 @@
+# 040 — Seed: give the partner a stake in what the mortgage is against
+Status: todo
+Wave: 2   Lane: B
+Blocked by: —
+Read first: tickets/018-synthetic-data-generator.md
+
+## Goal
+Make the seeded stake structure read as a plausible household, so the Mine / Household toggle
+demonstrates ownership adjustment instead of looking like a bug.
+
+## The problem
+The ownership math is correct — this is a data-realism defect, not a math defect. Verified
+against the current seed:
+
+| | Mine | Household | delta |
+|---|---|---|---|
+| Assets | $541,030.29 | $541,581.16 | **+$550.87** |
+| Liabilities | $188,854.93 | $307,174.93 | **+$118,320.00** |
+| Net worth | $352,175.36 | $234,406.23 | **−$117,769.13** |
+
+Both deltas are exact: $550.87 is 40% of the $1,377.17 Checking balance, and $118,320.00 is
+40% of the $295,800.00 Mortgage. `services/ownership.py` is doing precisely what it should.
+
+The cause is the 2025-06-01 stake transition. It moves the partner into 40% of the **Mortgage**
+and 40% of **Checking** — a $295,800 liability and a $1,377 asset — while the Rental property
+that mortgage is presumably secured against stays 50% Owner / 50% nobody. So the partner
+joins the household holding debt and essentially no corresponding asset, and Household net
+worth lands $118k *below* Mine.
+
+## Acceptance criteria
+- [ ] The partner's 2025-06-01 stake transition covers an asset proportionate to the mortgage
+      share — either give them a stake in the Rental property, or move the mortgage onto a
+      primary-residence account they part-own
+- [ ] Household net worth is **greater than** Mine at every point in the series, and a test
+      asserts it (the invariant that makes the toggle legible)
+- [ ] The mid-history stake change is preserved — it is 018's edge case and must keep exercising
+      the effective-dated path
+- [ ] The 50%-owned Rental property is preserved as a distinct case: an asset the household owns
+      a fraction of, with the other half outside the household
+- [ ] Seed remains deterministic under its seed; `test_seed.py` reproducibility test still passes
+
+## Files
+- `api/scripts/seed_synthetic.py`
+- `api/tests/test_seed.py`
+
+## Notes
+Found while demoing the local app after Lane B closed. Not folded into 018 (done, committed)
+because the fix changes generated data that 037's demo deployment serves, so it deserves its
+own reviewable commit.
+
+Worth doing before **037 (demo deployment)** — that deployment has this dataset as its only
+data source, and "Household" reading $118k worse than "Mine" is the first thing a visitor
+toggles. Not urgent for 024: that ticket replaces this data with real history anyway.
