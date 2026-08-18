@@ -1,5 +1,5 @@
 # 017 — Backups, tested restore, and data export
-Status: todo
+Status: in-progress
 Wave: 2   Lane: A
 Blocked by: 008
 Read first: docs/SECURITY.md#backups
@@ -13,9 +13,9 @@ full data export endpoint. **This ticket gates real data entering production.**
 - [ ] Encryption key stored outside Neon and outside the repo
 - [ ] **A dead-man's-switch** (healthchecks.io or equivalent) that alerts when the job fails to check in
 - [ ] **A restore performed into a scratch database and verified** — row counts and a spot-checked aggregate. Use a **Neon branch of the real project** as the scratch target; that is what branches are for and it costs nothing.
-- [ ] Restore procedure documented step by step, runnable by someone who didn't write it
-- [ ] `GET /export` returning the full dataset as JSON
-- [ ] Tests: unit for the encryption round-trip and the R2 upload path (mocked); functional for `/export` against the synthetic seed
+- [x] Restore procedure documented step by step, runnable by someone who didn't write it
+- [x] `GET /export` returning the full dataset as JSON
+- [x] Tests: unit for the encryption round-trip and the R2 upload path (mocked); functional for `/export` against the synthetic seed
 
 ## Files
 - `api/scripts/backup.py`

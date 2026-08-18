@@ -25,6 +25,9 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "hypothesis>=6.165.10",
+    "boto3>=1.43.73",
+    "cryptography>=50.0.0",
+    "types-boto3>=1.43.73",
 ]
 
 [build-system]

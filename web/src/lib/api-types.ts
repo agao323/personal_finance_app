@@ -186,7 +186,14 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Get Export */
+    /**
+     * Get Export
+     * @description Every row, as JSON.
+     *
+     *     Deliberately the whole dataset rather than a filtered view: the point is that
+     *     nothing is trapped in here. Ownership stakes and their effective dates come too,
+     *     because without them the balances alone cannot reconstruct a net worth figure.
+     */
     get: operations["get_export_export_get"];
     put?: never;
     post?: never;
@@ -408,7 +415,27 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Get Runway */
+    /**
+     * Get Runway
+     * @description Months of runway from liquid assets, at 3/6/12-month trailing burn.
+     *
+     *     **Burn is gross spend excluding transfers; income is not netted.** This answers
+     *     "how long if income stopped", which is the only version of the question worth a
+     *     tile while income is still arriving.
+     *
+     *     **The current month is always excluded** from the averages. It is partial by
+     *     definition, and averaging it in makes burn look artificially low every single
+     *     month — always in the direction that overstates how long the money lasts.
+     *
+     *     **Months with no transaction data are skipped, not counted as zero.** Missing data
+     *     is not a month you spent nothing, and treating it as one drags the average down.
+     *     Months spending more than three times the window's median are excluded as
+     *     outliers, so one house deposit does not triple the apparent burn — but only once
+     *     there are at least three months, since with two the median is meaningless.
+     *
+     *     **Liquid assets only.** A house is not runway and neither is a 401k you would pay
+     *     a penalty to reach.
+     */
     get: operations["get_runway_runway_get"];
     put?: never;
     post?: never;
@@ -425,7 +452,24 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Get Spend */
+    /**
+     * Get Spend
+     * @description Spend for a period, defaulting to month-to-date.
+     *
+     *     **Transfers and income are excluded.** Moving money between your own accounts is
+     *     not spending, and if it appears here every number on the dashboard loses
+     *     credibility. `excluded_transfer_count` reports how many rows that removed, so the
+     *     exclusion is visible rather than merely true.
+     *
+     *     **Uncategorised is a bucket, not a hole.** Rows with no category still count
+     *     toward the total and appear under their own name — it is the prompt to add a rule,
+     *     and dropping it would make the total quietly understate reality.
+     *
+     *     **No ownership adjustment.** A $60 grocery charge on a jointly-owned card is $60
+     *     of spend, not $30. The groceries were bought once. This is the one figure in the
+     *     app where ownership deliberately does not apply — see
+     *     docs/ARCHITECTURE.md#users-and-ownership.
+     */
     get: operations["get_spend_spend_get"];
     put?: never;
     post?: never;
@@ -2255,7 +2299,9 @@ export interface operations {
   };
   get_runway_runway_get: {
     parameters: {
-      query?: never;
+      query?: {
+        view?: components["schemas"]["ViewScope"];
+      };
       header?: never;
       path?: never;
       cookie?: never;

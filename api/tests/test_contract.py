@@ -36,6 +36,7 @@ LIVE_PATHS = {
     "/net-worth/series",  # 014
     "/spend",  # 015
     "/runway",  # 016
+    "/export",  # 017
 }
 
 
