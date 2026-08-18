@@ -45,6 +45,8 @@ LIVE_PATHS = {
     "/rules",  # 022
     "/rules/{rule_id}",  # 022
     "/rules/apply",  # 022
+    "/import/csv/preview",  # 020
+    "/import/csv/commit",  # 021
 }
 
 
@@ -127,18 +129,13 @@ def test_every_operation_is_either_live_or_stubbed() -> None:
 #: can satisfy would otherwise sit undetected until a lane tried to use it.
 VALID_BODIES: dict[tuple[str, str], dict[str, Any]] = {
     ("POST", "/transactions/bulk-categorise"): {"transaction_ids": [1], "category_id": 1},
-    ("POST", "/import/csv/commit"): {
-        "account_id": 1,
-        "mapping": {"posted_at": "Date", "amount": "Amount"},
-        "content": "Date,Amount\n2026-01-01,-12.34\n",
-    },
     ("POST", "/auth/register/verify"): {"challenge_id": "abc", "credential": {}},
     ("POST", "/auth/login/verify"): {"challenge_id": "abc", "credential": {}},
     ("PATCH", "/transactions/{transaction_id}"): {"category_id": 1},
 }
 
 #: Multipart upload rather than JSON; covered separately below.
-MULTIPART = {("POST", "/import/csv/preview")}
+MULTIPART: set[tuple[str, str]] = set()
 
 
 @pytest.mark.parametrize(("method", "path"), _stub_operations())
@@ -161,17 +158,6 @@ def test_every_stub_returns_501(client: TestClient, method: str, path: str) -> N
         f"{method} {path} returned {response.status_code}: {response.text[:200]}"
     )
     assert "ticket" in response.json()["detail"].lower()
-
-
-def test_multipart_stub_returns_501(client: TestClient) -> None:
-    """CSV preview takes an upload, so it needs a file part rather than JSON."""
-    response = client.post(
-        "/import/csv/preview",
-        data={"account_id": "1"},
-        files={"file": ("export.csv", b"Date,Amount\n2026-01-01,-12.34\n", "text/csv")},
-    )
-
-    assert response.status_code == 501, response.text[:200]
 
 
 def test_every_body_route_has_a_valid_body_fixture() -> None:
