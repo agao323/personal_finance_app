@@ -34,6 +34,7 @@ LIVE_PATHS = {
     "/ready",  # 003
     "/net-worth",  # 014
     "/net-worth/series",  # 014
+    "/spend",  # 015
 }
 
 

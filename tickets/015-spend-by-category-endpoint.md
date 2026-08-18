@@ -1,5 +1,5 @@
 # 015 — Spend by category endpoint
-Status: todo
+Status: done
 Wave: 2   Lane: A
 Blocked by: 012
 Read first: docs/ARCHITECTURE.md#transfers, docs/ARCHITECTURE.md#data-model
@@ -8,12 +8,12 @@ Read first: docs/ARCHITECTURE.md#transfers, docs/ARCHITECTURE.md#data-model
 Spend rollups by category for a period, powering the MTD and YTD dashboard views.
 
 ## Acceptance criteria
-- [ ] `GET /spend?from=&to=&group_by=category|parent_category`
-- [ ] **Excludes `categories.kind = 'transfer'`** and excludes `kind = 'income'`
-- [ ] Returns uncategorised as an explicit bucket, not silently dropped
-- [ ] Comparison to the prior equivalent period
-- [ ] Rollups are **per account, never fractionally attributed by ownership** — a $60 charge on a jointly-owned card is $60 of spend
-- [ ] Tests: unit for the rollup with hand-computed totals; functional covering a transfer pair that must not appear, an uncategorised row that must appear, and the prior-period comparison across a month boundary
+- [x] `GET /spend?from=&to=&group_by=category|parent_category`
+- [x] **Excludes `categories.kind = 'transfer'`** and excludes `kind = 'income'`
+- [x] Returns uncategorised as an explicit bucket, not silently dropped
+- [x] Comparison to the prior equivalent period
+- [x] Rollups are **per account, never fractionally attributed by ownership** — a $60 charge on a jointly-owned card is $60 of spend
+- [x] Tests: unit for the rollup with hand-computed totals; functional covering a transfer pair that must not appear, an uncategorised row that must appear, and the prior-period comparison across a month boundary
 
 ## Files
 - `api/app/routers/spend.py`
