@@ -1,5 +1,5 @@
 # 013 — Net worth calculation service
-Status: todo
+Status: done
 Wave: 2   Lane: A
 Blocked by: 012
 Read first: docs/ARCHITECTURE.md#users-and-ownership
@@ -9,16 +9,16 @@ The single ownership-adjusted net worth calculation that every endpoint and char
 other code path sums balances.
 
 ## Acceptance criteria
-- [ ] `net_worth(as_of, viewer_id)` returning the ownership-adjusted total plus a breakdown by `kind`
-- [ ] `viewer_id=None` returns the household total across all stakes
-- [ ] Uses the snapshot in force on `as_of` per account — not just the latest
-- [ ] Uses the ownership stake in force on `as_of` — not today's
-- [ ] Liabilities subtract
-- [ ] Accounts with no snapshot before `as_of` are **excluded, not treated as zero**
-- [ ] Accounts closed on or before `as_of` are excluded
-- [ ] Stale-flagged balances are included but the response reports how many
-- [ ] Rounds via `services/ownership.adjust()` per account, then sums — the total equals the sum of the rows
-- [ ] Tests: unit with hand-computed expected values for a date before and after a stake change, a closed account, a stale snapshot, an account with no prior snapshot, and viewer vs household
+- [x] `net_worth(as_of, viewer_id)` returning the ownership-adjusted total plus a breakdown by `kind`
+- [x] `viewer_id=None` returns the household total across all stakes
+- [x] Uses the snapshot in force on `as_of` per account — not just the latest
+- [x] Uses the ownership stake in force on `as_of` — not today's
+- [x] Liabilities subtract
+- [x] Accounts with no snapshot before `as_of` are **excluded, not treated as zero**
+- [x] Accounts closed on or before `as_of` are excluded
+- [x] Stale-flagged balances are included but the response reports how many
+- [x] Rounds via `services/ownership.adjust()` per account, then sums — the total equals the sum of the rows
+- [x] Tests: unit with hand-computed expected values for a date before and after a stake change, a closed account, a stale snapshot, an account with no prior snapshot, and viewer vs household
 
 ## Files
 - `api/app/services/net_worth.py`
