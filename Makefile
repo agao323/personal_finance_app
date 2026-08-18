@@ -131,8 +131,10 @@ deploy-web: ## Deploy the web app to Fly
 	@fly deploy ./web -c $(CURDIR)/fly.web.toml
 
 # ── Data ──────────────────────────────────────────────────────────────────────
-seed: ## Load synthetic data into the local dev database
-	$(call not_yet,seed,018)
+seed: .env ## Load synthetic data into the local dev database
+	@docker compose up -d --wait postgres >/dev/null
+	@cd api && DATABASE_URL="$(LOCAL_DB_URL)" uv run python scripts/seed_synthetic.py
+	@echo "Refuses to run against a database whose data_marker says the data is real."
 
 migrate: .env ## Create a migration: make migrate m="add ownership stakes"
 	@test -n "$(m)" || (echo 'usage: make migrate m="what it does"' >&2; exit 1)

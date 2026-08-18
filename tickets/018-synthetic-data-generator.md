@@ -1,5 +1,5 @@
 # 018 — Synthetic data generator
-Status: todo
+Status: done
 Wave: 2   Lane: B
 Blocked by: 012
 Read first: docs/SECURITY.md#demo-isolation
@@ -9,14 +9,14 @@ A seeded generator producing a coherent fake financial picture. Unblocks Lane C 
 is the demo deployment's only data source.
 
 ## Acceptance criteria
-- [ ] `api/scripts/seed_synthetic.py` generating users, institutions, accounts, ownership stakes, 24+ months of snapshots, categorised transactions, and a starter rule set
-- [ ] Seeded RNG — the same seed produces the same dataset
-- [ ] Coherent: correlated income and spend, realistic category mix, plausible growth curves
-- [ ] Deliberate edge cases: a 50%-owned rental property, a maxed 401k, a **mid-history ownership stake change**, a liability paying down, a **closed account**, matched **transfer pairs**, and some uncategorised transactions
-- [ ] Two users seeded so the Mine / Household toggle has something to show
-- [ ] **Refuses to run** against a database whose `data_marker` row says the data is real
-- [ ] `make seed` runs it against the local dev database
-- [ ] Tests: unit asserting the same seed reproduces an identical dataset; functional asserting the marker guard rejects a real-marked database
+- [x] `api/scripts/seed_synthetic.py` generating users, institutions, accounts, ownership stakes, 24+ months of snapshots, categorised transactions, and a starter rule set
+- [x] Seeded RNG — the same seed produces the same dataset
+- [x] Coherent: correlated income and spend, realistic category mix, plausible growth curves
+- [x] Deliberate edge cases: a 50%-owned rental property, a maxed 401k, a **mid-history ownership stake change**, a liability paying down, a **closed account**, matched **transfer pairs**, and some uncategorised transactions
+- [x] Two users seeded so the Mine / Household toggle has something to show
+- [x] **Refuses to run** against a database whose `data_marker` row says the data is real
+- [x] `make seed` runs it against the local dev database
+- [x] Tests: unit asserting the same seed reproduces an identical dataset; functional asserting the marker guard rejects a real-marked database
 
 ## Files
 - `api/scripts/seed_synthetic.py`
