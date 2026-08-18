@@ -71,11 +71,14 @@ fly secrets set -a pfa-api SENTRY_DSN='…'
 fly secrets set -a pfa-web SENTRY_DSN='…'
 
 # API first — the web app needs it reachable on the private network.
-fly deploy -c fly.api.toml
-fly deploy -c fly.web.toml
+# Use the make targets: they pass the directory that sets the Docker build context.
+# `fly deploy -c fly.api.toml` alone looks for a Dockerfile at the repo root and
+# uploads the whole tree, node_modules included.
+make deploy-api
+make deploy-web
 
 # Public hostname and TLS for the web app only.
-fly certs add -a pfa-web app.<your-domain>
+fly certs add -a pfa-web app.allofmymoney.com
 ```
 
 Then verify the two things that matter:
@@ -85,7 +88,7 @@ Then verify the two things that matter:
 fly ips list -a pfa-api
 
 # The web app answers, and reaches the API over the private network.
-curl -fsS https://app.<your-domain>/api/ready
+curl -fsS https://app.allofmymoney.com/api/ready
 ```
 
 `fly ips list -a pfa-api` returning nothing is the whole security posture in one command.

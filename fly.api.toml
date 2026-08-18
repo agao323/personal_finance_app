@@ -15,6 +15,14 @@ app = "pfa-api"
 primary_region = "iad"
 
 [build]
+  # Two different roots, which is the trap here:
+  #   dockerfile — resolved against THIS FILE's directory (the repo root)
+  #   context    — taken from flyctl's path argument (`fly deploy ./api`)
+  # So the path below carries the api/ prefix while the context does not.
+  #
+  # Use `make deploy-api`. Getting it wrong fails two ways: flyctl hunts for a
+  # Dockerfile at the repo root, and the context balloons to include
+  # web/node_modules — 1.7 GB uploaded on every deploy.
   dockerfile = "api/Dockerfile"
 
 [deploy]

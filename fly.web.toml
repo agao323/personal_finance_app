@@ -8,6 +8,7 @@ app = "pfa-web"
 primary_region = "iad"
 
 [build]
+  # See fly.api.toml on the two roots. Deploy with `make deploy-web`.
   dockerfile = "web/Dockerfile"
 
 [env]

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help dev down logs smoke test test-api test-web guards lint lint-api lint-web format types types-check seed migrate upgrade
+.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web guards lint lint-api lint-web format types types-check seed migrate upgrade
 
 # Compose merges docker-compose.override.yml automatically. PROD_COMPOSE opts out,
 # so smoke tests exercise the deploy-shaped images rather than the dev ones.
@@ -118,6 +118,17 @@ types-check: types ## Fail if the committed types drift from the Pydantic models
 		exit 1; \
 	fi
 	@echo "contract is in sync"
+
+# ── Deploy ────────────────────────────────────────────────────────────────────
+# The directory argument sets the Docker build context. Without it flyctl looks for
+# a Dockerfile at the repo root and uploads the whole tree, node_modules included.
+# -c takes an absolute path because flyctl resolves a relative one against that same
+# directory argument, not the shell's cwd.
+deploy-api: ## Deploy the API to Fly (runs migrations as a release command)
+	@fly deploy ./api -c $(CURDIR)/fly.api.toml
+
+deploy-web: ## Deploy the web app to Fly
+	@fly deploy ./web -c $(CURDIR)/fly.web.toml
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 seed: ## Load synthetic data into the local dev database
