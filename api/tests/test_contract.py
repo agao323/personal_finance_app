@@ -23,8 +23,18 @@ from tests.conftest import API_ROOT
 
 DOCS = API_ROOT.parent / "docs" / "ARCHITECTURE.md"
 
-#: Implemented in 003; everything else is still a stub.
-LIVE_PATHS = {"/health", "/ready"}
+#: Routes that are no longer stubs.
+#:
+#: This is a ratchet: implementing a route makes `test_every_stub_returns_501` fail
+#: until the path is listed here, so each ticket has to declare what it made live
+#: rather than quietly changing the surface. Removing a path from this set is how you
+#: would notice a route regressing back to 501.
+LIVE_PATHS = {
+    "/health",  # 003
+    "/ready",  # 003
+    "/net-worth",  # 014
+    "/net-worth/series",  # 014
+}
 
 
 def _openapi() -> dict[str, Any]:

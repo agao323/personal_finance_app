@@ -1,5 +1,5 @@
 # 014 — Net worth endpoints
-Status: todo
+Status: done
 Wave: 2   Lane: A
 Blocked by: 013
 Read first: docs/ARCHITECTURE.md#users-and-ownership
@@ -9,13 +9,13 @@ Current net worth and the historical time series, both ownership-adjusted, both 
 the Mine / Household view.
 
 ## Acceptance criteria
-- [ ] `GET /net-worth?as_of=&view=mine|household` returning total plus breakdown by kind
-- [ ] `GET /net-worth/series?from=&to=&interval=month|day` returning the time series
-- [ ] Series uses each point's in-force snapshots and stakes
-- [ ] Carry-forward behaviour documented in the endpoint docstring, matching `balances.balance_in_force`
-- [ ] Sparse history, empty history, and a single-point series all handled explicitly
-- [ ] Response shapes match 012 exactly — **no `api-types.ts` change**
-- [ ] Tests: functional for both endpoints covering empty history, a stake change inside the range, a closed account inside the range, and `view=household` vs `view=mine`
+- [x] `GET /net-worth?as_of=&view=mine|household` returning total plus breakdown by kind
+- [x] `GET /net-worth/series?from=&to=&interval=month|day` returning the time series
+- [x] Series uses each point's in-force snapshots and stakes
+- [x] Carry-forward behaviour documented in the endpoint docstring, matching `balances.balance_in_force`
+- [x] Sparse history, empty history, and a single-point series all handled explicitly
+- [x] Response shapes match 012 exactly — **no `api-types.ts` change**
+- [x] Tests: functional for both endpoints covering empty history, a stake change inside the range, a closed account inside the range, and `view=household` vs `view=mine`
 
 ## Files
 - `api/app/routers/net_worth.py`

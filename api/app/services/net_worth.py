@@ -11,14 +11,15 @@ looks entirely plausible.
 
 from __future__ import annotations
 
+import calendar
 import datetime as dt
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.account import Account
+from app.models.account import Account, BalanceSnapshot
 from app.models.enums import AccountKind
 from app.services.balances import balance_in_force
 from app.services.ownership import adjust, effective_stake, household_stake
@@ -142,3 +143,68 @@ def _contribution(
         balance_as_of=balance.as_of,
         is_stale=balance.is_stale,
     )
+
+
+def _walk(start: dt.date, end: dt.date, interval: str) -> list[dt.date]:
+    """Dates from ``start`` to ``end`` inclusive at ``interval``.
+
+    Month stepping walks calendar months rather than adding 30 days, so a monthly
+    series lands on the same day each month instead of drifting backwards through the
+    year.
+    """
+    dates: list[dt.date] = []
+    cursor = start
+
+    while cursor <= end:
+        dates.append(cursor)
+        if interval == "day":
+            cursor += dt.timedelta(days=1)
+        elif interval == "week":
+            cursor += dt.timedelta(weeks=1)
+        else:
+            year, month = divmod(cursor.month, 12)
+            year, month = cursor.year + year, month + 1
+            # Clamp for short months: stepping from the 31st lands on the 28th/30th
+            # rather than overflowing into the following month.
+            day = min(cursor.day, calendar.monthrange(year, month)[1])
+            cursor = dt.date(year, month, day)
+
+    # The requested end is always a point, even when the interval overshoots it —
+    # otherwise a chart's last value silently predates "today".
+    if dates and dates[-1] != end:
+        dates.append(end)
+    return dates
+
+
+def earliest_snapshot(session: Session) -> dt.date | None:
+    """The first date any account has a balance, or ``None`` for an empty database."""
+    return session.execute(select(func.min(BalanceSnapshot.as_of))).scalar_one_or_none()
+
+
+def net_worth_series(
+    session: Session,
+    start: dt.date,
+    end: dt.date,
+    interval: str = "month",
+    viewer_id: int | None = None,
+) -> list[NetWorth]:
+    """Net worth at each point between ``start`` and ``end``.
+
+    Each point is computed independently with that date's balances and that date's
+    stakes — never today's applied backwards. That is the whole reason the series
+    cannot be a running total.
+
+    The series is clipped to begin at the first snapshot in the database. Points
+    before any balance exists are omitted rather than reported as zero: a chart
+    starting at zero would show a fortune appearing overnight on the day the first
+    account was added.
+    """
+    first = earliest_snapshot(session)
+    if first is None:
+        return []
+
+    effective_start = max(start, first)
+    if effective_start > end:
+        return []
+
+    return [net_worth(session, day, viewer_id) for day in _walk(effective_start, end, interval)]

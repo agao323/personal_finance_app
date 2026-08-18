@@ -38,6 +38,15 @@ class NetWorthPoint(Schema):
     net_worth_cents: Cents
     assets_cents: Cents
     liabilities_cents: Cents
+    #: How many accounts contributed a balance carried forward past the 90-day cap.
+    #:
+    #: Without this a segment built from a year-old balance is indistinguishable from
+    #: a measured one, and on a sparse history that is most of the line. The chart can
+    #: mark those segments rather than presenting a flat stretch as if it were
+    #: observed. Added in 014 at ticket 027's request; the chart wiring is 038.
+    stale_account_count: int = Field(
+        description="Accounts at this point using a balance carried forward past 90 days."
+    )
 
 
 class NetWorthSeries(Schema):

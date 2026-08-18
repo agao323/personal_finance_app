@@ -267,7 +267,16 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Get Net Worth */
+    /**
+     * Get Net Worth
+     * @description Net worth on a date, defaulting to today.
+     *
+     *     Accounts are excluded — never counted as zero — when they had no snapshot by
+     *     `as_of`, when they closed on or before it, or when the viewer holds no stake in
+     *     them. `stale_account_ids` names the accounts whose balance was carried forward
+     *     past the 90-day cap; they are still included, because dropping them would make net
+     *     worth silently fall on the day a snapshot aged out.
+     */
     get: operations["get_net_worth_net_worth_get"];
     put?: never;
     post?: never;
@@ -284,7 +293,26 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Get Net Worth Series */
+    /**
+     * Get Net Worth Series
+     * @description Net worth at each point in a range.
+     *
+     *     **Carry-forward.** Each point uses the latest snapshot at or before that date, per
+     *     account — matching `balances.balance_in_force`. Nobody records every account every
+     *     day, so without this a chart would be mostly holes. Carry-forward is capped at 90
+     *     days; past that the balance is still used but the point reports it via
+     *     `stale_account_count`, so a flat stretch built from a year-old number is
+     *     distinguishable from an observed one.
+     *
+     *     **Each point is independent**, computed with that date's balances *and* that
+     *     date's ownership stakes. A stake that changes in June does not rewrite May.
+     *
+     *     **Empty and sparse history.** The series begins at the first snapshot in the
+     *     database, never earlier: points before any balance exists are omitted rather than
+     *     reported as zero, because a chart starting at zero would show a fortune appearing
+     *     overnight. An empty database returns no points, and a single snapshot returns a
+     *     single point — both are normal states on day one, not errors.
+     */
     get: operations["get_net_worth_series_net_worth_series_get"];
     put?: never;
     post?: never;
@@ -968,6 +996,11 @@ export interface components {
        * @description Amount in integer cents. 1234 means $12.34.
        */
       net_worth_cents: number;
+      /**
+       * Stale Account Count
+       * @description Accounts at this point using a balance carried forward past 90 days.
+       */
+      stale_account_count: number;
     };
     /** NetWorthRead */
     NetWorthRead: {
