@@ -1,5 +1,5 @@
 # 027 — Net worth over time chart
-Status: todo
+Status: done
 Wave: 2   Lane: C
 Blocked by: 026
 Integrates with: 014
@@ -10,14 +10,14 @@ The primary chart: ownership-adjusted net worth over time, with range selection 
 assets/liabilities split view.
 
 ## Acceptance criteria
-- [ ] Line or area chart over `GET /net-worth/series`
-- [ ] Range selector: 3M, 6M, 1Y, YTD, All
-- [ ] Toggle between total and assets/liabilities split
-- [ ] Respects the Mine / Household toggle from 026
-- [ ] Accessible tooltip with formatted values and dates; keyboard navigable
-- [ ] Handles sparse, empty, and single-point history without breaking layout
-- [ ] Renders correctly in light and dark mode
-- [ ] Tests: component tests for range switching, empty series, single-point series, and tooltip content
+- [x] Line or area chart over `GET /net-worth/series`
+- [x] Range selector: 3M, 6M, 1Y, YTD, All
+- [x] Toggle between total and assets/liabilities split
+- [x] Respects the Mine / Household toggle from 026
+- [x] Accessible tooltip with formatted values and dates; keyboard navigable
+- [x] Handles sparse, empty, and single-point history without breaking layout
+- [x] Renders correctly in light and dark mode
+- [x] Tests: component tests for range switching, empty series, single-point series, and tooltip content
 
 ## Files
 - `web/src/components/charts/net-worth-chart.tsx`
