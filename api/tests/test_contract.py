@@ -47,6 +47,9 @@ LIVE_PATHS = {
     "/rules/apply",  # 022
     "/import/csv/preview",  # 020
     "/import/csv/commit",  # 021
+    "/transactions",  # 023
+    "/transactions/{transaction_id}",  # 023
+    "/transactions/bulk-categorise",  # 023
 }
 
 
@@ -128,10 +131,8 @@ def test_every_operation_is_either_live_or_stubbed() -> None:
 #: doubles as proof that the request schemas accept sensible input — a schema nothing
 #: can satisfy would otherwise sit undetected until a lane tried to use it.
 VALID_BODIES: dict[tuple[str, str], dict[str, Any]] = {
-    ("POST", "/transactions/bulk-categorise"): {"transaction_ids": [1], "category_id": 1},
     ("POST", "/auth/register/verify"): {"challenge_id": "abc", "credential": {}},
     ("POST", "/auth/login/verify"): {"challenge_id": "abc", "credential": {}},
-    ("PATCH", "/transactions/{transaction_id}"): {"category_id": 1},
 }
 
 #: Multipart upload rather than JSON; covered separately below.

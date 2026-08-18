@@ -1,5 +1,5 @@
 # 023 — Transactions API and manual category override
-Status: todo
+Status: done
 Wave: 2   Lane: B
 Blocked by: 022
 Read first: docs/ARCHITECTURE.md#data-model, docs/ARCHITECTURE.md#transfers
@@ -9,12 +9,12 @@ The transactions read API and the write path that sets `category_source='manual'
 capability the entire categorisation design exists to protect.
 
 ## Acceptance criteria
-- [ ] `GET /transactions` with filters: date range, account, category, uncategorised-only, and text search over merchant and description
-- [ ] Cursor or offset pagination, with a documented choice
-- [ ] `PATCH /transactions/{id}` setting `category_id` and `category_source='manual'`
-- [ ] `PATCH /transactions/{id}` marking or unmarking a transfer, writing `transfer_group_id`
-- [ ] `POST /transactions/bulk-categorise` applying a category to a filtered set, as manual
-- [ ] Tests: unit for the filter query builder across every filter combination; functional asserting a manual override **survives a subsequent `POST /rules/apply`**, and that bulk-categorise writes `manual` for every affected row
+- [x] `GET /transactions` with filters: date range, account, category, uncategorised-only, and text search over merchant and description
+- [x] Cursor or offset pagination, with a documented choice
+- [x] `PATCH /transactions/{id}` setting `category_id` and `category_source='manual'`
+- [x] `PATCH /transactions/{id}` marking or unmarking a transfer, writing `transfer_group_id`
+- [x] `POST /transactions/bulk-categorise` applying a category to a filtered set, as manual
+- [x] Tests: unit for the filter query builder across every filter combination; functional asserting a manual override **survives a subsequent `POST /rules/apply`**, and that bulk-categorise writes `manual` for every affected row
 
 ## Files
 - `api/app/routers/transactions.py`

@@ -513,7 +513,14 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List Transactions */
+    /**
+     * List Transactions
+     * @description Transactions, newest first, with filters and a total for pagination.
+     *
+     *     `uncategorised=true` is the filter the dashboard links to: uncategorised spend is
+     *     surfaced prominently as a prompt to add a rule, and this is where that prompt
+     *     leads.
+     */
     get: operations["list_transactions_transactions_get"];
     put?: never;
     post?: never;
@@ -532,7 +539,10 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Bulk Categorise */
+    /**
+     * Bulk Categorise
+     * @description Categorise many at once — the same manual write, applied to a selection.
+     */
     post: operations["bulk_categorise_transactions_bulk_categorise_post"];
     delete?: never;
     options?: never;
@@ -555,7 +565,11 @@ export interface paths {
     head?: never;
     /**
      * Update Transaction
-     * @description Sets category_source='manual', which the rules engine never overwrites.
+     * @description Set a category by hand.
+     *
+     *     Records `category_source='manual'`, which the rules engine treats as untouchable.
+     *     That pairing is the whole reason the column exists: without it, the next rule run
+     *     would quietly undo every correction a person made.
      */
     patch: operations["update_transaction_transactions__transaction_id__patch"];
     trace?: never;
