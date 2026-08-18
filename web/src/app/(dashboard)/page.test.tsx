@@ -3,10 +3,15 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import DashboardPage from "./page";
-import { mockFailure, mockNetWorth, mockRunway } from "@/test/msw";
+import { mockFailure, mockNetWorth, mockNetWorthSeries, mockRunway } from "@/test/msw";
 
 beforeEach(() => {
   globalThis.localStorage.clear();
+  // The dashboard carries the net worth chart (027), which fetches on mount. MSW is
+  // configured to error on an unhandled request, so it needs a handler in every test
+  // here — but none of them assert on it, so it lives in the setup rather than
+  // repeated in each case.
+  mockNetWorthSeries();
 });
 
 describe("dashboard", () => {

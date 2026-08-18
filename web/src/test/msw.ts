@@ -38,6 +38,41 @@ export const runway: ResponseOf<"/runway", "get"> = {
   partial_month_excluded: true,
 };
 
+/**
+ * Two years of month-end history, generated relative to today.
+ *
+ * Relative rather than hardcoded because the chart's range presets are computed from
+ * the current date: a fixture pinned to 2026 would fall outside "last 3 months" the
+ * moment the clock moved, and the alternative — fake timers around Testing Library —
+ * fights `waitFor` for no benefit. The values are a straight line, so any test
+ * asserting a specific number can derive it from this array rather than restating it.
+ */
+function monthlyPoints(count: number): ResponseOf<"/net-worth/series", "get">["points"] {
+  const today = new Date();
+  return Array.from({ length: count }, (_, index) => {
+    const month = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - (count - 1 - index), 1),
+    );
+    // Deliberately unround: the dashboard renders both the tiles and the chart's
+    // table view, and a series value that happened to equal a tile's would make
+    // `getByText` ambiguous in tests that are about neither.
+    const assets_cents = 11_820_000 + index * 143_000;
+    const liabilities_cents = 3_150_000 - index * 21_000;
+    return {
+      as_of: month.toISOString().slice(0, 10),
+      assets_cents,
+      liabilities_cents,
+      net_worth_cents: assets_cents - liabilities_cents,
+    };
+  });
+}
+
+export const netWorthSeries: ResponseOf<"/net-worth/series", "get"> = {
+  interval: "month",
+  view: "mine",
+  points: monthlyPoints(25),
+};
+
 export function mockNetWorth(
   overrides: Partial<ResponseOf<"/net-worth", "get">> = {},
   priorOverrides: Partial<ResponseOf<"/net-worth", "get">> | null = {},
@@ -55,6 +90,27 @@ export function mockNetWorth(
         });
       }
       return HttpResponse.json({ ...netWorth, view, ...overrides });
+    }),
+  );
+}
+
+/**
+ * The series endpoint, honouring `from` so range switching is actually exercised
+ * rather than asserted against a handler that ignores the query it was sent.
+ */
+export function mockNetWorthSeries(
+  overrides: Partial<ResponseOf<"/net-worth/series", "get">> = {},
+) {
+  server.use(
+    http.get("/api/net-worth/series", ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      const view = params.get("view") ?? "mine";
+      const from = params.get("from");
+      const body = { ...netWorthSeries, view, ...overrides };
+      return HttpResponse.json({
+        ...body,
+        points: from ? body.points.filter((point) => point.as_of >= from) : body.points,
+      });
     }),
   );
 }

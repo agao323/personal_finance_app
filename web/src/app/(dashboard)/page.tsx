@@ -1,5 +1,6 @@
 "use client";
 
+import { NetWorthChart } from "@/components/charts/net-worth-chart";
 import { ErrorBoundary } from "@/components/states";
 import { NetWorthTile } from "@/components/tiles/net-worth";
 import { RunwayTile } from "@/components/tiles/runway";
@@ -24,6 +25,14 @@ export default function DashboardPage() {
         </ErrorBoundary>
         <ErrorBoundary>
           <RunwayTile />
+        </ErrorBoundary>
+      </div>
+
+      {/* Not keyed on `view`: the chart refetches on a scope change and holds its
+          previous render meanwhile, which is smoother than a remount to skeleton. */}
+      <div className="mt-4">
+        <ErrorBoundary>
+          <NetWorthChart view={view} />
         </ErrorBoundary>
       </div>
     </div>
