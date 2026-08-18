@@ -58,11 +58,15 @@ function monthlyPoints(count: number): ResponseOf<"/net-worth/series", "get">["p
     // `getByText` ambiguous in tests that are about neither.
     const assets_cents = 11_820_000 + index * 143_000;
     const liabilities_cents = 3_150_000 - index * 21_000;
+    // 014 added this: how many accounts at this point are using a balance carried
+    // forward past the 90-day cap. Zero throughout here — a fixture with fresh
+    // balances everywhere. Tests about stale rendering set it explicitly.
     return {
       as_of: month.toISOString().slice(0, 10),
       assets_cents,
       liabilities_cents,
       net_worth_cents: assets_cents - liabilities_cents,
+      stale_account_count: 0,
     };
   });
 }
