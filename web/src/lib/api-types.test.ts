@@ -64,3 +64,74 @@ describe("generated contract", () => {
     expect(invalidStatus).toEqual({ status: "degraded" });
   });
 });
+
+// ── the Wave 2 freeze ─────────────────────────────────────────────────────────
+//
+// Everything below is the point of ticket 012: Lane C can write these types today,
+// against endpoints Lane A and Lane B have not implemented. If a backend session
+// changes a response model without re-freezing, `make types-check` fails in CI and
+// these lines stop compiling — which is the drift being designed out.
+
+/** Every v1 route the frontend will call is already in the contract. */
+export type FrozenPaths =
+  | paths["/net-worth"]["get"]
+  | paths["/net-worth/series"]["get"]
+  | paths["/spend"]["get"]
+  | paths["/runway"]["get"]
+  | paths["/accounts"]["get"]
+  | paths["/accounts/{account_id}"]["get"]
+  | paths["/transactions"]["get"]
+  | paths["/rules"]["get"];
+
+/** Money is integer cents, so a component can format without guessing units. */
+export const netWorth: ResponseOf<"/net-worth", "get"> = {
+  as_of: "2026-08-18",
+  view: "mine",
+  net_worth_cents: 12_345_678,
+  assets_cents: 15_000_000,
+  liabilities_cents: 2_654_322,
+  breakdown: [{ kind: "liquid_asset", total_cents: 5_000_000 }],
+  stale_account_ids: [],
+};
+
+/** Ownership percentages are basis points: 5000 is 50.00%. */
+export const stake: components["schemas"]["StakeRead"] = {
+  id: 1,
+  owner_user_id: 1,
+  owner_display_name: "Owner",
+  percentage_bps: 5000,
+  effective_from: "2026-01-01",
+  effective_to: null,
+};
+
+/** The view toggle is a literal union, not a string — a typo is a compile error. */
+// @ts-expect-error "everyone" is not a member of ViewScope
+export const badView: components["schemas"]["ViewScope"] = "everyone";
+
+/** Writes are typed too: apiFetch infers the body from the route. */
+export type CreateAccountBody =
+  paths["/accounts"]["post"]["requestBody"]["content"]["application/json"];
+
+export const newAccount: CreateAccountBody = {
+  name: "Checking",
+  kind: "liquid_asset",
+  subtype: "checking",
+};
+
+describe("wave 2 contract freeze", () => {
+  it("exposes money as integer cents", () => {
+    expect(netWorth.net_worth_cents).toBe(12_345_678);
+  });
+
+  it("exposes ownership as basis points", () => {
+    expect(stake.percentage_bps).toBe(5000);
+  });
+
+  it("types a write body from the route string", () => {
+    expect(newAccount.kind).toBe("liquid_asset");
+  });
+
+  it("rejects an out-of-contract view at compile time", () => {
+    expect(badView).toBe("everyone");
+  });
+});

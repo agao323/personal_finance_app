@@ -1,5 +1,5 @@
 # 012 — API contract: models, stubbed routes, generated types
-Status: todo
+Status: done
 Wave: 1   Lane: —
 Blocked by: 010, 011
 Read first: docs/ARCHITECTURE.md#the-api-contract, docs/ARCHITECTURE.md#endpoints
@@ -10,14 +10,14 @@ Every v1 request and response model exists, every route is declared and returns 
 lets Wave 2's three lanes run in parallel without drifting.
 
 ## Acceptance criteria
-- [ ] Pydantic request and response models for every endpoint in ARCHITECTURE#endpoints
-- [ ] Every route registered with its correct `response_model` and status codes, returning `501 Not Implemented`
-- [ ] All money fields typed as **integer cents** in every schema
-- [ ] Structured validation error shape defined once and reused
-- [ ] A `current_user` dependency in `api/app/deps.py` returning the single configured user. **Ticket 034 replaces the implementation, not the signature.**
-- [ ] `make types` run; `web/src/lib/api-types.ts` committed
-- [ ] Route inventory in `docs/ARCHITECTURE.md#endpoints` matches the code exactly
-- [ ] Tests: functional asserting every declared route returns 501, and that `openapi.json` contains every path in the inventory
+- [x] Pydantic request and response models for every endpoint in ARCHITECTURE#endpoints
+- [x] Every route registered with its correct `response_model` and status codes, returning `501 Not Implemented`
+- [x] All money fields typed as **integer cents** in every schema
+- [x] Structured validation error shape defined once and reused
+- [x] A `current_user` dependency in `api/app/deps.py` returning the single configured user. **Ticket 034 replaces the implementation, not the signature.**
+- [x] `make types` run; `web/src/lib/api-types.ts` committed
+- [x] Route inventory in `docs/ARCHITECTURE.md#endpoints` matches the code exactly
+- [x] Tests: functional asserting every declared route returns 501, and that `openapi.json` contains every path in the inventory
 
 ## Files
 - `api/app/schemas/*.py`

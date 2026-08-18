@@ -4,6 +4,198 @@
  */
 
 export interface paths {
+  "/accounts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Accounts */
+    get: operations["list_accounts_accounts_get"];
+    put?: never;
+    /** Create Account */
+    post: operations["create_account_accounts_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Account */
+    get: operations["get_account_accounts__account_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Account */
+    patch: operations["update_account_accounts__account_id__patch"];
+    trace?: never;
+  };
+  "/accounts/{account_id}/balances": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Record Account Balance */
+    post: operations["record_account_balance_accounts__account_id__balances_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Account History */
+    get: operations["get_account_history_accounts__account_id__history_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/stakes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Set Account Stake
+     * @description Closes the stake in force and opens a new one. See services/ownership.py.
+     */
+    post: operations["set_account_stake_accounts__account_id__stakes_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/login/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Authentication Options */
+    post: operations["authentication_options_auth_login_options_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/login/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Authentication Verify */
+    post: operations["authentication_verify_auth_login_verify_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/register/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Registration Options */
+    post: operations["registration_options_auth_register_options_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/register/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Registration Verify */
+    post: operations["registration_verify_auth_register_verify_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/session": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Session */
+    get: operations["read_session_auth_session_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Export */
+    get: operations["get_export_export_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/health": {
     parameters: {
       query?: never;
@@ -20,6 +212,80 @@ export interface paths {
      *     perfectly healthy — turning a brief database problem into an outage.
      */
     get: operations["health_health_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/import/csv/commit": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Commit Csv
+     * @description Idempotent upsert. Re-importing the same file changes nothing.
+     */
+    post: operations["commit_csv_import_csv_commit_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/import/csv/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Preview Csv
+     * @description Dry run. Writes nothing — the safety net for importing real exports.
+     */
+    post: operations["preview_csv_import_csv_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/net-worth": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Net Worth */
+    get: operations["get_net_worth_net_worth_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/net-worth/series": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Net Worth Series */
+    get: operations["get_net_worth_series_net_worth_series_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -51,10 +317,552 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/rules": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Rules */
+    get: operations["list_rules_rules_get"];
+    put?: never;
+    /** Create Rule */
+    post: operations["create_rule_rules_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/rules/apply": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Apply Rules
+     * @description Safe to re-run over all history. Never overwrites a manual category.
+     */
+    post: operations["apply_rules_rules_apply_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/rules/{rule_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Rule */
+    delete: operations["delete_rule_rules__rule_id__delete"];
+    options?: never;
+    head?: never;
+    /** Update Rule */
+    patch: operations["update_rule_rules__rule_id__patch"];
+    trace?: never;
+  };
+  "/runway": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Runway */
+    get: operations["get_runway_runway_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/spend": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Spend */
+    get: operations["get_spend_spend_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/transactions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Transactions */
+    get: operations["list_transactions_transactions_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/transactions/bulk-categorise": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Bulk Categorise */
+    post: operations["bulk_categorise_transactions_bulk_categorise_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/transactions/{transaction_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Transaction
+     * @description Sets category_source='manual', which the rules engine never overwrites.
+     */
+    patch: operations["update_transaction_transactions__transaction_id__patch"];
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AccountCreate */
+    AccountCreate: {
+      /** Institution Id */
+      institution_id?: number | null;
+      /**
+       * Institution Name
+       * @description Create-or-reuse an institution by name.
+       */
+      institution_name?: string | null;
+      kind: components["schemas"]["AccountKind"];
+      /** Name */
+      name: string;
+      /** Opening Balance As Of */
+      opening_balance_as_of?: string | null;
+      /** Opening Balance Cents */
+      opening_balance_cents?: number | null;
+      /** Owner User Id */
+      owner_user_id?: number | null;
+      /** Ownership Percentage Bps */
+      ownership_percentage_bps?: number | null;
+      source?: components["schemas"]["DataSource"] | null;
+      subtype: components["schemas"]["AccountSubtype"];
+    };
+    /** AccountDetail */
+    AccountDetail: {
+      /**
+       * Adjusted Balance Cents
+       * @description Balance after the viewer's ownership stake.
+       */
+      adjusted_balance_cents?: number | null;
+      /** Balance As Of */
+      balance_as_of?: string | null;
+      /**
+       * Balance Cents
+       * @description Raw balance, unadjusted.
+       */
+      balance_cents?: number | null;
+      /** Closed At */
+      closed_at?: string | null;
+      /** Currency */
+      currency: string;
+      /** Current Stake Bps */
+      current_stake_bps?: number | null;
+      /** Id */
+      id: number;
+      institution?: components["schemas"]["InstitutionRead"] | null;
+      /**
+       * Is Stale
+       * @default false
+       */
+      is_stale: boolean;
+      kind: components["schemas"]["AccountKind"];
+      /** Name */
+      name: string;
+      source: components["schemas"]["DataSource"];
+      /** Stakes */
+      stakes?: components["schemas"]["StakeRead"][];
+      subtype: components["schemas"]["AccountSubtype"];
+    };
+    /**
+     * AccountGroup
+     * @description Accounts of one kind with their subtotals.
+     */
+    AccountGroup: {
+      /** Accounts */
+      accounts: components["schemas"]["AccountRead"][];
+      /**
+       * Adjusted Total Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      adjusted_total_cents: number;
+      kind: components["schemas"]["AccountKind"];
+      /**
+       * Total Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      total_cents: number;
+    };
+    /** AccountHistory */
+    AccountHistory: {
+      /** Account Id */
+      account_id: number;
+      /** Points */
+      points: components["schemas"]["BalanceRead"][];
+    };
+    /**
+     * AccountKind
+     * @description What a balance means for net worth.
+     *
+     *     Liabilities are stored as **positive** balances. Net worth subtracts them. Storing
+     *     debt as a negative number makes every aggregate ambiguous — you can never tell
+     *     whether a sum already accounted for the sign.
+     * @enum {string}
+     */
+    AccountKind: "liquid_asset" | "illiquid_asset" | "liability";
+    /** AccountList */
+    AccountList: {
+      /**
+       * Adjusted Total Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      adjusted_total_cents: number;
+      /** Groups */
+      groups: components["schemas"]["AccountGroup"][];
+      /**
+       * Total Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      total_cents: number;
+    };
+    /**
+     * AccountRead
+     * @description An account with both raw and ownership-adjusted balances.
+     *
+     *     Both are exposed deliberately. A 50%-owned rental should visibly show the full
+     *     value and your share — that distinction is the feature this app has and an
+     *     off-the-shelf one does not.
+     */
+    AccountRead: {
+      /**
+       * Adjusted Balance Cents
+       * @description Balance after the viewer's ownership stake.
+       */
+      adjusted_balance_cents?: number | null;
+      /** Balance As Of */
+      balance_as_of?: string | null;
+      /**
+       * Balance Cents
+       * @description Raw balance, unadjusted.
+       */
+      balance_cents?: number | null;
+      /** Closed At */
+      closed_at?: string | null;
+      /** Currency */
+      currency: string;
+      /** Current Stake Bps */
+      current_stake_bps?: number | null;
+      /** Id */
+      id: number;
+      institution?: components["schemas"]["InstitutionRead"] | null;
+      /**
+       * Is Stale
+       * @default false
+       */
+      is_stale: boolean;
+      kind: components["schemas"]["AccountKind"];
+      /** Name */
+      name: string;
+      source: components["schemas"]["DataSource"];
+      subtype: components["schemas"]["AccountSubtype"];
+    };
+    /**
+     * AccountSubtype
+     * @enum {string}
+     */
+    AccountSubtype:
+      | "checking"
+      | "savings"
+      | "money_market"
+      | "cd"
+      | "brokerage"
+      | "ira"
+      | "roth_ira"
+      | "401k"
+      | "hsa"
+      | "529"
+      | "real_estate"
+      | "vehicle"
+      | "other_asset"
+      | "credit_card"
+      | "mortgage"
+      | "auto_loan"
+      | "student_loan"
+      | "personal_loan"
+      | "other_liability";
+    /** AccountUpdate */
+    AccountUpdate: {
+      /** Closed At */
+      closed_at?: string | null;
+      /** Institution Id */
+      institution_id?: number | null;
+      /** Name */
+      name?: string | null;
+      subtype?: components["schemas"]["AccountSubtype"] | null;
+    };
+    /**
+     * AuthenticationOptions
+     * @description Server-generated options for `navigator.credentials.get()`.
+     */
+    AuthenticationOptions: {
+      /** Challenge Id */
+      challenge_id: string;
+      /** Options */
+      options: {
+        [key: string]: unknown;
+      };
+    };
+    /** AuthenticationVerify */
+    AuthenticationVerify: {
+      /** Challenge Id */
+      challenge_id: string;
+      /** Credential */
+      credential: {
+        [key: string]: unknown;
+      };
+    };
+    /** BalanceCreate */
+    BalanceCreate: {
+      /**
+       * As Of
+       * Format: date
+       */
+      as_of: string;
+      /**
+       * Balance Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      balance_cents: number;
+      source?: components["schemas"]["DataSource"] | null;
+    };
+    /** BalanceRead */
+    BalanceRead: {
+      /**
+       * As Of
+       * Format: date
+       */
+      as_of: string;
+      /**
+       * Balance Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      balance_cents: number;
+      /**
+       * Is Stale
+       * @description True when carried forward from a snapshot older than 90 days.
+       */
+      is_stale: boolean;
+      source: components["schemas"]["DataSource"];
+    };
+    /** Body_preview_csv_import_csv_preview_post */
+    Body_preview_csv_import_csv_preview_post: {
+      /** Account Id */
+      account_id: number;
+      /** File */
+      file: string;
+    };
+    /** BulkCategorise */
+    BulkCategorise: {
+      /** Category Id */
+      category_id?: number | null;
+      /** Transaction Ids */
+      transaction_ids: number[];
+    };
+    /** BulkCategoriseResult */
+    BulkCategoriseResult: {
+      /** Updated */
+      updated: number;
+    };
+    /** BurnWindow */
+    BurnWindow: {
+      /**
+       * Average Monthly Spend Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      average_monthly_spend_cents: number;
+      /**
+       * Months
+       * @description Trailing window length: 3, 6, or 12.
+       */
+      months: number;
+      /**
+       * Months Of Runway
+       * @description Null when average spend is zero.
+       */
+      months_of_runway?: number | null;
+    };
+    /** CategoryRead */
+    CategoryRead: {
+      /** Id */
+      id: number;
+      /** Kind */
+      kind: string;
+      /** Name */
+      name: string;
+      /** Parent Id */
+      parent_id?: number | null;
+    };
+    /**
+     * CategorySource
+     * @description How a transaction got its category.
+     *
+     *     Rules never overwrite `manual`. Re-running the rule set over all history must be
+     *     safe, and a human decision outranks a pattern match.
+     * @enum {string}
+     */
+    CategorySource: "import" | "rule" | "manual";
+    /**
+     * ColumnMapping
+     * @description Maps this file's headers onto transaction fields. Header names only, never values.
+     */
+    ColumnMapping: {
+      /** Amount */
+      amount: string;
+      /** Description */
+      description?: string | null;
+      /** External Id */
+      external_id?: string | null;
+      /** Invert Amount */
+      invert_amount?: boolean | null;
+      /** Merchant */
+      merchant?: string | null;
+      /** Posted At */
+      posted_at: string;
+    };
+    /**
+     * DataSource
+     * @description Where a row came from.
+     *
+     *     v1 implements `manual` and `csv` only. The aggregator values ship anyway so that
+     *     adding a connector behind the SourceAdapter interface needs no migration.
+     * @enum {string}
+     */
+    DataSource: "manual" | "csv" | "teller" | "plaid" | "simplefin";
+    /**
+     * ErrorDetail
+     * @description One field-level problem.
+     */
+    ErrorDetail: {
+      /** Code */
+      code?: string | null;
+      /**
+       * Field
+       * @description Dotted path, e.g. `body.amount_cents`.
+       */
+      field?: string | null;
+      /** Message */
+      message: string;
+    };
+    /**
+     * ErrorResponse
+     * @description The single error shape for every non-2xx response.
+     *
+     *     Defined once and reused so the frontend writes one error handler rather than one
+     *     per endpoint, and so a new route cannot invent its own shape.
+     */
+    ErrorResponse: {
+      /** Detail */
+      detail: string;
+      /** Errors */
+      errors?: components["schemas"]["ErrorDetail"][];
+    };
+    /** ExportMeta */
+    ExportMeta: {
+      /** Account Count */
+      account_count: number;
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string;
+      /** Snapshot Count */
+      snapshot_count: number;
+      /** Transaction Count */
+      transaction_count: number;
+    };
+    /** ExportRead */
+    ExportRead: {
+      /** Accounts */
+      accounts: {
+        [key: string]: unknown;
+      }[];
+      /** Balance Snapshots */
+      balance_snapshots: {
+        [key: string]: unknown;
+      }[];
+      /** Categories */
+      categories: {
+        [key: string]: unknown;
+      }[];
+      /** Categorization Rules */
+      categorization_rules: {
+        [key: string]: unknown;
+      }[];
+      meta: components["schemas"]["ExportMeta"];
+      /** Ownership Stakes */
+      ownership_stakes: {
+        [key: string]: unknown;
+      }[];
+      /** Transactions */
+      transactions: {
+        [key: string]: unknown;
+      }[];
+    };
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components["schemas"]["ValidationError"][];
+    };
     /** HealthResponse */
     HealthResponse: {
       /**
@@ -62,6 +870,183 @@ export interface components {
        * @constant
        */
       status: "ok";
+    };
+    /** ImportCommitRequest */
+    ImportCommitRequest: {
+      /** Account Id */
+      account_id: number;
+      /**
+       * Content
+       * @description Raw CSV text.
+       */
+      content: string;
+      mapping: components["schemas"]["ColumnMapping"];
+      /**
+       * Save Mapping As
+       * @description Persist this mapping against the account for reuse.
+       */
+      save_mapping_as?: string | null;
+    };
+    /**
+     * ImportPreview
+     * @description A dry run. Shows what *would* change, per row.
+     *
+     *     The preview is the safety net for importing real exports — build it first, not as
+     *     a later nicety.
+     */
+    ImportPreview: {
+      /** Account Id */
+      account_id: number;
+      detected_mapping: components["schemas"]["ColumnMapping"];
+      /** Errors */
+      errors?: string[];
+      /** Rows */
+      rows: components["schemas"]["PreviewRow"][];
+      /** Will Create */
+      will_create: number;
+      /** Will Skip */
+      will_skip: number;
+      /** Will Update */
+      will_update: number;
+    };
+    /** ImportResult */
+    ImportResult: {
+      /** Created */
+      created: number;
+      /** Errors */
+      errors?: string[];
+      /** Skipped */
+      skipped: number;
+      /** Updated */
+      updated: number;
+    };
+    /** InstitutionRead */
+    InstitutionRead: {
+      /** Id */
+      id: number;
+      /** Name */
+      name: string;
+    };
+    /**
+     * Interval
+     * @enum {string}
+     */
+    Interval: "day" | "week" | "month";
+    /** KindBreakdown */
+    KindBreakdown: {
+      kind: components["schemas"]["AccountKind"];
+      /**
+       * Total Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      total_cents: number;
+    };
+    /**
+     * MatchType
+     * @enum {string}
+     */
+    MatchType: "contains" | "equals" | "starts_with" | "regex";
+    /** NetWorthPoint */
+    NetWorthPoint: {
+      /**
+       * As Of
+       * Format: date
+       */
+      as_of: string;
+      /**
+       * Assets Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      assets_cents: number;
+      /**
+       * Liabilities Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      liabilities_cents: number;
+      /**
+       * Net Worth Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      net_worth_cents: number;
+    };
+    /** NetWorthRead */
+    NetWorthRead: {
+      /**
+       * As Of
+       * Format: date
+       */
+      as_of: string;
+      /**
+       * Assets Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      assets_cents: number;
+      /** Breakdown */
+      breakdown: components["schemas"]["KindBreakdown"][];
+      /**
+       * Liabilities Cents
+       * @description Positive. Net worth subtracts this — liabilities are stored positive.
+       */
+      liabilities_cents: number;
+      /**
+       * Net Worth Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      net_worth_cents: number;
+      /**
+       * Stale Account Ids
+       * @description Accounts contributing a balance carried forward more than 90 days.
+       */
+      stale_account_ids?: number[];
+      view: components["schemas"]["ViewScope"];
+    };
+    /**
+     * NetWorthSeries
+     * @description A time series where each point uses that date's balances and that date's stakes.
+     *
+     *     Not today's stakes applied to old balances — that would make a stake change
+     *     retroactively rewrite the chart.
+     */
+    NetWorthSeries: {
+      /** Interval */
+      interval: string;
+      /** Points */
+      points: components["schemas"]["NetWorthPoint"][];
+      view: components["schemas"]["ViewScope"];
+    };
+    /**
+     * Page
+     * @description Pagination envelope metadata.
+     */
+    Page: {
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+      /** Total */
+      total: number;
+    };
+    /** PreviewRow */
+    PreviewRow: {
+      /**
+       * Action
+       * @description create | update | skip
+       */
+      action: string;
+      /** Amount Cents */
+      amount_cents?: number | null;
+      /** Description */
+      description?: string | null;
+      /** Errors */
+      errors?: string[];
+      /** External Id */
+      external_id?: string | null;
+      /** Merchant */
+      merchant?: string | null;
+      /** Posted At */
+      posted_at?: string | null;
+      /** Row Number */
+      row_number: number;
     };
     /** ReadyResponse */
     ReadyResponse: {
@@ -73,6 +1058,279 @@ export interface components {
        */
       status: "ok" | "unavailable";
     };
+    /**
+     * RegistrationOptions
+     * @description Server-generated options for `navigator.credentials.create()`.
+     */
+    RegistrationOptions: {
+      /** Challenge Id */
+      challenge_id: string;
+      /** Options */
+      options: {
+        [key: string]: unknown;
+      };
+    };
+    /** RegistrationVerify */
+    RegistrationVerify: {
+      /** Challenge Id */
+      challenge_id: string;
+      /** Credential */
+      credential: {
+        [key: string]: unknown;
+      };
+    };
+    /** RuleApplyRequest */
+    RuleApplyRequest: {
+      /**
+       * Only Uncategorised
+       * @description Re-running over all history is safe either way — manual categories are never overwritten.
+       */
+      only_uncategorised?: boolean | null;
+    };
+    /** RuleApplyResult */
+    RuleApplyResult: {
+      /** Categorised */
+      categorised: number;
+      /** Examined */
+      examined: number;
+      /** Manual Preserved */
+      manual_preserved: number;
+    };
+    /** RuleCreate */
+    RuleCreate: {
+      /** Category Id */
+      category_id: number;
+      match_type?: components["schemas"]["MatchType"] | null;
+      /** Pattern */
+      pattern: string;
+      /** Priority */
+      priority?: number | null;
+    };
+    /** RuleRead */
+    RuleRead: {
+      /** Category Id */
+      category_id: number;
+      /** Category Name */
+      category_name: string;
+      /** Id */
+      id: number;
+      match_type: components["schemas"]["MatchType"];
+      /** Pattern */
+      pattern: string;
+      /**
+       * Priority
+       * @description Lower runs first. First match wins.
+       */
+      priority: number;
+    };
+    /** RuleUpdate */
+    RuleUpdate: {
+      /** Category Id */
+      category_id?: number | null;
+      match_type?: components["schemas"]["MatchType"] | null;
+      /** Pattern */
+      pattern?: string | null;
+      /** Priority */
+      priority?: number | null;
+    };
+    /**
+     * RunwayRead
+     * @description Gross spend, excluding transfers. Income is not netted off.
+     *
+     *     Gross answers "how long if income stopped", which is the question runway is for.
+     *     Netting income in would make the number meaningless while employed.
+     */
+    RunwayRead: {
+      /**
+       * Liquid Assets Cents
+       * @description Ownership-adjusted, kind='liquid_asset' only.
+       */
+      liquid_assets_cents: number;
+      /**
+       * Partial Month Excluded
+       * @description True when the current, incomplete month was left out. Averaging it in makes burn look artificially low every month.
+       */
+      partial_month_excluded: boolean;
+      /** Windows */
+      windows: components["schemas"]["BurnWindow"][];
+    };
+    /** SessionRead */
+    SessionRead: {
+      /** Display Name */
+      display_name: string;
+      /** Email */
+      email: string;
+      /** User Id */
+      user_id: number;
+    };
+    /** SpendBucket */
+    SpendBucket: {
+      /**
+       * Category Id
+       * @description Null is the explicit uncategorised bucket.
+       */
+      category_id?: number | null;
+      /** Category Name */
+      category_name: string;
+      /** Change Cents */
+      change_cents?: number | null;
+      /** Prior Period Cents */
+      prior_period_cents?: number | null;
+      /**
+       * Spend Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      spend_cents: number;
+    };
+    /**
+     * SpendGrouping
+     * @enum {string}
+     */
+    SpendGrouping: "category" | "parent_category";
+    /**
+     * SpendRead
+     * @description Spend for a period.
+     *
+     *     Transfers are excluded — moving money between your own accounts is not spending,
+     *     and if it appears as spending every number on the dashboard loses credibility.
+     *     Uncategorised is returned as its own bucket rather than dropped: it is the prompt
+     *     to add a rule, not noise to hide.
+     */
+    SpendRead: {
+      /** Buckets */
+      buckets: components["schemas"]["SpendBucket"][];
+      /**
+       * End
+       * Format: date
+       */
+      end: string;
+      /**
+       * Excluded Transfer Count
+       * @default 0
+       */
+      excluded_transfer_count: number;
+      group_by: components["schemas"]["SpendGrouping"];
+      /**
+       * Start
+       * Format: date
+       */
+      start: string;
+      /**
+       * Total Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      total_cents: number;
+    };
+    /** StakeCreate */
+    StakeCreate: {
+      /**
+       * Effective From
+       * Format: date
+       */
+      effective_from: string;
+      /** Owner User Id */
+      owner_user_id: number;
+      /**
+       * Percentage Bps
+       * @description Basis points. 5000 means 50.00%.
+       */
+      percentage_bps: number;
+    };
+    /**
+     * StakeRead
+     * @description A stake with its effective dates.
+     *
+     *     The dates are exposed rather than just the current percentage: showing them is
+     *     what makes effective-dating visible as a feature instead of hidden plumbing, and
+     *     it is how a stake entered against the wrong date gets caught.
+     */
+    StakeRead: {
+      /**
+       * Effective From
+       * Format: date
+       */
+      effective_from: string;
+      /** Effective To */
+      effective_to?: string | null;
+      /** Id */
+      id: number;
+      /** Owner Display Name */
+      owner_display_name: string;
+      /** Owner User Id */
+      owner_user_id: number;
+      /**
+       * Percentage Bps
+       * @description Basis points. 5000 means 50.00%.
+       */
+      percentage_bps: number;
+    };
+    /** TransactionList */
+    TransactionList: {
+      /** Items */
+      items: components["schemas"]["TransactionRead"][];
+      page: components["schemas"]["Page"];
+    };
+    /** TransactionRead */
+    TransactionRead: {
+      /** Account Id */
+      account_id: number;
+      /** Account Name */
+      account_name: string;
+      /**
+       * Amount Cents
+       * @description Signed: outflows negative, inflows positive.
+       */
+      amount_cents: number;
+      category?: components["schemas"]["CategoryRead"] | null;
+      category_source?: components["schemas"]["CategorySource"] | null;
+      /** Description */
+      description?: string | null;
+      /** Id */
+      id: number;
+      /** Merchant */
+      merchant?: string | null;
+      /**
+       * Posted At
+       * Format: date
+       */
+      posted_at: string;
+      /** Transfer Group Id */
+      transfer_group_id?: string | null;
+    };
+    /**
+     * TransactionUpdate
+     * @description Manual re-categorisation.
+     *
+     *     Setting a category here records ``category_source='manual'``, and re-running the
+     *     rules engine never overwrites it. That protection is the whole reason
+     *     ``category_source`` exists.
+     */
+    TransactionUpdate: {
+      /** Category Id */
+      category_id?: number | null;
+    };
+    /** ValidationError */
+    ValidationError: {
+      /** Context */
+      ctx?: Record<string, never>;
+      /** Input */
+      input?: unknown;
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
+    };
+    /**
+     * ViewScope
+     * @description Whose money a figure describes.
+     *
+     *     `mine` applies the viewer's ownership stake; `household` sums every stake. The
+     *     only multi-user surface in the app — see ARCHITECTURE#users-and-ownership.
+     * @enum {string}
+     */
+    ViewScope: "mine" | "household";
   };
   responses: never;
   parameters: never;
@@ -82,6 +1340,501 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  list_accounts_accounts_get: {
+    parameters: {
+      query?: {
+        view?: components["schemas"]["ViewScope"];
+        include_closed?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountList"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  create_account_accounts_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_account_accounts__account_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountDetail"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  update_account_accounts__account_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  record_account_balance_accounts__account_id__balances_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BalanceCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BalanceRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_account_history_accounts__account_id__history_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountHistory"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  set_account_stake_accounts__account_id__stakes_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StakeCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StakeRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  authentication_options_auth_login_options_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AuthenticationOptions"];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  authentication_verify_auth_login_verify_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AuthenticationVerify"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SessionRead"];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  registration_options_auth_register_options_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RegistrationOptions"];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  registration_verify_auth_register_verify_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RegistrationVerify"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SessionRead"];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_session_auth_session_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SessionRead"];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_export_export_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExportRead"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
   health_health_get: {
     parameters: {
       query?: never;
@@ -98,6 +1851,138 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HealthResponse"];
+        };
+      };
+    };
+  };
+  commit_csv_import_csv_commit_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ImportCommitRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportResult"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  preview_csv_import_csv_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_preview_csv_import_csv_preview_post"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportPreview"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_net_worth_net_worth_get: {
+    parameters: {
+      query?: {
+        as_of?: string | null;
+        view?: components["schemas"]["ViewScope"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NetWorthRead"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_net_worth_series_net_worth_series_get: {
+    parameters: {
+      query?: {
+        from?: string | null;
+        to?: string | null;
+        interval?: components["schemas"]["Interval"];
+        view?: components["schemas"]["ViewScope"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NetWorthSeries"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };
@@ -127,6 +2012,405 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ReadyResponse"];
+        };
+      };
+    };
+  };
+  list_rules_rules_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RuleRead"][];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  create_rule_rules_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RuleCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RuleRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  apply_rules_rules_apply_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RuleApplyRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RuleApplyResult"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  delete_rule_rules__rule_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        rule_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  update_rule_rules__rule_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        rule_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RuleUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RuleRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_runway_runway_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RunwayRead"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_spend_spend_get: {
+    parameters: {
+      query?: {
+        from?: string | null;
+        to?: string | null;
+        group_by?: components["schemas"]["SpendGrouping"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SpendRead"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  list_transactions_transactions_get: {
+    parameters: {
+      query?: {
+        from?: string | null;
+        to?: string | null;
+        account_id?: number | null;
+        category_id?: number | null;
+        uncategorised?: boolean | null;
+        search?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TransactionList"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  bulk_categorise_transactions_bulk_categorise_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BulkCategorise"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BulkCategoriseResult"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  update_transaction_transactions__transaction_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        transaction_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TransactionUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TransactionRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };

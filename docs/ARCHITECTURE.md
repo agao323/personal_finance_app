@@ -279,26 +279,45 @@ script refuses to run against a database marked real.
 
 ## Endpoints
 
-Declared in full by ticket 012 and stubbed at `501` until their lane implements them.
+The complete v1 surface. Declared by ticket 012 and stubbed at `501` until the named
+ticket implements it.
+
+**This table is checked against the running app by a test.** Adding a route without
+listing it here, or listing one that does not exist, fails the suite — a stale
+inventory is worse than none, because it is trusted.
 
 | Method | Path | Ticket |
 |---|---|---|
-| GET | `/health`, `/ready` | 003 |
-| GET | `/net-worth?as_of=&view=mine\|household` | 014 |
-| GET | `/net-worth/series?from=&to=&interval=` | 014 |
-| GET | `/spend?from=&to=&group_by=` | 015 |
+| GET | `/health` | 003 |
+| GET | `/ready` | 003 |
+| GET | `/net-worth` | 014 |
+| GET | `/net-worth/series` | 014 |
+| GET | `/spend` | 015 |
 | GET | `/runway` | 016 |
 | GET | `/export` | 017 |
-| GET POST PATCH | `/accounts`, `/accounts/{id}` | 019 |
-| GET | `/accounts/{id}/history` | 019 |
-| POST | `/accounts/{id}/balances`, `/accounts/{id}/stakes` | 019 |
+| GET POST | `/accounts` | 019 |
+| GET PATCH | `/accounts/{account_id}` | 019 |
+| GET | `/accounts/{account_id}/history` | 019 |
+| POST | `/accounts/{account_id}/balances` | 019 |
+| POST | `/accounts/{account_id}/stakes` | 019 |
 | POST | `/import/csv/preview` | 020 |
 | POST | `/import/csv/commit` | 021 |
-| GET POST PATCH DELETE | `/rules`, `/rules/{id}` | 022 |
+| GET POST | `/rules` | 022 |
+| PATCH DELETE | `/rules/{rule_id}` | 022 |
 | POST | `/rules/apply` | 022 |
-| GET PATCH | `/transactions`, `/transactions/{id}` | 023 |
+| GET | `/transactions` | 023 |
+| PATCH | `/transactions/{transaction_id}` | 023 |
 | POST | `/transactions/bulk-categorise` | 023 |
-| POST | `/auth/register/*`, `/auth/login/*` | 034 |
+| POST | `/auth/register/options` | 034 |
+| POST | `/auth/register/verify` | 034 |
+| POST | `/auth/login/options` | 034 |
+| POST | `/auth/login/verify` | 034 |
+| GET | `/auth/session` | 034 |
+
+Query parameters, request bodies, and response shapes are defined in
+`api/app/schemas/` and generated into `web/src/lib/api-types.ts`. They are deliberately
+not duplicated here — a hand-maintained copy would go stale, which is the whole reason
+the contract is generated.
 
 ## Account sources
 

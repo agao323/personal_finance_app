@@ -19,6 +19,17 @@ from app.db import get_engine
 from app.logging import configure_logging
 from app.middleware import RequestContextMiddleware
 from app.observability import configure_sentry
+from app.routers import (
+    accounts,
+    auth,
+    export,
+    import_csv,
+    net_worth,
+    rules,
+    runway,
+    spend,
+    transactions,
+)
 
 
 @asynccontextmanager
@@ -38,6 +49,22 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Personal finance API", lifespan=lifespan)
 app.add_middleware(RequestContextMiddleware)
+
+# The whole v1 surface, declared up front. Routes exist and return 501 until their
+# lane implements them — that is what lets Wave 2's three lanes build against the same
+# generated types without waiting on each other.
+for _router in (
+    net_worth.router,
+    spend.router,
+    runway.router,
+    export.router,
+    accounts.router,
+    import_csv.router,
+    rules.router,
+    transactions.router,
+    auth.router,
+):
+    app.include_router(_router)
 
 
 class HealthResponse(BaseModel):

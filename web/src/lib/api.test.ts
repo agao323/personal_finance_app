@@ -112,17 +112,37 @@ describe("apiFetch", () => {
 
 describe("contract enforcement", () => {
   it("rejects routes the API does not declare", () => {
-    // Compile-time guarantee, asserted here so the reason is discoverable. The line
-    // below is the whole point of ticket 005: /accounts does not exist yet, so it is
-    // not a valid argument until a Pydantic model puts it in the contract.
+    // Compile-time guarantee, asserted here so the reason is discoverable. /accounts
+    // used to fail this check and now passes — 012 put it in the contract. That is the
+    // mechanism working: a route becomes callable exactly when a Pydantic model
+    // declares it, never before.
     //
-    // @ts-expect-error "/accounts" is not a path in the generated contract
-    const rejected = () => apiFetch("/accounts");
+    // @ts-expect-error "/not-a-route" is not a path in the generated contract
+    const rejected = () => apiFetch("/not-a-route");
 
     expect(typeof rejected).toBe("function");
   });
 
-  // Write verbs get runtime coverage in 013, the first ticket with a write endpoint.
-  // There is no POST in the contract yet, so `PathsWith<"post">` is `never` and no
-  // call can be written — which is the pipeline behaving correctly.
+  it("types a write body from the route string", async () => {
+    const spy = stubFetch(Response.json({ id: 1 }, { status: 201 }));
+
+    await apiFetch("/accounts", {
+      method: "post",
+      body: { name: "Checking", kind: "liquid_asset", subtype: "checking" },
+    });
+
+    expect(spy.mock.calls[0][0]).toBe("/api/accounts");
+    expect(spy.mock.calls[0][1]).toMatchObject({ method: "POST" });
+  });
+
+  it("rejects a write body that does not match the contract", () => {
+    const rejected = () =>
+      apiFetch("/accounts", {
+        method: "post",
+        // @ts-expect-error `kind` is a literal union; "crypto" is not a member
+        body: { name: "X", kind: "crypto", subtype: "checking" },
+      });
+
+    expect(typeof rejected).toBe("function");
+  });
 });
