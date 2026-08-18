@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 /** Nav targets, in the order the work flows: look, drill in, then feed it. */
 export const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
+  { href: "/spending", label: "Spending" },
   { href: "/accounts", label: "Accounts" },
   { href: "/transactions", label: "Transactions" },
   { href: "/import", label: "Import" },

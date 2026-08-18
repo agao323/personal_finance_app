@@ -43,7 +43,13 @@ import { EmptyState, ErrorState, Skeleton } from "@/components/states";
 import type { ViewScope } from "@/components/view-toggle";
 import type { ResponseOf } from "@/lib/api";
 import { apiFetch } from "@/lib/api";
-import { formatCompactCurrency, formatCurrency, formatDate } from "@/lib/format";
+import {
+  formatCompactCurrency,
+  formatCurrency,
+  formatDate,
+  formatShortDate,
+  type DateGrain,
+} from "@/lib/format";
 
 type Series = ResponseOf<"/net-worth/series", "get">;
 type Point = Series["points"][number];
@@ -159,20 +165,6 @@ function areaOf(xs: number[], ys: number[], baseline: number): string {
   const last = xs[xs.length - 1];
   return `${pathOf(xs, ys)} L${trim(last)} ${trim(baseline)} L${trim(first)} ${trim(baseline)} Z`;
 }
-
-// Dates on the axis, not money — `format.ts` owns every money value on every screen,
-// and its `formatDate` is the long unambiguous form the tooltip wants. An axis tick
-// needs the short form, and its grain depends on how much time is on screen.
-const dayTick = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  timeZone: "UTC",
-});
-const monthTick = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  year: "numeric",
-  timeZone: "UTC",
-});
 
 // ── Series ──────────────────────────────────────────────────────────────────────
 
@@ -450,11 +442,15 @@ function PlotArea({
       // A lone label has the whole axis to itself, so it may as well say the year.
       // Otherwise the grain follows the span: "Aug 14" over a quarter, "Aug 2026"
       // over anything longer, where the day is noise.
-      axisFormat: points.length === 1 ? null : span <= 120 * DAY_MS ? dayTick : monthTick,
+      grain: (points.length === 1
+        ? null
+        : span <= 120 * DAY_MS
+          ? "day"
+          : "month") as DateGrain | null,
     };
   }, [points, plots, plotW]);
 
-  const { xs, scale, y, baseline, ys, ticks, axisFormat } = geometry;
+  const { xs, scale, y, baseline, ys, ticks, grain } = geometry;
 
   function move(next: number) {
     onActiveChange(Math.max(0, Math.min(last, next)));
@@ -575,8 +571,8 @@ function PlotArea({
               fontSize={11}
               className="fill-ink-muted"
             >
-              {axisFormat
-                ? axisFormat.format(new Date(timeOf(points[index])))
+              {grain
+                ? formatShortDate(points[index].as_of, grain)
                 : formatDate(points[index].as_of)}
             </text>
           ))}

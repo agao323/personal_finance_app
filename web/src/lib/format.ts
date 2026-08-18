@@ -154,6 +154,24 @@ export function formatDate(iso: string): string {
   return dateFormat.format(new Date(`${iso}T00:00:00Z`));
 }
 
+export type DateGrain = "day" | "month";
+
+const shortDate: Record<DateGrain, Intl.DateTimeFormat> = {
+  day: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+  month: new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }),
+};
+
+/**
+ * `Aug 14` or `Aug 2026` — the axis-tick form of `formatDate`.
+ *
+ * The grain is the caller's, because it depends on how much time is on screen
+ * rather than on the date: a day is noise across three years, and a bare month is
+ * ambiguous across three weeks.
+ */
+export function formatShortDate(iso: string, grain: DateGrain): string {
+  return shortDate[grain].format(new Date(`${iso}T00:00:00Z`));
+}
+
 /** `3 months ago` — for saying how stale a carried-forward balance is. */
 export function formatAge(iso: string, now: Date = new Date()): string {
   const then = new Date(`${iso}T00:00:00Z`);

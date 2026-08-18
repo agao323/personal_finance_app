@@ -26,6 +26,9 @@ help: ## Show available targets
 	@echo "Created .env from .env.example. Local dev credentials only — edit if you like."
 
 dev: .env ## Start postgres + api + web in Docker with hot reload
+	@# Hot reload covers edits to existing files. A brand new route *directory*
+	@# under web/src/app is often missed by the dev server's watcher through the
+	@# bind mount, and the route 404s until `docker compose restart web`.
 	@docker compose up --build
 
 down: ## Stop everything (add v=1 to also drop the database volume)
