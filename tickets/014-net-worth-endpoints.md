@@ -22,5 +22,14 @@ the Mine / Household view.
 - `api/tests/test_api_net_worth.py`
 
 ## Notes
+
+**Decide whether the series carries a staleness signal.** `/net-worth` returns
+`stale_account_ids`, but `NetWorthSeries` has no equivalent — so a chart segment built
+from balances carried forward for 89 days is indistinguishable from a measured one. On a
+sparse history that is most of the line. Either add a per-point stale marker (a response
+model change, so it stops and re-freezes through 012) or decide explicitly that the
+series does not report it and say why here. Raised by ticket 027, which hit it while
+drawing the chart.
+
 If a response shape here doesn't match what 012 froze, the fix is a re-freeze commit against
 012, not an edit to the generated types file. Lane C is already building against those shapes.

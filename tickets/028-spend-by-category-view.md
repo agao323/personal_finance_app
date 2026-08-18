@@ -22,6 +22,12 @@ Spending breakdown for a period with drill-down from parent category to child to
 - `web/src/components/transaction-table.tsx`
 
 ## Notes
+
+`lib/format.ts` has `formatDate` and `formatAge` but no short axis-tick form, so ticket
+027's chart declares two local `Intl.DateTimeFormat` instances. This is the second chart
+— move a short-date formatter into `format.ts` and have both use it rather than
+duplicating a third.
+
 Built against MSW mocks typed from `api-types.ts` — it does **not** wait for the
 backend tickets above. Point it at the real endpoints once they land; ticket 038 verifies
 the join.

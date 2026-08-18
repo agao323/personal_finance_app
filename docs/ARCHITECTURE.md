@@ -221,7 +221,7 @@ paid-off loan or a rolled-over 401k.
 Two mechanisms, both required:
 
 - **`closed_at`** — an account is excluded from any `as_of` at or after its close date.
-- **A 3-month staleness cap** — a snapshot carries forward at most 3 months. Past that the
+- **A 90-day staleness cap** — a snapshot carries forward at most 90 days. Past that the
   account still counts, but the value is flagged stale in the API response and surfaced in
   the UI as a prompt to update it.
 
