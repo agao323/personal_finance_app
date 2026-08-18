@@ -1,7 +1,7 @@
 # 024 — Google Sheet history import
 Status: todo
 Wave: 2   Lane: B
-Blocked by: 011, 019
+Blocked by: 036, 011, 019
 Read first: docs/SECURITY.md#handling-real-data-during-development
 
 ## Goal
@@ -23,6 +23,12 @@ A one-off script that reads an exported CSV of the existing spreadsheet's histor
 - `api/tests/test_sheet_import.py`
 
 ## Notes
+
+**036 is a hard blocker, not an ordering preference.** This is the ticket that puts real
+balances in the database, and until Cloudflare Access is in front of the origin the app is
+publicly readable by anyone who knows the hostname. Importing before 036 means a window
+where a complete financial history sits behind nothing.
+
 Written against the **header shape**, not the values. The real export never leaves `data/` and
 is never read into a session's context. See SECURITY#handling-real-data-during-development.
 

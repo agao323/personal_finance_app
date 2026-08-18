@@ -47,3 +47,6 @@ test-results/
 # Derived from the Pydantic models by `make types`. The committed artifact is
 # web/src/lib/api-types.ts, generated from this.
 api/openapi.json
+
+# Agent worktrees. Real git worktrees of this repo — never commit them.
+.claude/worktrees/
