@@ -37,6 +37,11 @@ UNCATEGORISED = "Uncategorised"
 class Bucket:
     category_id: int | None
     category_name: str
+    #: The bucket's parent category, when grouping by leaf category. Always ``None``
+    #: under ``by_parent`` — a parent bucket is already the top of its branch. This is
+    #: what lets a caller drill from a parent to its children without a second concept
+    #: of the category tree; see docs/ARCHITECTURE.md#endpoints.
+    parent_id: int | None
     spend: Decimal
     #: Always computed — the comparison window is derived, never supplied, so there is
     #: no "no prior period" case at this layer. The schema still types it optional
@@ -78,11 +83,17 @@ def _spend_query(start: dt.date, end: dt.date) -> Select[tuple[Transaction, Cate
     )
 
 
+#: A bucket's identity: id, display name, and parent id. The parent is part of the
+#: key rather than looked up afterwards because the uncategorised bucket has no
+#: category row to look anything up on.
+BucketKey = tuple[int | None, str, int | None]
+
+
 def _totals(
     session: Session, start: dt.date, end: dt.date, by_parent: bool
-) -> dict[tuple[int | None, str], Decimal]:
+) -> dict[BucketKey, Decimal]:
     """Spend per bucket. Amounts are stored signed; outflows are negative."""
-    totals: dict[tuple[int | None, str], Decimal] = {}
+    totals: dict[BucketKey, Decimal] = {}
 
     for transaction, category in session.execute(_spend_query(start, end)).all():
         # The outer join makes `category` optional at runtime even though the Select's
@@ -93,11 +104,11 @@ def _totals(
         amount = -transaction.amount
 
         if category is None:
-            key: tuple[int | None, str] = (None, UNCATEGORISED)
+            key: BucketKey = (None, UNCATEGORISED, None)
         elif by_parent and category.parent is not None:
-            key = (category.parent.id, category.parent.name)
+            key = (category.parent.id, category.parent.name, None)
         else:
-            key = (category.id, category.name)
+            key = (category.id, category.name, category.parent_id)
 
         totals[key] = totals.get(key, ZERO) + amount
 
@@ -141,6 +152,7 @@ def spend_by_category(
         Bucket(
             category_id=key[0],
             category_name=key[1],
+            parent_id=key[2],
             spend=amount,
             prior_spend=prior.get(key, ZERO),
         )

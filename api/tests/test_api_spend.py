@@ -264,3 +264,68 @@ def test_endpoint_defaults_to_month_to_date(client: TestClient) -> None:
 
 def test_endpoint_rejects_a_bad_grouping(client: TestClient) -> None:
     assert client.get("/spend", params={"group_by": "by_vibes"}).status_code == 422
+
+
+# ── the parent link that makes drill-down possible ────────────────────────────
+
+
+def test_leaf_buckets_carry_their_parent_id(
+    db_session: Session, make_account: Callable[..., int], categories: dict[str, int]
+) -> None:
+    """Grouping by leaf category reports each bucket's parent.
+
+    This is what lets a client drill from a parent bucket to its children without a
+    second concept of the category tree. Without it the only way to know Groceries
+    belongs to Food is to fetch every transaction and read the category off it.
+    """
+    account_id = make_account()
+    _spend(db_session, account_id, JAN, "-60.00", categories["Groceries"])
+    _spend(db_session, account_id, JAN, "-15.00", categories["Restaurants"])
+
+    summary = spend_by_category(db_session, JAN, JAN_END)
+
+    parents = {b.category_name: b.parent_id for b in summary.buckets}
+    assert parents == {"Groceries": categories["Food"], "Restaurants": categories["Food"]}
+
+
+def test_parent_buckets_have_no_parent_id(
+    db_session: Session, make_account: Callable[..., int], categories: dict[str, int]
+) -> None:
+    """A parent bucket is already the top of its branch.
+
+    Reporting Food's own `parent_id` here would invite a client to drill upward
+    forever; the field means "the parent of the rows in this bucket", and under
+    parent grouping that is the bucket itself.
+    """
+    account_id = make_account()
+    _spend(db_session, account_id, JAN, "-60.00", categories["Groceries"])
+
+    summary = spend_by_category(db_session, JAN, JAN_END, by_parent=True)
+
+    assert [(b.category_name, b.parent_id) for b in summary.buckets] == [("Food", None)]
+
+
+def test_uncategorised_bucket_has_no_parent_id(
+    db_session: Session, make_account: Callable[..., int]
+) -> None:
+    """It has no category row, so there is nothing to take a parent from."""
+    account_id = make_account()
+    _spend(db_session, account_id, JAN, "-40.00", None)
+
+    summary = spend_by_category(db_session, JAN, JAN_END)
+
+    assert [(b.category_id, b.parent_id) for b in summary.buckets] == [(None, None)]
+
+
+def test_endpoint_exposes_parent_id(
+    client: TestClient,
+    db_session: Session,
+    make_account: Callable[..., int],
+    categories: dict[str, int],
+) -> None:
+    account_id = make_account()
+    _spend(db_session, account_id, JAN, "-60.00", categories["Groceries"])
+
+    body = client.get("/spend", params={"from": "2026-01-01", "to": "2026-01-31"}).json()
+
+    assert body["buckets"][0]["parent_id"] == categories["Food"]

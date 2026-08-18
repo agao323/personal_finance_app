@@ -1292,6 +1292,11 @@ export interface components {
       category_name: string;
       /** Change Cents */
       change_cents?: number | null;
+      /**
+       * Parent Id
+       * @description The bucket's parent category under `group_by=category`. Always null under `group_by=parent_category`. Lets a client drill from a parent to its children without a separate category-tree request.
+       */
+      parent_id?: number | null;
       /** Prior Period Cents */
       prior_period_cents?: number | null;
       /**

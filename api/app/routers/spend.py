@@ -55,6 +55,7 @@ def get_spend(
             SpendBucket(
                 category_id=bucket.category_id,
                 category_name=bucket.category_name,
+                parent_id=bucket.parent_id,
                 spend_cents=to_cents(bucket.spend),
                 prior_period_cents=to_cents(bucket.prior_spend),
                 change_cents=to_cents(bucket.change),

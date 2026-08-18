@@ -20,6 +20,14 @@ class SpendBucket(Schema):
         default=None, description="Null is the explicit uncategorised bucket."
     )
     category_name: str
+    parent_id: int | None = Field(
+        default=None,
+        description=(
+            "The bucket's parent category under `group_by=category`. Always null under "
+            "`group_by=parent_category`. Lets a client drill from a parent to its "
+            "children without a separate category-tree request."
+        ),
+    )
     spend_cents: Cents
     prior_period_cents: Cents | None = None
     change_cents: Cents | None = None
