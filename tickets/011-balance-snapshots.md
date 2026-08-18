@@ -1,5 +1,5 @@
 # 011 — Balance snapshots
-Status: todo
+Status: done
 Wave: 1   Lane: —
 Blocked by: 009
 Read first: docs/ARCHITECTURE.md#data-model
@@ -10,12 +10,12 @@ resolves an account's balance on any past date. History that isn't captured cann
 recovered later.
 
 ## Acceptance criteria
-- [ ] `record_balance(account_id, as_of, balance, source)` upserting a snapshot for a date
-- [ ] `balance_in_force(account_id, as_of)` returning the latest snapshot at or before `as_of`
-- [ ] Carry-forward capped at **3 months**; beyond that the value is returned flagged stale, not dropped
-- [ ] Accounts with `closed_at <= as_of` return nothing
-- [ ] Current balance is **derived** as the latest snapshot — never stored on `accounts`
-- [ ] Tests: unit for same-day overwrite, out-of-order inserts, gaps, the staleness boundary on both sides, and a closed account
+- [x] `record_balance(account_id, as_of, balance, source)` upserting a snapshot for a date
+- [x] `balance_in_force(account_id, as_of)` returning the latest snapshot at or before `as_of`
+- [x] Carry-forward capped at **3 months**; beyond that the value is returned flagged stale, not dropped
+- [x] Accounts with `closed_at <= as_of` return nothing
+- [x] Current balance is **derived** as the latest snapshot — never stored on `accounts`
+- [x] Tests: unit for same-day overwrite, out-of-order inserts, gaps, the staleness boundary on both sides, and a closed account
 
 ## Files
 - `api/app/services/balances.py`

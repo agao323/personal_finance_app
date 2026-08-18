@@ -9,8 +9,9 @@ fails.
 needs nothing installed beyond Docker.
 """
 
+import datetime as dt
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -125,3 +126,55 @@ def client(db_session: Session) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def owner_id(db_session: Session) -> int:
+    """The user seeded by the initial migration."""
+    return int(db_session.execute(text("SELECT id FROM users LIMIT 1")).scalar_one())
+
+
+@pytest.fixture
+def partner_id(db_session: Session) -> int:
+    """A second household member, for the stake-splitting cases."""
+    return int(
+        db_session.execute(
+            text(
+                "INSERT INTO users (email, display_name, is_active) "
+                "VALUES ('partner@example.invalid', 'Partner', true) RETURNING id"
+            )
+        ).scalar_one()
+    )
+
+
+@pytest.fixture
+def make_account(db_session: Session) -> Callable[..., int]:
+    """Create an account and return its id.
+
+    Deliberately does *not* create an ownership stake — the tests for
+    `create_initial_stake` need an account without one, and a fixture that quietly
+    added a row would make those tests assert the wrong thing.
+    """
+
+    def _make(
+        name: str = "Checking",
+        kind: str = "liquid_asset",
+        subtype: str = "checking",
+        closed_at: dt.date | None = None,
+    ) -> int:
+        institution_id = db_session.execute(
+            text("INSERT INTO institutions (name) VALUES (:n) RETURNING id"),
+            {"n": f"Institution {name}"},
+        ).scalar_one()
+        return int(
+            db_session.execute(
+                text(
+                    "INSERT INTO accounts "
+                    "(institution_id, name, kind, subtype, source, currency, closed_at) "
+                    "VALUES (:i, :n, :k, :s, 'manual', 'USD', :c) RETURNING id"
+                ),
+                {"i": institution_id, "n": name, "k": kind, "s": subtype, "c": closed_at},
+            ).scalar_one()
+        )
+
+    return _make
