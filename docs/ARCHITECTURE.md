@@ -316,6 +316,7 @@ inventory is worse than none, because it is trusted.
 | POST | `/auth/login/options` | 034 |
 | POST | `/auth/login/verify` | 034 |
 | GET | `/auth/session` | 034 |
+| POST | `/auth/logout` | 034 |
 
 Query parameters, request bodies, and response shapes are defined in
 `api/app/schemas/` and generated into `web/src/lib/api-types.ts`. They are deliberately

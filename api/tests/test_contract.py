@@ -53,6 +53,12 @@ LIVE_PATHS = {
     "/transactions/bulk-categorise",  # 023
     "/transactions/bulk-transfer",  # 030
     "/categories",  # 030
+    "/auth/register/options",  # 034
+    "/auth/register/verify",  # 034
+    "/auth/login/options",  # 034
+    "/auth/login/verify",  # 034
+    "/auth/session",  # 034
+    "/auth/logout",  # 034
 }
 
 
@@ -133,10 +139,7 @@ def test_every_operation_is_either_live_or_stubbed() -> None:
 #: an invalid one and only reaches the 501 stub with a valid one. Writing these out
 #: doubles as proof that the request schemas accept sensible input — a schema nothing
 #: can satisfy would otherwise sit undetected until a lane tried to use it.
-VALID_BODIES: dict[tuple[str, str], dict[str, Any]] = {
-    ("POST", "/auth/register/verify"): {"challenge_id": "abc", "credential": {}},
-    ("POST", "/auth/login/verify"): {"challenge_id": "abc", "credential": {}},
-}
+VALID_BODIES: dict[tuple[str, str], dict[str, Any]] = {}
 
 #: Multipart upload rather than JSON; covered separately below.
 MULTIPART: set[tuple[str, str]] = set()
@@ -243,19 +246,98 @@ def test_error_shape_is_defined_once() -> None:
     assert set(schemas["ErrorResponse"]["properties"]) == {"detail", "errors"}
 
 
-def test_current_user_signature_is_frozen() -> None:
-    """Ticket 034 replaces the implementation, not the signature.
+#: Routes that must stay reachable without a session.
+#:
+#: `/health` and `/ready` because a health check that needs a session cannot report
+#: that the app is unhealthy, and the auth ceremonies because requiring a session to
+#: get one is a closed loop.
+PUBLIC_PATHS = {
+    "/health",
+    "/ready",
+    "/auth/login/options",
+    "/auth/login/verify",
+    "/auth/register/options",
+    "/auth/register/verify",
+    "/auth/logout",
+    "/openapi.json",
+    "/docs",
+    "/docs/oauth2-redirect",
+    "/redoc",
+}
 
-    If this changes, every Wave 2 route that depends on it needs editing — which is
-    exactly what declaring it now is meant to avoid.
+
+def _api_routes() -> list[Any]:
+    """Every APIRoute in the app, including inside included routers.
+
+    This FastAPI version keeps an included router nested in `app.routes` rather than
+    flattening its routes into it, so a non-recursive walk sees only the two routes
+    declared on `app` itself — and an "every route is authenticated" assertion over
+    that set passes while checking nothing. Worth stating because the vacuous version
+    looked identical and green.
     """
-    import inspect
+    from fastapi.routing import APIRoute
 
+    found: list[Any] = []
+
+    def walk(routes: Any) -> None:
+        for route in routes:
+            if isinstance(route, APIRoute):
+                found.append(route)
+            elif hasattr(route, "original_router"):
+                # `include_router` wraps the router rather than copying its routes in.
+                walk(route.original_router.routes)
+            elif hasattr(route, "routes"):
+                walk(route.routes)
+
+    walk(app.routes)
+    return found
+
+
+def test_the_route_walk_finds_the_whole_surface() -> None:
+    """Guards the two tests below from silently checking nothing.
+
+    Both assert a property over "every route"; if the walk returns an empty or tiny
+    set they pass regardless. The count is deliberately a floor, not an equality —
+    this is a tripwire, not a second inventory.
+    """
+    assert len(_api_routes()) >= 25
+
+
+def _depends_on_current_user(dependant: Any) -> bool:
     from app.deps import current_user
 
-    signature = inspect.signature(current_user)
-    assert list(signature.parameters) == ["session"]
-    assert signature.return_annotation == "User"
+    if dependant.call is current_user:
+        return True
+    return any(_depends_on_current_user(child) for child in dependant.dependencies)
+
+
+def test_every_non_public_route_requires_authentication() -> None:
+    """The property ticket 012 froze, and the one worth actually guarding.
+
+    Wave 2 wrote `user: CurrentUser` on every route that touches household data while
+    authentication was a stand-in, and ticket 034 replaced the implementation without
+    editing any of them. What protects that is not `current_user`'s parameter list —
+    routes never call it directly — it is that the dependency is still *on* them.
+
+    An earlier version of this test asserted the parameter names, which broke the
+    moment the real implementation needed the request to read a cookie: it was
+    guarding the shape of the plumbing rather than the guarantee.
+    """
+    unguarded = [
+        f"{sorted(route.methods)[0]} {route.path}"
+        for route in _api_routes()
+        if route.path not in PUBLIC_PATHS and not _depends_on_current_user(route.dependant)
+    ]
+
+    assert not unguarded, f"routes with no authentication: {sorted(unguarded)}"
+
+
+def test_the_public_routes_really_are_public() -> None:
+    """Stops the list above from quietly becoming a way to exempt a real route."""
+    declared = {route.path for route in _api_routes()}
+    stale = {path for path in PUBLIC_PATHS if path.startswith("/auth")} - declared
+
+    assert not stale, f"public exemption for a route that does not exist: {sorted(stale)}"
 
 
 def test_openapi_exports_without_a_database(tmp_path: Path) -> None:

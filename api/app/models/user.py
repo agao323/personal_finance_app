@@ -54,3 +54,29 @@ class Credential(Base):
     last_used_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
     user: Mapped[User] = relationship(back_populates="credentials")
+
+
+class WebAuthnChallenge(Base):
+    """A challenge issued to a browser, waiting to be answered.
+
+    Server-side rather than a signed token handed to the client: a challenge is only a
+    challenge if it can be used once. A self-contained token is replayable until it
+    expires, and "replayable for five minutes" is not the property this table exists
+    to provide. Rows are deleted the moment they are consumed.
+    """
+
+    __tablename__ = "webauthn_challenges"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    challenge_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    challenge: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    #: "register" or "authenticate". A registration challenge answered with an
+    #: assertion, or the reverse, is a confused-deputy shape worth refusing outright.
+    purpose: Mapped[str] = mapped_column(String(16), nullable=False)
+    #: Set for registration, which happens as a known user; null for authentication,
+    #: where the whole point is that the server does not yet know who is signing in.
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

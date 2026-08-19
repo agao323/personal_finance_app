@@ -1,14 +1,27 @@
-"""Passkey authentication. Implemented by ticket 034.
+"""Passkey authentication.
 
 No password endpoints exist, deliberately. See docs/SECURITY.md#auth.
+
+**The `users` table is the allowlist.** There is no separate list of who may sign in —
+a second list is a second thing to keep in step, and the failure mode is someone
+removed from one and not the other. Registration is refused for an address that is not
+an active user, and it is refused with the same message a wrong address gets, so the
+endpoint does not report whether a given email is in the household.
+
+Route docstrings are part of the frozen contract — see the note in `routers/rules.py`.
+Reasoning lives here and in `services/webauthn.py`.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+import datetime as dt
 
+from fastapi import APIRouter, HTTPException, Response, status
+from sqlalchemy import delete, select
+
+from app.config import get_settings
 from app.deps import CurrentUser, DbSession
-from app.routers._stub import not_implemented
+from app.models.user import Credential, User, WebAuthnChallenge
 from app.schemas.auth import (
     AuthenticationOptions,
     AuthenticationVerify,
@@ -17,32 +30,202 @@ from app.schemas.auth import (
     SessionRead,
 )
 from app.schemas.common import ErrorResponse
+from app.services import session as sessions
+from app.services import webauthn
 
 router = APIRouter(prefix="/auth", tags=["auth"], responses={401: {"model": ErrorResponse}})
+
+REGISTER = "register"
+AUTHENTICATE = "authenticate"
+
+#: One message for every failed ceremony. Distinguishing "no such user" from "wrong
+#: authenticator" tells an attacker which addresses are in the household.
+REFUSED = "Could not verify that passkey"
+
+
+def _issue_challenge(session: DbSession, purpose: str, user_id: int | None) -> webauthn.Ceremony:
+    ceremony = webauthn.new_ceremony()
+    # Sweep expired rows here rather than on a schedule: this table holds a handful of
+    # rows for one household, and a cron for that is more moving parts than the
+    # problem has.
+    session.execute(
+        delete(WebAuthnChallenge).where(WebAuthnChallenge.expires_at < dt.datetime.now(dt.UTC))
+    )
+    session.add(
+        WebAuthnChallenge(
+            challenge_id=ceremony.challenge_id,
+            challenge=ceremony.challenge,
+            purpose=purpose,
+            user_id=user_id,
+            expires_at=ceremony.expires_at,
+        )
+    )
+    session.flush()
+    return ceremony
+
+
+def _spend_challenge(session: DbSession, challenge_id: str, purpose: str) -> bytes:
+    """Consume a challenge, or refuse.
+
+    Deleted on read, so a challenge answered twice fails the second time — which is
+    the entire point of a challenge.
+    """
+    row = session.execute(
+        select(WebAuthnChallenge).where(WebAuthnChallenge.challenge_id == challenge_id)
+    ).scalar_one_or_none()
+
+    if row is None or row.purpose != purpose or webauthn.is_expired(row.expires_at):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=REFUSED)
+
+    challenge = row.challenge
+    session.delete(row)
+    session.flush()
+    return challenge
+
+
+def _set_cookie(response: Response, user_id: int) -> None:
+    settings = get_settings()
+    response.set_cookie(
+        sessions.COOKIE_NAME,
+        sessions.issue(user_id, settings.session_secret, settings.session_ttl_hours),
+        httponly=True,
+        secure=settings.cookie_secure,
+        # `lax`, not `strict`: the Cloudflare Access redirect returns the user
+        # cross-site, and `strict` drops the cookie on exactly that navigation.
+        samesite="lax",
+        max_age=settings.session_ttl_hours * 3600,
+        path="/",
+    )
 
 
 @router.post("/register/options", response_model=RegistrationOptions)
 def registration_options(session: DbSession, user: CurrentUser) -> RegistrationOptions:
-    not_implemented("034")
+    settings = get_settings()
+    ceremony = _issue_challenge(session, REGISTER, user.id)
+    existing = list(
+        session.execute(
+            select(Credential.credential_id).where(Credential.user_id == user.id)
+        ).scalars()
+    )
+
+    return RegistrationOptions(
+        options=webauthn.registration_options(
+            rp_id=settings.rp_id,
+            rp_name=settings.rp_name,
+            user_id=user.id,
+            email=user.email,
+            display_name=user.display_name,
+            challenge=ceremony.challenge,
+            existing_credential_ids=existing,
+        ),
+        challenge_id=ceremony.challenge_id,
+    )
 
 
 @router.post("/register/verify", response_model=SessionRead)
 def registration_verify(
-    session: DbSession, user: CurrentUser, payload: RegistrationVerify
+    session: DbSession, user: CurrentUser, payload: RegistrationVerify, response: Response
 ) -> SessionRead:
-    not_implemented("034")
+    settings = get_settings()
+    challenge = _spend_challenge(session, payload.challenge_id, REGISTER)
+
+    try:
+        registered = webauthn.verify_registration(
+            credential=payload.credential,
+            challenge=challenge,
+            rp_id=settings.rp_id,
+            origin=settings.web_origin,
+        )
+    except webauthn.WebAuthnError as error:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=REFUSED) from error
+
+    session.add(
+        Credential(
+            user_id=user.id,
+            credential_id=registered.credential_id,
+            public_key=registered.public_key,
+            sign_count=registered.sign_count,
+        )
+    )
+    session.flush()
+
+    _set_cookie(response, user.id)
+    return SessionRead(user_id=user.id, email=user.email, display_name=user.display_name)
 
 
 @router.post("/login/options", response_model=AuthenticationOptions)
 def authentication_options(session: DbSession) -> AuthenticationOptions:
-    not_implemented("034")
+    settings = get_settings()
+    ceremony = _issue_challenge(session, AUTHENTICATE, None)
+
+    return AuthenticationOptions(
+        options=webauthn.authentication_options(rp_id=settings.rp_id, challenge=ceremony.challenge),
+        challenge_id=ceremony.challenge_id,
+    )
 
 
 @router.post("/login/verify", response_model=SessionRead)
-def authentication_verify(session: DbSession, payload: AuthenticationVerify) -> SessionRead:
-    not_implemented("034")
+def authentication_verify(
+    session: DbSession, payload: AuthenticationVerify, response: Response
+) -> SessionRead:
+    settings = get_settings()
+    challenge = _spend_challenge(session, payload.challenge_id, AUTHENTICATE)
+
+    try:
+        credential_id = webauthn.credential_id_from(payload.credential)
+    except webauthn.WebAuthnError as error:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=REFUSED) from error
+
+    stored = session.execute(
+        select(Credential).where(Credential.credential_id == credential_id)
+    ).scalar_one_or_none()
+    if stored is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=REFUSED)
+
+    user = session.get(User, stored.user_id)
+    # The allowlist check, at the only moment it matters. Deactivating a user is what
+    # revokes their access; their passkey still exists and still verifies.
+    if user is None or not user.is_active:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=REFUSED)
+
+    try:
+        new_count = webauthn.verify_authentication(
+            credential=payload.credential,
+            challenge=challenge,
+            rp_id=settings.rp_id,
+            origin=settings.web_origin,
+            public_key=stored.public_key,
+            stored_sign_count=stored.sign_count,
+        )
+    except webauthn.WebAuthnError as error:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=REFUSED) from error
+
+    if not webauthn.sign_count_is_valid(stored.sign_count, new_count):
+        # A counter that did not advance means the credential was cloned, or this
+        # assertion is a replay. Both are refused, and the credential is left in place
+        # rather than deleted — destroying it on a signal that can also be a buggy
+        # authenticator would lock the household out of its own app.
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=REFUSED)
+
+    stored.sign_count = new_count
+    stored.last_used_at = dt.datetime.now(dt.UTC)
+    session.flush()
+
+    _set_cookie(response, user.id)
+    return SessionRead(user_id=user.id, email=user.email, display_name=user.display_name)
 
 
 @router.get("/session", response_model=SessionRead)
 def read_session(user: CurrentUser) -> SessionRead:
-    not_implemented("034")
+    return SessionRead(user_id=user.id, email=user.email, display_name=user.display_name)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout() -> Response:
+    """Clear the session cookie."""
+    # Built here rather than mutating an injected Response: returning a *different*
+    # response than the one the cookie was set on discards the header silently, which
+    # is exactly the bug the test for this caught.
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.delete_cookie(sessions.COOKIE_NAME, path="/")
+    return response
