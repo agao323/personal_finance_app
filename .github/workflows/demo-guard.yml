@@ -1,0 +1,74 @@
+name: Demo isolation
+
+# The one guard whose failure mode is handing out a public link that shows real
+# finances. It runs on every push and on a schedule, because the thing it protects
+# against is a configuration change made months after anyone last thought about it.
+#
+# It reads two secrets and never prints either. A guard that echoes a connection
+# string into a build log has created the disclosure it was meant to prevent.
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Weekly. The secrets can be changed without a push, so a push-only check would
+    # not notice someone repointing the demo at the real project.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: demo-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolation:
+    name: the demo cannot reach the real database
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Skips rather than fails while the demo does not exist yet (ticket 037's
+      # manual half). A red check for "not built yet" trains people to ignore it,
+      # which is the last thing this particular guard can afford.
+      - name: Are both database URLs configured?
+        id: configured
+        env:
+          REAL: ${{ secrets.BACKUP_DATABASE_URL }}
+          DEMO: ${{ secrets.DEMO_DATABASE_URL }}
+        run: |
+          if [ -n "$REAL" ] && [ -n "$DEMO" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Demo not configured yet — skipping. Set DEMO_DATABASE_URL once ticket 037's Neon project exists."
+          fi
+
+      - name: Different Neon projects, not a branch
+        if: steps.configured.outputs.ready == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          DEMO_DATABASE_URL: ${{ secrets.DEMO_DATABASE_URL }}
+        run: ./scripts/check_demo_isolation.sh
+
+      # The guard's own self-tests, so a broken guard is not a silent pass. These
+      # use fabricated hosts and need no secrets, so they run unconditionally.
+      - name: Guard self-tests
+        run: ./scripts/test_guards.sh
+
+      # Comments are stripped first. The demo config explains *why* it sets no
+      # CF_ACCESS variables, and a naive grep matches that explanation — the same
+      # trap check_fly_api_private.sh already documents.
+      - name: The demo Fly config declares no Access
+        run: |
+          if sed 's/#.*//' fly.demo-web.toml | grep -q 'CF_ACCESS'; then
+            echo "  FAIL: the demo must not sit behind Cloudflare Access" >&2
+            exit 1
+          fi
+          echo "  ok: the demo is not behind Access"
+
+      - name: The demo API declares DEMO_MODE and no public service
+        run: |
+          sed 's/#.*//' fly.demo-api.toml | grep -q 'DEMO_MODE = "true"' || {
+            echo "  FAIL: fly.demo-api.toml does not set DEMO_MODE" >&2; exit 1; }
+          ./scripts/check_fly_api_private.sh fly.demo-api.toml

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade
+.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade deploy-demo
 
 # Compose merges docker-compose.override.yml automatically. PROD_COMPOSE opts out,
 # so smoke tests exercise the deploy-shaped images rather than the dev ones.
@@ -78,6 +78,7 @@ guards: ## Run the architectural guards and their self-tests
 	@./scripts/check_no_float.sh
 	@./scripts/check_no_public_api_url.sh
 	@./scripts/check_fly_api_private.sh
+	@./scripts/check_fly_api_private.sh fly.demo-api.toml
 
 test-api: .env
 	@# The suite runs against real Postgres, not SQLite — see api/tests/conftest.py.
@@ -140,6 +141,10 @@ deploy-api: ## Deploy the API to Fly (runs migrations as a release command)
 
 deploy-web: ## Deploy the web app to Fly
 	@fly deploy ./web -c $(CURDIR)/fly.web.toml
+
+deploy-demo: ## Deploy both demo apps (separate Neon project — see ADR 0003)
+	@fly deploy ./api -c $(CURDIR)/fly.demo-api.toml
+	@fly deploy ./web -c $(CURDIR)/fly.demo-web.toml --build-arg NEXT_PUBLIC_DEMO=true
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 seed: .env ## Load synthetic data into the local dev database

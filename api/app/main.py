@@ -17,7 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.config import get_settings
 from app.db import get_engine
 from app.logging import configure_logging
-from app.middleware import RequestContextMiddleware
+from app.middleware import DemoReadOnlyMiddleware, RequestContextMiddleware
 from app.observability import configure_sentry
 from app.routers import (
     accounts,
@@ -66,6 +66,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Personal finance API", lifespan=lifespan)
 app.add_middleware(RequestContextMiddleware)
+app.add_middleware(DemoReadOnlyMiddleware)
 
 # The whole v1 surface, declared up front. Routes exist and return 501 until their
 # lane implements them — that is what lets Wave 2's three lanes build against the same

@@ -147,6 +147,35 @@ expect 0 "passes on a private-only config" "$here/check_fly_api_private.sh" "$wo
 
 expect 2 "errors on a missing file" "$here/check_fly_api_private.sh" "$work/nope.toml"
 
+# ── check_demo_isolation.sh ───────────────────────────────────────────────────
+#
+# Reads its input from the environment, so these run it in a subshell with the two
+# variables set rather than passing arguments. None of the values below is a real
+# connection string.
+
+real="postgresql://u:p@ep-real-abc123.c-5.us-east-2.aws.neon.tech/neondb"
+demo="postgresql://u:p@ep-demo-xyz789.c-5.us-east-2.aws.neon.tech/neondb"
+
+expect 0 "passes on two different Neon projects" \
+  env DATABASE_URL="$real" DEMO_DATABASE_URL="$demo" "$here/check_demo_isolation.sh"
+
+expect 1 "fails on identical URLs" \
+  env DATABASE_URL="$real" DEMO_DATABASE_URL="$real" "$here/check_demo_isolation.sh"
+
+# A branch of the same project shares the endpoint id, which is exactly the weaker
+# boundary ADR 0003 rejects.
+expect 1 "fails when the demo is a branch of the same project" \
+  env DATABASE_URL="$real" \
+      DEMO_DATABASE_URL="postgresql://u:p@ep-real-abc123.c-5.us-east-2.aws.neon.tech/demo" \
+      "$here/check_demo_isolation.sh"
+
+# Pooled and unpooled hosts for one project differ by a "-pooler" suffix. Comparing
+# them naively would call the same project two projects.
+expect 1 "fails on a pooled/unpooled pair from one project" \
+  env DATABASE_URL="postgresql://u:p@ep-real-abc123-pooler.c-5.aws.neon.tech/neondb" \
+      DEMO_DATABASE_URL="$real" \
+      "$here/check_demo_isolation.sh"
+
 # ── result ────────────────────────────────────────────────────────────────────
 echo ""
 echo "guards: $passed passed, $failed failed"

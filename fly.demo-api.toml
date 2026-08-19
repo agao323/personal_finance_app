@@ -1,0 +1,45 @@
+# Demo FastAPI service.
+#
+# THERE IS NO SERVICES BLOCK HERE EITHER, for the same reason as fly.api.toml: the
+# demo web app reaches this over the private network, and a Fly app with no
+# [http_service] cannot be given a public address by a config change alone.
+#
+# The demo's isolation is NOT this file and NOT DEMO_MODE. It is that DATABASE_URL
+# here points at a **different Neon project**, whose credentials cannot reach the real
+# database. See docs/adr/0003-demo-isolation.md.
+
+app = "pfa-demo-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "api/Dockerfile"
+
+[deploy]
+  release_command = "alembic upgrade head"
+
+[env]
+  PORT = "8000"
+  # Defense in depth over the real boundary. Rejects every mutating verb, so the
+  # public unauthenticated demo cannot have its numbers rewritten by a visitor.
+  DEMO_MODE = "true"
+  # The demo has no accounts, so no passkey ceremony and no session to sign. The
+  # value is still set because the API refuses to start on the default when the
+  # origin is https — see app/main.py.
+  RP_ID = "allofmymoney.com"
+  WEB_ORIGIN = "https://demo.allofmymoney.com"
+
+# Autostop is safe here in a way it is not for the real API: the demo web app talks
+# to it over .internal, so a stopped machine would be unreachable — which is why this
+# stays running. It is a shared-cpu-1x; the saving would be pennies against a demo
+# that fails to load.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[checks.health]
+  type = "http"
+  port = 8000
+  path = "/health"
+  interval = "15s"
+  timeout = "3s"
+  grace_period = "10s"

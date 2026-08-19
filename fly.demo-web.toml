@@ -1,0 +1,48 @@
+# Demo Next.js service — public, indexed, and deliberately unauthenticated.
+#
+# The opposite of fly.web.toml in three ways, each on purpose:
+#   - no Cloudflare Access in front (a demo nobody can open is not a demo)
+#   - indexed rather than noindex
+#   - NEXT_PUBLIC_DEMO=true, which is a BUILD-time value: the bundle does not contain
+#     the sign-in path at all, rather than containing it and declining to use it.
+
+app = "pfa-demo-web"
+primary_region = "iad"
+
+[build]
+  dockerfile = "web/Dockerfile"
+
+  [build.args]
+    # Build arg, not runtime env. `process.env.NEXT_PUBLIC_DEMO` is inlined at build
+    # time and the dead branch is dropped, so the demo bundle has no code capable of
+    # authenticating against anything.
+    NEXT_PUBLIC_DEMO = "true"
+
+[env]
+  PORT = "3000"
+  NODE_ENV = "production"
+  NEXT_PUBLIC_DEMO = "true"
+  INTERNAL_API_URL = "http://pfa-demo-api.internal:8000"
+  # No CF_ACCESS_* here, deliberately. Setting them would put the demo behind the
+  # Access application and make it unreachable.
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  # The dataset is static and read-only, and Cloudflare caches the hostname with a
+  # long TTL, so most visits never reach this machine at all.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[checks.health]
+  type = "http"
+  port = 3000
+  path = "/"
+  interval = "15s"
+  timeout = "5s"
+  grace_period = "20s"
