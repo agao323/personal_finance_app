@@ -70,3 +70,11 @@ describe("Cloudflare Access configuration", () => {
     expect(result.ok).toBe(false);
   });
 });
+
+describe("the health path", () => {
+  it("is public, or Fly cannot check a machine that has no session", () => {
+    // The check used to point at "/", which now redirects. Fly reads the 307 as a
+    // failing machine and the deploy times out on one that is serving correctly.
+    expect(isPublicPath("/healthz")).toBe(true);
+  });
+});

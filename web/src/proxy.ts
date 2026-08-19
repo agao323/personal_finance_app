@@ -24,7 +24,7 @@ import { IS_DEMO } from "@/lib/demo";
 const SESSION_COOKIE = "pfa_session";
 
 /** Paths that must stay reachable without a session. */
-const PUBLIC_PREFIXES = ["/login"];
+const PUBLIC_PREFIXES = ["/login", "/healthz"];
 
 export function isPublicPath(pathname: string): boolean {
   // Every `/api/*` path is exempt, not just the auth ones. Redirecting a `fetch` to
