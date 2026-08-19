@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { assertionFrom, readConfig, verifyAccessJwt } from "@/lib/access";
 import { IS_DEMO } from "@/lib/demo";
 
 /**
@@ -38,9 +39,21 @@ export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // The demo has no accounts to sign in to, and its bundle contains no sign-in path.
   if (IS_DEMO) return NextResponse.next();
+
+  // Cloudflare Access, when configured. Nothing that fails this should ever arrive —
+  // Access refuses it at the edge — so a failure here means the origin was reached
+  // directly, which is the accident this check exists to catch. 403, not a redirect:
+  // there is no sign-in this origin can offer that would help.
+  const access = readConfig(process.env);
+  if (access) {
+    const verified = await verifyAccessJwt(assertionFrom(request.headers), access);
+    if (!verified.ok) {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
+  }
 
   const { pathname, search } = request.nextUrl;
   if (isPublicPath(pathname)) return NextResponse.next();

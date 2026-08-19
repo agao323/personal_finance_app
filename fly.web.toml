@@ -17,6 +17,11 @@ primary_region = "iad"
   # Private network address of the API. Never a public hostname, and never exposed
   # to the browser — see the NEXT_PUBLIC_API_URL guard in CI.
   INTERNAL_API_URL = "http://pfa-api.internal:8000"
+  # Cloudflare Access (ticket 036). Both must be set for the origin to enforce the
+  # Access JWT: an audience with no issuer accepts a token from any Access tenant,
+  # and an issuer with no audience accepts one minted for a different application.
+  # CF_ACCESS_AUD is the Application Audience tag from the Access dashboard.
+  CF_ACCESS_TEAM_DOMAIN = "allofmymoney.cloudflareaccess.com"
 
 [http_service]
   internal_port = 3000

@@ -13,6 +13,41 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./node_modules/.pnpm/**/@swc/helpers/**"],
   },
+
+  /**
+   * Security headers on every response.
+   *
+   * HSTS is set at the origin as well as at Cloudflare: an origin that only relies on
+   * the edge for it is one misrouted request away from serving plain HTTP, and the
+   * header costs nothing. Two years with `includeSubDomains` so the demo hostname is
+   * covered by the same commitment.
+   *
+   * `noindex` is belt and braces alongside the `robots` metadata in the layout. The
+   * demo overrides it (ticket 037) — it is meant to be indexed; the real app never is,
+   * and a header is harder to lose in a refactor than a metadata export.
+   */
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          {
+            key: "X-Robots-Tag",
+            value: process.env.NEXT_PUBLIC_DEMO === "true" ? "all" : "noindex, nofollow",
+          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // No third-party embeds anywhere in this app, so the strictest value is
+          // also the correct one.
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
