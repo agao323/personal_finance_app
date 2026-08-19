@@ -57,6 +57,30 @@ export type BodyOf<P extends keyof paths, M extends HttpMethod> = paths[P][M] ex
 
 export type QueryValue = string | number | boolean | null | undefined;
 
+export type PathParams = Record<string, string | number>;
+
+/**
+ * Substitute `{name}` placeholders in a templated route.
+ *
+ * Templated routes (`/accounts/{account_id}`) have to stay literal at the call site,
+ * because that literal is what `ResponseOf` infers the response type from. Building
+ * the URL by interpolation and casting the result back to the template type would
+ * discard exactly the guarantee this module exists to provide.
+ *
+ * A missing parameter throws rather than leaving the placeholder in the URL: a
+ * request to `/accounts/%7Baccount_id%7D` comes back 404 or 422, and the resulting
+ * bug report is about the wrong thing entirely.
+ */
+export function fillPath(template: string, params: PathParams = {}): string {
+  return template.replace(/\{(\w+)\}/g, (_match, name: string) => {
+    const value = params[name];
+    if (value === undefined || value === null) {
+      throw new Error(`Missing path parameter "${name}" for ${template}`);
+    }
+    return encodeURIComponent(String(value));
+  });
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -95,6 +119,8 @@ type Options<P extends keyof paths, M extends HttpMethod> = {
   method?: M;
   signal?: AbortSignal;
   headers?: HeadersInit;
+  /** Values for any `{name}` placeholders in the route. */
+  params?: PathParams;
 } & ([QueryOf<P, M>] extends [never] ? { query?: never } : { query?: QueryOf<P, M> }) &
   ([BodyOf<P, M>] extends [never] ? { body?: never } : { body: BodyOf<P, M> });
 
@@ -104,6 +130,7 @@ type Options<P extends keyof paths, M extends HttpMethod> = {
  * ```ts
  * const ready = await apiFetch("/ready");                        // ReadyResponse
  * await apiFetch("/accounts", { method: "post", body: { … } });  // body is typed
+ * await apiFetch("/accounts/{account_id}", { params: { account_id: 7 } });
  * ```
  *
  * `M` defaults to `"get"`, so read calls need no type arguments; for other verbs it
@@ -113,9 +140,10 @@ export async function apiFetch<M extends HttpMethod = "get", P extends PathsWith
   path: P,
   options: Options<P & keyof paths, M> = {} as Options<P & keyof paths, M>,
 ): Promise<ResponseOf<P & keyof paths, M>> {
-  const { method = "get", query, body, headers, signal } = options;
+  const { method = "get", query, body, headers, signal, params } = options;
 
-  const response = await fetch(apiPath(path as string, query as Record<string, QueryValue>), {
+  const url = apiPath(fillPath(path as string, params), query as Record<string, QueryValue>);
+  const response = await fetch(url, {
     method: method.toUpperCase(),
     signal,
     headers: {

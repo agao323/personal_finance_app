@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, apiFetch, apiPath } from "@/lib/api";
+import { ApiError, apiFetch, apiPath, fillPath } from "@/lib/api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -144,5 +144,31 @@ describe("contract enforcement", () => {
       });
 
     expect(typeof rejected).toBe("function");
+  });
+});
+
+describe("fillPath", () => {
+  it("substitutes a path parameter", () => {
+    expect(fillPath("/accounts/{account_id}", { account_id: 7 })).toBe("/accounts/7");
+  });
+
+  it("substitutes every placeholder in a route", () => {
+    expect(fillPath("/a/{x}/b/{y}", { x: 1, y: "two" })).toBe("/a/1/b/two");
+  });
+
+  it("leaves a route with no placeholders alone", () => {
+    expect(fillPath("/accounts")).toBe("/accounts");
+  });
+
+  it("throws rather than leaving a placeholder in the URL", () => {
+    // An unsubstituted `/accounts/%7Baccount_id%7D` comes back 404 or 422, and the
+    // bug report that follows is about the wrong thing entirely.
+    expect(() => fillPath("/accounts/{account_id}", {})).toThrow(/Missing path parameter/);
+  });
+
+  it("escapes a value that would otherwise change the path", () => {
+    expect(fillPath("/accounts/{account_id}", { account_id: "../rules" })).toBe(
+      "/accounts/..%2Frules",
+    );
   });
 });

@@ -290,3 +290,175 @@ export function mockTransactions(rows: ResponseOf<"/transactions", "get">["items
     }),
   );
 }
+
+/**
+ * Accounts fixtures.
+ *
+ * Built around the cases the accounts screens exist to get right: a 50%-owned asset
+ * where adjusted and raw differ, a stale balance, and a closed account carrying no
+ * balance at all. Group subtotals are the API's, not a sum of the rows — the server
+ * rounds once per account, and a fixture that re-added the rows would encode the
+ * wrong arithmetic as the expected answer.
+ */
+export const accounts: ResponseOf<"/accounts", "get"> = {
+  total_cents: 47_795_499,
+  adjusted_total_cents: 24_922_058,
+  groups: [
+    {
+      kind: "liquid_asset",
+      total_cents: 4_451_740,
+      adjusted_total_cents: 4_451_740,
+      accounts: [
+        {
+          id: 1,
+          name: "Checking",
+          kind: "liquid_asset",
+          subtype: "checking",
+          source: "csv",
+          currency: "USD",
+          institution: { id: 1, name: "Meridian Bank" },
+          balance_cents: 137_717,
+          adjusted_balance_cents: 137_717,
+          balance_as_of: "2026-08-01",
+          current_stake_bps: 10_000,
+          is_stale: false,
+          closed_at: null,
+        },
+        {
+          id: 2,
+          name: "Savings",
+          kind: "liquid_asset",
+          subtype: "savings",
+          source: "manual",
+          currency: "USD",
+          institution: { id: 1, name: "Meridian Bank" },
+          balance_cents: 4_314_023,
+          adjusted_balance_cents: 4_314_023,
+          balance_as_of: "2026-01-04",
+          current_stake_bps: 10_000,
+          is_stale: true,
+          closed_at: null,
+        },
+      ],
+    },
+    {
+      kind: "illiquid_asset",
+      total_cents: 45_088_082,
+      adjusted_total_cents: 22_544_041,
+      accounts: [
+        {
+          id: 3,
+          name: "Rental property",
+          kind: "illiquid_asset",
+          subtype: "real_estate",
+          source: "manual",
+          currency: "USD",
+          institution: null,
+          balance_cents: 45_088_082,
+          adjusted_balance_cents: 22_544_041,
+          balance_as_of: "2026-08-01",
+          current_stake_bps: 5_000,
+          is_stale: false,
+          closed_at: null,
+        },
+        {
+          id: 4,
+          name: "Old car",
+          kind: "illiquid_asset",
+          subtype: "vehicle",
+          source: "manual",
+          currency: "USD",
+          institution: null,
+          balance_cents: null,
+          adjusted_balance_cents: null,
+          balance_as_of: null,
+          current_stake_bps: 10_000,
+          is_stale: false,
+          closed_at: "2026-01-01",
+        },
+      ],
+    },
+    {
+      kind: "liability",
+      total_cents: 29_580_000,
+      adjusted_total_cents: 17_748_000,
+      accounts: [
+        {
+          id: 5,
+          name: "Mortgage",
+          kind: "liability",
+          subtype: "mortgage",
+          source: "manual",
+          currency: "USD",
+          institution: { id: 1, name: "Meridian Bank" },
+          balance_cents: 29_580_000,
+          adjusted_balance_cents: 17_748_000,
+          balance_as_of: "2026-08-01",
+          current_stake_bps: 6_000,
+          is_stale: false,
+          closed_at: null,
+        },
+      ],
+    },
+  ],
+};
+
+export function mockAccounts(overrides: Partial<ResponseOf<"/accounts", "get">> = {}) {
+  server.use(http.get("/api/accounts", () => HttpResponse.json({ ...accounts, ...overrides })));
+}
+
+/** A 50%-owned account with a mid-history stake change — the case worth rendering. */
+export const accountDetail: ResponseOf<"/accounts/{account_id}", "get"> = {
+  id: 3,
+  name: "Rental property",
+  kind: "illiquid_asset",
+  subtype: "real_estate",
+  source: "manual",
+  currency: "USD",
+  institution: { id: 2, name: "Harbour Trust" },
+  balance_cents: 45_088_082,
+  adjusted_balance_cents: 22_544_041,
+  balance_as_of: "2026-08-01",
+  is_stale: false,
+  current_stake_bps: 5_000,
+  closed_at: null,
+  stakes: [
+    {
+      id: 10,
+      owner_user_id: 1,
+      owner_display_name: "Owner",
+      percentage_bps: 10_000,
+      effective_from: "2024-03-01",
+      effective_to: "2025-06-01",
+    },
+    {
+      id: 11,
+      owner_user_id: 1,
+      owner_display_name: "Owner",
+      percentage_bps: 5_000,
+      effective_from: "2025-06-01",
+      effective_to: null,
+    },
+  ],
+};
+
+export const accountHistory: ResponseOf<"/accounts/{account_id}/history", "get"> = {
+  account_id: 3,
+  points: [
+    { as_of: "2026-06-01", balance_cents: 44_000_000, source: "manual", is_stale: false },
+    { as_of: "2026-07-01", balance_cents: 44_500_000, source: "manual", is_stale: false },
+    { as_of: "2026-08-01", balance_cents: 45_088_082, source: "manual", is_stale: false },
+  ],
+};
+
+export function mockAccountDetail(
+  overrides: Partial<ResponseOf<"/accounts/{account_id}", "get">> = {},
+  historyOverrides: Partial<ResponseOf<"/accounts/{account_id}/history", "get">> = {},
+) {
+  server.use(
+    http.get("/api/accounts/:id/history", () =>
+      HttpResponse.json({ ...accountHistory, ...historyOverrides }),
+    ),
+    http.get("/api/accounts/:id", () => HttpResponse.json({ ...accountDetail, ...overrides })),
+  );
+}
