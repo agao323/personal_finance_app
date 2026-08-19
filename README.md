@@ -206,8 +206,10 @@ curl -fsS https://allofmymoney.com/api/ready
 Migrations run as a Fly `release_command`, before the new version takes traffic, so a
 broken migration aborts the release rather than half-migrating under live requests.
 
-Cloudflare Access setup and the checks that prove the origin is locked are in
-[`docs/runbooks/access-verification.md`](docs/runbooks/access-verification.md).
+Everything that needs an account or a dashboard — Access, backups, the demo, and the
+one-off history import — is sequenced in
+[`docs/runbooks/going-live.md`](docs/runbooks/going-live.md), with the checks that prove
+each one worked.
 
 ## Repository
 
