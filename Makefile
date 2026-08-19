@@ -92,12 +92,18 @@ test-api: .env
 test-web:
 	@cd web && pnpm test
 
-e2e: .env ## Run the Playwright smoke tests against the compose stack
+e2e: .env ## Run the Playwright smoke tests against the deploy-shaped stack
+	@# PROD_COMPOSE, not the dev override: end-to-end tests should exercise the images
+	@# that actually deploy, which is the same call `smoke` makes. It is also more
+	@# reliable — no bind mount, so the container's node_modules cannot be confused
+	@# with the host's.
+	@#
 	@# Seeded first, and deliberately: these assert against real figures, and a
 	@# half-empty database fails them for a reason that is not a bug. The seed also
 	@# clears registered passkeys, which is what lets the run register a fresh one.
-	@docker compose up -d --wait postgres api web >/dev/null
-	@$(MAKE) seed >/dev/null
+	@$(PROD_COMPOSE) up -d --build --wait postgres api web >/dev/null
+	@$(PROD_COMPOSE) exec -T -e DATABASE_URL=postgresql+psycopg://pfa:pfa_local_dev@postgres:5432/pfa \
+		api python scripts/seed_synthetic.py >/dev/null
 	@cd web && pnpm exec playwright test
 
 # ── Lint ──────────────────────────────────────────────────────────────────────
