@@ -9,6 +9,10 @@ PROD_COMPOSE := docker compose -f docker-compose.yml
 # name the API container uses.
 LOCAL_DB_URL := postgresql+psycopg://pfa:pfa_local_dev@localhost:5432/pfa
 
+# The same database seen from inside a compose container, where the host is the
+# service name rather than localhost.
+COMPOSE_DB_URL := postgresql+psycopg://pfa:pfa_local_dev@postgres:5432/pfa
+
 # Stub targets fail loudly rather than silently doing nothing — a no-op target is
 # indistinguishable from a passing one, and that hides an unimplemented ticket.
 define not_yet
@@ -102,7 +106,13 @@ e2e: .env ## Run the Playwright smoke tests against the deploy-shaped stack
 	@# half-empty database fails them for a reason that is not a bug. The seed also
 	@# clears registered passkeys, which is what lets the run register a fresh one.
 	@$(PROD_COMPOSE) up -d --build --wait postgres api web >/dev/null
-	@$(PROD_COMPOSE) exec -T -e DATABASE_URL=postgresql+psycopg://pfa:pfa_local_dev@postgres:5432/pfa \
+	@# Explicitly, because the deploy-shaped stack deliberately has no migration step:
+	@# on Fly that is the release command, and compose has no equivalent. The dev
+	@# override runs it inside the API's command instead, which is why this was
+	@# invisible until e2e moved off the dev stack.
+	@$(PROD_COMPOSE) exec -T -e ALEMBIC_DATABASE_URL=$(COMPOSE_DB_URL) \
+		api alembic upgrade head >/dev/null
+	@$(PROD_COMPOSE) exec -T -e DATABASE_URL=$(COMPOSE_DB_URL) \
 		api python scripts/seed_synthetic.py >/dev/null
 	@cd web && pnpm exec playwright test
 
