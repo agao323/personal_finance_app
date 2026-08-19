@@ -630,3 +630,73 @@ export function mockCsvImport(overrides: Partial<typeof csvPreview> = {}) {
     ),
   );
 }
+
+export const rules: ResponseOf<"/rules", "get"> = [
+  {
+    id: 1,
+    pattern: "CORNER MARKET",
+    match_type: "contains",
+    category_id: 11,
+    category_name: "Groceries",
+    priority: 100,
+  },
+  {
+    id: 2,
+    pattern: "^AMZN",
+    match_type: "regex",
+    category_id: 21,
+    category_name: "Shopping",
+    priority: 200,
+  },
+];
+
+export function mockRules(rows: ResponseOf<"/rules", "get"> = rules) {
+  // A mutable copy, so a reorder or delete is visible on the next GET — against a
+  // fixed list those tests would pass with the handlers wired to nothing.
+  let current = [...rows];
+  server.use(
+    http.get("/api/rules", () => HttpResponse.json(current)),
+    http.post("/api/rules", async ({ request }) => {
+      const body = (await request.json()) as { pattern: string; category_id: number };
+      const created = {
+        id: 99,
+        pattern: body.pattern,
+        match_type: "contains" as const,
+        category_id: body.category_id,
+        category_name: "Groceries",
+        priority: 300,
+      };
+      current = [...current, created];
+      return HttpResponse.json(created, { status: 201 });
+    }),
+    http.patch("/api/rules/:id", async ({ params, request }) => {
+      const body = (await request.json()) as { priority?: number };
+      const id = Number(params.id);
+      current = current.map((rule) =>
+        rule.id === id && body.priority !== undefined ? { ...rule, priority: body.priority } : rule,
+      );
+      return HttpResponse.json(current.find((rule) => rule.id === id));
+    }),
+    http.delete("/api/rules/:id", ({ params }) => {
+      current = current.filter((rule) => rule.id !== Number(params.id));
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.post("/api/rules/apply", () =>
+      HttpResponse.json({ examined: 120, categorised: 8, manual_preserved: 3 }),
+    ),
+    http.post("/api/rules/preview", async ({ request }) => {
+      const body = (await request.json()) as { pattern: string };
+      if (body.pattern === "(a+)+b") {
+        return HttpResponse.json({ detail: "pattern backtracks exponentially" }, { status: 422 });
+      }
+      const matches = body.pattern.toLowerCase().includes("corner")
+        ? transactions.filter((row) => row.merchant?.toLowerCase().includes("corner"))
+        : [];
+      return HttpResponse.json({
+        match_count: matches.length,
+        already_manual: matches.filter((row) => row.category_source === "manual").length,
+        matches,
+      });
+    }),
+  );
+}

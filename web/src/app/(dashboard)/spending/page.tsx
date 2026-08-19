@@ -534,6 +534,7 @@ function TransactionsPanel({
         ) : (
           <TransactionTable
             rows={rows}
+            offerRule={selection.id === null}
             caption={`${selection.name} transactions`}
             emptyTitle="No transactions in this category"
             emptyDetail="The category has spending in this period but no rows matched — check the period bounds."

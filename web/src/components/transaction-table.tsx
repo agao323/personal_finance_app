@@ -18,6 +18,8 @@
  * mode flag that each caller has to understand.
  */
 
+import Link from "next/link";
+
 import type { ResponseOf } from "@/lib/api";
 import { CategoryPicker, type Category } from "@/components/category-picker";
 import { EmptyState } from "@/components/states";
@@ -65,6 +67,7 @@ export function TransactionTable({
   onToggleSelect,
   onToggleAll,
   pendingIds,
+  offerRule,
 }: {
   rows: TransactionRow[];
   caption: string;
@@ -79,6 +82,14 @@ export function TransactionTable({
   onToggleAll?: (checked: boolean) => void;
   /** Rows with a write in flight — dimmed and locked against a second edit. */
   pendingIds?: ReadonlySet<number>;
+  /**
+   * Offer "write a rule for this merchant" on uncategorised rows.
+   *
+   * The one-off fix is a category; the fix that lasts is a rule. Offering it exactly
+   * where the gap is visible is what keeps the rule set current, which is the only
+   * reason the spend figures stay trustworthy.
+   */
+  offerRule?: boolean;
 }) {
   const selectable = Boolean(selectedIds && onToggleSelect && onToggleAll);
   const editable = Boolean(categories && onRecategorise);
@@ -180,6 +191,14 @@ export function TransactionTable({
                   column case, where digits must line up down the page. */}
               <td className="py-2 pl-3 text-right font-medium whitespace-nowrap tabular-nums">
                 {formatCurrency(row.amount_cents)}
+                {offerRule && !row.category && row.merchant ? (
+                  <Link
+                    href={`/rules?pattern=${encodeURIComponent(row.merchant)}`}
+                    className="text-accent ml-2 text-xs font-normal underline underline-offset-4"
+                  >
+                    rule
+                  </Link>
+                ) : null}
               </td>
             </tr>
           ))}

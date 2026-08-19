@@ -341,6 +341,7 @@ export function TransactionsScreen() {
               onToggleSelect={toggleSelect}
               onToggleAll={toggleAll}
               pendingIds={pending}
+              offerRule
             />
 
             {total > PAGE_SIZE ? (
