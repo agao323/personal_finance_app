@@ -51,6 +51,11 @@ export async function proxy(request: NextRequest) {
   if (access) {
     const verified = await verifyAccessJwt(assertionFrom(request.headers), access);
     if (!verified.ok) {
+      // The reason goes to the log, never to the response. A misconfigured team
+      // domain rejects *everyone* — the keys cannot be fetched, so every assertion
+      // fails — and a bare 403 gives whoever is locked out nothing to go on. It also
+      // must not tell an attacker which part of the check they failed.
+      console.error(`[access] rejected: ${verified.reason} (issuer https://${access.teamDomain})`);
       return new NextResponse("Forbidden", { status: 403 });
     }
   }

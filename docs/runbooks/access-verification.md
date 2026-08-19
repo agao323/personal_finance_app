@@ -55,23 +55,42 @@ curl -sS --max-time 10 https://pfa-api.fly.dev/health
 
 This is the defense-in-depth check. It only means anything once `CF_ACCESS_AUD` is set.
 
+The image is Alpine with Node and no curl, so use Node:
+
 ```bash
-fly ssh console -a pfa-web -C "curl -sS -o /dev/null -w '%{http_code}\n' http://localhost:3000/"
+fly ssh console -a pfa-web -C "node -e \"fetch('http://localhost:3000/',{redirect:'manual'}).then(r=>console.log(r.status))\""
 ```
 
 **Expected:** `403`. The request came from inside the machine, so it carries no
 `Cf-Access-Jwt-Assertion`, and the origin should refuse it.
 
-If it returns 200, the variables are not both set — check `fly secrets list -a pfa-web`.
+If it returns 200, the variables are not both set — check `fly secrets list -a pfa-web`
+for `CF_ACCESS_AUD` and `fly.web.toml` for `CF_ACCESS_TEAM_DOMAIN`.
+
+**If everything returns 403, including your browser**, the team domain is wrong. The
+origin cannot fetch Cloudflare's signing keys, so every assertion fails to verify and
+nobody gets in. `fly logs -a pfa-web` prints the reason and the issuer it tried. The
+team domain is the one Cloudflare assigned — it appears in every Access redirect URL —
+and it is not derived from your own domain.
 
 ## 5. Headers
 
-```bash
-curl -sSI https://allofmymoney.com/ | grep -iE 'strict-transport|x-robots|x-frame'
-```
+These come from the origin, so an unauthenticated request never sees them — it gets
+Cloudflare's 302 to the login page instead, and `grep` finds nothing. That is not a
+failure; it means step 2 passed.
+
+Check them from a browser that has signed in through Access: open the site, then
+DevTools → Network → the document request → Response Headers.
 
 **Expected:** `Strict-Transport-Security` with a two-year max-age, `X-Robots-Tag:
 noindex, nofollow`, `X-Frame-Options: DENY`.
+
+Or from inside the machine, which bypasses Access entirely — note this only works once
+the origin accepts the request, so run it after step 4 passes:
+
+```bash
+fly ssh console -a pfa-web -C "node -e \"fetch('http://localhost:3000/healthz').then(r=>console.log([...r.headers].filter(([k])=>/strict|robots|frame/i.test(k))))\""
+```
 
 ## 6. The demo is *not* covered by any of this
 
