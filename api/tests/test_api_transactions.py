@@ -267,3 +267,117 @@ def test_filter_by_category(
     ]
 
     assert [i["merchant"] for i in items] == ["FUEL"]
+
+
+# ── transfer pairing ──────────────────────────────────────────────────────────
+
+
+def test_marking_a_pair_gives_both_sides_the_same_group(
+    client: TestClient,
+    db_session: Session,
+    make_account: Callable[..., int],
+    make_transaction: Callable[..., int],
+) -> None:
+    checking = make_account("Checking")
+    brokerage = make_account("Brokerage", subtype="brokerage")
+    out_id = make_transaction(checking, dt.date(2026, 3, 1), "-2000.00", "Transfer out")
+    in_id = make_transaction(brokerage, dt.date(2026, 3, 1), "2000.00", "Transfer in")
+
+    body = client.post(
+        "/transactions/bulk-transfer", json={"transaction_ids": [out_id, in_id]}
+    ).json()
+
+    assert body["updated"] == 2
+    group = body["transfer_group_id"]
+    assert group
+    rows = client.get("/transactions").json()["items"]
+    assert {row["transfer_group_id"] for row in rows if row["id"] in {out_id, in_id}} == {group}
+
+
+def test_linking_one_side_alone_is_rejected(
+    client: TestClient,
+    make_account: Callable[..., int],
+    make_transaction: Callable[..., int],
+) -> None:
+    """A pair needs both sides.
+
+    A group of one pairs with nothing and changes no total, so it is indistinguishable
+    from a mistake — and silently accepting it would let the screen look like it did
+    something.
+    """
+    account_id = make_account()
+    transaction_id = make_transaction(account_id, dt.date(2026, 3, 1), "-2000.00")
+
+    response = client.post(
+        "/transactions/bulk-transfer", json={"transaction_ids": [transaction_id]}
+    )
+
+    assert response.status_code == 422
+
+
+def test_unlinking_accepts_one_side(
+    client: TestClient,
+    make_account: Callable[..., int],
+    make_transaction: Callable[..., int],
+) -> None:
+    """Breaking a bad pairing one side at a time is reasonable."""
+    checking = make_account("Checking")
+    brokerage = make_account("Brokerage", subtype="brokerage")
+    out_id = make_transaction(checking, dt.date(2026, 3, 1), "-2000.00")
+    in_id = make_transaction(brokerage, dt.date(2026, 3, 1), "2000.00")
+    client.post("/transactions/bulk-transfer", json={"transaction_ids": [out_id, in_id]})
+
+    body = client.post(
+        "/transactions/bulk-transfer",
+        json={"transaction_ids": [out_id], "linked": False},
+    ).json()
+
+    assert body == {"transfer_group_id": None, "updated": 1}
+    rows = {row["id"]: row for row in client.get("/transactions").json()["items"]}
+    assert rows[out_id]["transfer_group_id"] is None
+    # The other side keeps its group; unlinking one is not unlinking both.
+    assert rows[in_id]["transfer_group_id"] is not None
+
+
+def test_relinking_replaces_the_previous_group(
+    client: TestClient,
+    make_account: Callable[..., int],
+    make_transaction: Callable[..., int],
+) -> None:
+    checking = make_account("Checking")
+    brokerage = make_account("Brokerage", subtype="brokerage")
+    first = make_transaction(checking, dt.date(2026, 3, 1), "-2000.00")
+    second = make_transaction(brokerage, dt.date(2026, 3, 1), "2000.00")
+    original = client.post(
+        "/transactions/bulk-transfer", json={"transaction_ids": [first, second]}
+    ).json()["transfer_group_id"]
+
+    replacement = client.post(
+        "/transactions/bulk-transfer", json={"transaction_ids": [first, second]}
+    ).json()["transfer_group_id"]
+
+    assert replacement != original
+
+
+def test_pairing_does_not_touch_the_category(
+    client: TestClient,
+    make_account: Callable[..., int],
+    make_transaction: Callable[..., int],
+    category_ids: dict[str, int],
+) -> None:
+    """Linking records the pairing; the category is what excludes it from spend.
+
+    Conflating the two here would mean the screen quietly recategorised rows the
+    reader only meant to pair — see docs/ARCHITECTURE.md#transfers.
+    """
+    checking = make_account("Checking")
+    brokerage = make_account("Brokerage", subtype="brokerage")
+    out_id = make_transaction(
+        checking, dt.date(2026, 3, 1), "-2000.00", category_id=category_ids["Groceries"]
+    )
+    in_id = make_transaction(brokerage, dt.date(2026, 3, 1), "2000.00")
+
+    client.post("/transactions/bulk-transfer", json={"transaction_ids": [out_id, in_id]})
+
+    rows = {row["id"]: row for row in client.get("/transactions").json()["items"]}
+    assert rows[out_id]["category"]["name"] == "Groceries"

@@ -9,6 +9,7 @@ nothing a person decided.
 from __future__ import annotations
 
 import datetime as dt
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -23,6 +24,8 @@ from app.schemas.common import ErrorResponse, Page, to_cents
 from app.schemas.transaction import (
     BulkCategorise,
     BulkCategoriseResult,
+    BulkTransfer,
+    BulkTransferResult,
     CategoryRead,
     TransactionList,
     TransactionRead,
@@ -151,6 +154,39 @@ def update_transaction(
 
     account = session.get(Account, transaction.account_id)
     return _to_read(transaction, account.name if account else "")
+
+
+@router.post("/bulk-transfer", response_model=BulkTransferResult)
+def bulk_transfer(
+    session: DbSession, user: CurrentUser, payload: BulkTransfer
+) -> BulkTransferResult:
+    """Mark transactions as the two sides of one transfer, or unlink them.
+
+    A pair needs both sides, so linking fewer than two is rejected rather than
+    quietly creating a group of one — a lone "transfer" that pairs with nothing is
+    indistinguishable from a mistake, and it changes no total either way.
+
+    Unlinking accepts a single id, because breaking a bad pairing one side at a time
+    is a reasonable thing to want.
+    """
+    if payload.linked and len(payload.transaction_ids) < 2:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="A transfer pair needs at least two transactions",
+        )
+
+    transactions = list(
+        session.execute(
+            select(Transaction).where(Transaction.id.in_(payload.transaction_ids))
+        ).scalars()
+    )
+
+    group_id = uuid.uuid4().hex if payload.linked else None
+    for transaction in transactions:
+        transaction.transfer_group_id = group_id
+
+    session.flush()
+    return BulkTransferResult(transfer_group_id=group_id, updated=len(transactions))
 
 
 @router.post("/bulk-categorise", response_model=BulkCategoriseResult)

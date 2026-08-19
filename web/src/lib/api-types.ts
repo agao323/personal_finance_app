@@ -206,6 +206,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/categories": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Categories
+     * @description Every category, parents before their own children.
+     *
+     *     Ordered by `(parent_id, name)` with parents first, so a client can build a grouped
+     *     picker by walking the list once rather than sorting a tree it has to rebuild.
+     */
+    get: operations["list_categories_categories_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/export": {
     parameters: {
       query?: never;
@@ -550,6 +573,33 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/transactions/bulk-transfer": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Bulk Transfer
+     * @description Mark transactions as the two sides of one transfer, or unlink them.
+     *
+     *     A pair needs both sides, so linking fewer than two is rejected rather than
+     *     quietly creating a group of one — a lone "transfer" that pairs with nothing is
+     *     indistinguishable from a mistake, and it changes no total either way.
+     *
+     *     Unlinking accepts a single id, because breaking a bad pairing one side at a time
+     *     is a reasonable thing to want.
+     */
+    post: operations["bulk_transfer_transactions_bulk_transfer_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/transactions/{transaction_id}": {
     parameters: {
       query?: never;
@@ -833,6 +883,32 @@ export interface components {
     };
     /** BulkCategoriseResult */
     BulkCategoriseResult: {
+      /** Updated */
+      updated: number;
+    };
+    /**
+     * BulkTransfer
+     * @description Link transactions as the two sides of one transfer, or unlink them.
+     *
+     *     `transfer_group_id` records the pairing only. What keeps a transfer out of the
+     *     spend figures is its category's `kind`, not this field — see
+     *     docs/ARCHITECTURE.md#transfers. Marking a pair here and leaving both sides
+     *     categorised as expenses would link them and change no total.
+     */
+    BulkTransfer: {
+      /**
+       * Linked
+       * @description False clears the group, leaving each transaction unpaired.
+       * @default true
+       */
+      linked: boolean;
+      /** Transaction Ids */
+      transaction_ids: number[];
+    };
+    /** BulkTransferResult */
+    BulkTransferResult: {
+      /** Transfer Group Id */
+      transfer_group_id?: string | null;
       /** Updated */
       updated: number;
     };
@@ -1932,6 +2008,35 @@ export interface operations {
       };
     };
   };
+  list_categories_categories_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CategoryRead"][];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
   get_export_export_get: {
     parameters: {
       query?: never;
@@ -2477,6 +2582,48 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["BulkCategoriseResult"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  bulk_transfer_transactions_bulk_transfer_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BulkTransfer"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BulkTransferResult"];
         };
       };
       /** @description Not Found */

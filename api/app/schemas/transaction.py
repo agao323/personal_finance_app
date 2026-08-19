@@ -53,3 +53,24 @@ class BulkCategorise(Schema):
 
 class BulkCategoriseResult(Schema):
     updated: int
+
+
+class BulkTransfer(Schema):
+    """Link transactions as the two sides of one transfer, or unlink them.
+
+    `transfer_group_id` records the pairing only. What keeps a transfer out of the
+    spend figures is its category's `kind`, not this field — see
+    docs/ARCHITECTURE.md#transfers. Marking a pair here and leaving both sides
+    categorised as expenses would link them and change no total.
+    """
+
+    transaction_ids: list[int] = Field(min_length=1)
+    linked: bool = Field(
+        default=True,
+        description="False clears the group, leaving each transaction unpaired.",
+    )
+
+
+class BulkTransferResult(Schema):
+    transfer_group_id: str | None = None
+    updated: int

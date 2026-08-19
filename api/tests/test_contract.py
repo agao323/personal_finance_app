@@ -50,6 +50,8 @@ LIVE_PATHS = {
     "/transactions",  # 023
     "/transactions/{transaction_id}",  # 023
     "/transactions/bulk-categorise",  # 023
+    "/transactions/bulk-transfer",  # 030
+    "/categories",  # 030
 }
 
 

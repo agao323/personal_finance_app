@@ -22,6 +22,7 @@ from app.observability import configure_sentry
 from app.routers import (
     accounts,
     auth,
+    categories,
     export,
     import_csv,
     net_worth,
@@ -59,6 +60,7 @@ for _router in (
     runway.router,
     export.router,
     accounts.router,
+    categories.router,
     import_csv.router,
     rules.router,
     transactions.router,

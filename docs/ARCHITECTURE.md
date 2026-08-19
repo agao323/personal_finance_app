@@ -305,9 +305,11 @@ inventory is worse than none, because it is trusted.
 | GET POST | `/rules` | 022 |
 | PATCH DELETE | `/rules/{rule_id}` | 022 |
 | POST | `/rules/apply` | 022 |
+| GET | `/categories` | 030 |
 | GET | `/transactions` | 023 |
 | PATCH | `/transactions/{transaction_id}` | 023 |
 | POST | `/transactions/bulk-categorise` | 023 |
+| POST | `/transactions/bulk-transfer` | 030 |
 | POST | `/auth/register/options` | 034 |
 | POST | `/auth/register/verify` | 034 |
 | POST | `/auth/login/options` | 034 |
