@@ -1,6 +1,12 @@
 .next/
 node_modules/
 coverage/
+# Playwright's run output and pnpm's local store. Gitignored, and prettier walks
+# them anyway unless told not to.
+test-results/
+playwright-report/
+.pnpm-store/
+e2e/.auth/
 pnpm-lock.yaml
 next-env.d.ts
 
