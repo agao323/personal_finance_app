@@ -28,6 +28,15 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
+# Operational scripts, needed *in the image* rather than only in a checkout: the demo
+# deployment is seeded with `fly ssh console -a pfa-demo-api -C "python
+# scripts/seed_synthetic.py"`, and CI seeds the same way before the end-to-end run.
+# Both failed with "No such file or directory" until this line existed.
+#
+# Shipping the seed script to production is safe because it refuses to run against a
+# database whose data_marker says the data is real — that guard exists for exactly
+# this, and is tested.
+COPY scripts ./scripts
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
