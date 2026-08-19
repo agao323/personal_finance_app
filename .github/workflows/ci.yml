@@ -124,6 +124,10 @@ jobs:
     # service container, and because a browser download should not slow the lint and
     # unit run that most pushes actually care about.
     needs: build
+    # Without this the job inherits GitHub's six-hour default. `playwright install
+    # --with-deps` hung for two and a half hours on an apt lock before anyone noticed,
+    # and a hung job looks exactly like a slow one until you go looking.
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -146,9 +150,15 @@ jobs:
         working-directory: web
         run: pnpm install --frozen-lockfile
 
+      # No `--with-deps`. That runs apt-get, which blocks on the lock the runner's
+      # own unattended-upgrades holds at boot — indefinitely, with no output. The
+      # ubuntu-latest image already carries Chromium's shared libraries, and if that
+      # ever stops being true this fails in seconds with a missing-library error
+      # rather than hanging.
       - name: Install the browser
+        timeout-minutes: 5
         working-directory: web
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install chromium
 
       # Seeded deliberately: these assert against real figures, and a half-empty
       # database fails them for a reason that is not a bug. The seed also clears
