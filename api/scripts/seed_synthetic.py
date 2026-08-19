@@ -166,6 +166,19 @@ def _build_accounts(
             AccountSubtype.RETIREMENT_401K,
             None,
         ),
+        # The home the mortgage is against. Shared with the partner on the same date
+        # the mortgage is, because a household member who takes on 40% of a mortgage
+        # and none of the house is not a household — it made the Household view read
+        # lower than Mine, which looks like a bug in the ownership maths.
+        (
+            "Primary residence",
+            "Meridian Bank",
+            AccountKind.ILLIQUID_ASSET,
+            AccountSubtype.REAL_ESTATE,
+            None,
+        ),
+        # A different case on purpose: half of this belongs to a co-investor outside
+        # the household, so even the Household view shows less than its value.
         (
             "Rental property",
             "Meridian Bank",
@@ -232,9 +245,14 @@ def _build_stakes(
                     effective_from=opened,
                 )
             )
-        elif name in {"Checking", "Mortgage"}:
+        elif name in {"Checking", "Mortgage", "Primary residence"}:
             # A mid-history stake change: sole ownership until the split date, then
             # shared. Every net worth point before that date must still read 100%.
+            #
+            # The residence moves with the mortgage deliberately. Sharing a debt
+            # without sharing the asset it is secured against makes the partner's net
+            # position negative, and Household net worth then reads *below* Mine —
+            # arithmetically correct and completely misleading.
             change = starts[len(starts) // 2]
             session.add(
                 OwnershipStake(
@@ -285,6 +303,7 @@ def _build_snapshots(
         "Savings": (18_000, 750, 300),
         "Brokerage": (52_000, 1_400, 3_200),
         "401k": (96_000, 1_900, 4_100),
+        "Primary residence": (505_000, 1_150, 2_400),
         "Rental property": (410_000, 900, 2_000),
         "Old car": (14_500, -240, 120),
         "Credit card": (2_400, 15, 700),

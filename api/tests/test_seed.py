@@ -15,6 +15,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.services.net_worth import earliest_snapshot, net_worth
 from scripts.seed_synthetic import (
     DEFAULT_SEED,
     RealDataError,
@@ -250,3 +251,87 @@ def test_month_starts_ends_with_the_current_month(db_session: Session) -> None:
     starts = month_starts(3, TODAY)
 
     assert starts == [dt.date(2026, 6, 1), dt.date(2026, 7, 1), dt.date(2026, 8, 1)]
+
+
+def test_household_net_worth_is_never_below_mine(db_session: Session) -> None:
+    """The invariant that makes the Mine / Household toggle legible.
+
+    Household sums every stake and Mine is a subset of them, so household can never be
+    the smaller number — but it *was*, by $118k, because the seeded partner took 40% of
+    a mortgage and no share of the house it was against. The maths was right and the
+    picture was nonsense, which is the worst combination to ship on a demo.
+
+    Checked across the whole series rather than at today: a stake change part way
+    through history is exactly the kind of thing that holds now and not in March.
+    """
+    seed(db_session, seed_value=DEFAULT_SEED, today=TODAY)
+
+    owner_id = db_session.execute(text("SELECT id FROM users ORDER BY id LIMIT 1")).scalar_one()
+    earliest = earliest_snapshot(db_session)
+    assert earliest is not None
+
+    for as_of in month_starts(30, TODAY):
+        mine = net_worth(db_session, as_of=as_of, viewer_id=owner_id)
+        household = net_worth(db_session, as_of=as_of, viewer_id=None)
+        assert household.net_worth >= mine.net_worth, (
+            f"household is below mine on {as_of}: {household.net_worth} < {mine.net_worth}"
+        )
+
+
+def test_the_partner_is_better_off_than_nothing_once_they_join(db_session: Session) -> None:
+    """After the stake change, the household total is strictly larger.
+
+    Equal before it is correct — the partner holds nothing yet. Strictly greater
+    afterwards is what says they hold more asset than debt, which is the coherence
+    the previous seed lacked.
+    """
+    seed(db_session, seed_value=DEFAULT_SEED, today=TODAY)
+
+    owner_id = db_session.execute(text("SELECT id FROM users ORDER BY id LIMIT 1")).scalar_one()
+    change = db_session.execute(
+        text("SELECT min(effective_from) FROM ownership_stakes WHERE owner_user_id != :o"),
+        {"o": owner_id},
+    ).scalar_one()
+
+    after = change + dt.timedelta(days=60)
+    mine = net_worth(db_session, as_of=after, viewer_id=owner_id)
+    household = net_worth(db_session, as_of=after, viewer_id=None)
+
+    assert household.net_worth > mine.net_worth
+
+
+def test_the_part_owned_rental_survives_the_fix(db_session: Session) -> None:
+    """Half of it still belongs outside the household — a distinct case worth keeping.
+
+    It is the only account where even the Household view shows less than the asset is
+    worth, which is what exercises the difference between "my share" and "all shares".
+    """
+    seed(db_session, seed_value=DEFAULT_SEED, today=TODAY)
+
+    total = db_session.execute(
+        text(
+            "SELECT sum(s.percentage) FROM ownership_stakes s "
+            "JOIN accounts a ON a.id = s.account_id "
+            "WHERE a.name = 'Rental property' AND s.effective_to IS NULL"
+        )
+    ).scalar_one()
+
+    assert total == Decimal("50.00")
+
+
+def test_the_mortgage_and_the_home_it_is_against_are_shared_together(
+    db_session: Session,
+) -> None:
+    """Sharing a debt without the asset securing it is what broke the picture."""
+    seed(db_session, seed_value=DEFAULT_SEED, today=TODAY)
+
+    shared = db_session.execute(
+        text(
+            "SELECT DISTINCT a.name FROM ownership_stakes s "
+            "JOIN accounts a ON a.id = s.account_id "
+            "JOIN users u ON u.id = s.owner_user_id "
+            "WHERE u.display_name = 'Partner'"
+        )
+    ).scalars()
+
+    assert {"Mortgage", "Primary residence"} <= set(shared)
