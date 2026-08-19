@@ -1,5 +1,5 @@
 # 036 — Cloudflare Access and origin lock
-Status: in-progress
+Status: done
 Wave: 3   Lane: —
 Blocked by: 035, 008
 Read first: docs/SECURITY.md#auth, docs/ARCHITECTURE.md#request-path
@@ -9,13 +9,13 @@ The real app reachable only through Cloudflare Access, at `<domain>`, with the A
 verifiably private.
 
 ## Acceptance criteria
-- [ ] Cloudflare Access application on `<domain>` with a policy allowing exactly the household identities
-- [ ] **The API remains private** — no public Fly address, verified by attempting to reach it from outside
+- [x] Cloudflare Access application on `<domain>` with a policy allowing exactly the household identities
+- [x] **The API remains private** — no public Fly address, verified by attempting to reach it from outside
 - [x] Next.js validates the `Cf-Access-Jwt-Assertion` JWT and rejects requests that did not pass Access
 - [x] HSTS and `noindex` on the real deployment
-- [ ] Verified: an unauthenticated request from a clean browser cannot reach the app
+- [x] Verified: an unauthenticated request from a clean browser cannot reach the app
 - [x] `docs/adr/0002-auth.md` written while deciding
-- [ ] Tests: CI job asserting the API app declares no public services; a documented manual verification checklist with the results recorded in the ADR
+- [x] Tests: CI job asserting the API app declares no public services; a documented manual verification checklist with the results recorded in the ADR
 
 ## Files
 - `fly.web.toml`
@@ -65,3 +65,25 @@ there is no Access application, which is why 024 stays blocked.
 
 `CF_ACCESS_TEAM_DOMAIN` in `fly.web.toml` assumes your team domain is
 `allofmymoney.cloudflareaccess.com` — correct it if Cloudflare gave you a different one.
+
+## Done — 2026-08-19
+
+All five verification steps pass and the results are recorded in
+[ADR 0002](../docs/adr/0002-auth.md).
+
+The first attempt locked everyone out, including the owner. `fly.web.toml` shipped with
+a `CF_ACCESS_TEAM_DOMAIN` guessed from the application's domain name; Cloudflare assigns
+team domains and the real one was unrelated. The origin could not fetch the signing keys
+from the wrong host, so every assertion failed and the check refused all traffic — doing
+exactly its job against the wrong issuer.
+
+The response stays a bare 403, but the reason and the attempted issuer are now logged.
+A misconfiguration that locks out the owner and explains nothing is its own outage.
+
+Two steps of `docs/runbooks/access-verification.md` were also wrong and are fixed: step
+4 used `curl`, which is not in the Alpine image, and step 5 greps headers from an
+unauthenticated request that never reaches the origin — empty output there means step 2
+passed.
+
+**024 is now unblocked on this side.** It still waits on 017: real data needs a proven
+restore behind it as well as a lock in front.
