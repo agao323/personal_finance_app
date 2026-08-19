@@ -40,7 +40,16 @@ class ImportPreview(Schema):
     """
 
     account_id: int
-    detected_mapping: ColumnMapping
+    detected_mapping: ColumnMapping = Field(
+        description="The mapping this dry run actually used, whatever its origin."
+    )
+    mapping_source: str = Field(
+        default="detected",
+        description=(
+            "supplied | saved | detected. Lets the wizard say a mapping was remembered "
+            "rather than presenting a guess and a memory as the same thing."
+        ),
+    )
     rows: list[PreviewRow]
     will_create: int
     will_update: int

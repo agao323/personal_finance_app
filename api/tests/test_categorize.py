@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Callable
+from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
@@ -324,3 +325,107 @@ def test_an_escaped_quantifier_is_not_a_quantifier() -> None:
 def test_a_character_class_containing_a_plus_is_literal() -> None:
     """Inside a class, `+` is a literal character rather than a quantifier."""
     assert not has_nested_quantifier(r"([a+])+")
+
+
+# ── the match preview ─────────────────────────────────────────────────────────
+
+
+def test_preview_reports_what_a_pattern_would_hit(
+    client: TestClient,
+    make_account: Callable[..., int],
+    make_transaction: Callable[..., int],
+) -> None:
+    account_id = make_account()
+    make_transaction(account_id, dt.date(2026, 3, 1), "-40.00", "CORNER MARKET")
+    make_transaction(account_id, dt.date(2026, 3, 2), "-12.00", "Corner Market #2")
+    make_transaction(account_id, dt.date(2026, 3, 3), "-90.00", "Petrol Station")
+
+    body = client.post("/rules/preview", json={"pattern": "corner market"}).json()
+
+    assert body["match_count"] == 2
+    assert {row["merchant"] for row in body["matches"]} == {"CORNER MARKET", "Corner Market #2"}
+
+
+def test_preview_matches_the_description_when_the_merchant_is_empty(
+    client: TestClient,
+    db_session: Session,
+    make_account: Callable[..., int],
+) -> None:
+    """A `LIKE` on the merchant column would agree with the engine until it didn't.
+
+    `subject_of` falls back to the description when the merchant column is empty, which
+    is how plenty of institutions export. A preview that queried the merchant column
+    alone would report zero matches for a rule that goes on to match everything — a
+    safety net that fails silently in exactly the case you needed it.
+    """
+    account_id = make_account()
+    db_session.execute(
+        text(
+            "INSERT INTO transactions (account_id, posted_at, amount, merchant, description) "
+            "VALUES (:a, :d, :amt, NULL, :desc)"
+        ),
+        {
+            "a": account_id,
+            "d": dt.date(2026, 3, 1),
+            "amt": Decimal("-40.00"),
+            "desc": "POS PURCHASE CORNER MARKET",
+        },
+    )
+
+    body = client.post("/rules/preview", json={"pattern": "corner market"}).json()
+
+    assert body["match_count"] == 1
+
+
+def test_preview_counts_matches_it_would_not_change(
+    client: TestClient,
+    make_account: Callable[..., int],
+    make_transaction: Callable[..., int],
+    category_ids: dict[str, int],
+) -> None:
+    """A count that ignored manual rows would promise a run it will not deliver."""
+    account_id = make_account()
+    manual_id = make_transaction(account_id, dt.date(2026, 3, 1), "-40.00", "CORNER MARKET")
+    make_transaction(account_id, dt.date(2026, 3, 2), "-12.00", "CORNER MARKET")
+    client.patch(f"/transactions/{manual_id}", json={"category_id": category_ids["Groceries"]})
+
+    body = client.post("/rules/preview", json={"pattern": "corner"}).json()
+
+    assert body["match_count"] == 2
+    assert body["already_manual"] == 1
+
+
+def test_preview_caps_the_rows_it_returns_but_not_the_count(
+    client: TestClient,
+    make_account: Callable[..., int],
+    make_transaction: Callable[..., int],
+) -> None:
+    account_id = make_account()
+    for day in range(1, 6):
+        make_transaction(account_id, dt.date(2026, 3, day), "-10.00", "CORNER MARKET")
+
+    body = client.post("/rules/preview", json={"pattern": "corner", "limit": 2}).json()
+
+    assert body["match_count"] == 5
+    assert len(body["matches"]) == 2
+
+
+def test_preview_rejects_a_catastrophic_pattern(client: TestClient) -> None:
+    """Same validation as the write path — before it matters, not after."""
+    response = client.post("/rules/preview", json={"pattern": "(a+)+b", "match_type": "regex"})
+
+    assert response.status_code == 422
+
+
+def test_preview_writes_nothing(
+    client: TestClient,
+    make_account: Callable[..., int],
+    make_transaction: Callable[..., int],
+) -> None:
+    account_id = make_account()
+    transaction_id = make_transaction(account_id, dt.date(2026, 3, 1), "-40.00", "CORNER MARKET")
+
+    client.post("/rules/preview", json={"pattern": "corner"})
+
+    rows = {row["id"]: row for row in client.get("/transactions").json()["items"]}
+    assert rows[transaction_id]["category"] is None

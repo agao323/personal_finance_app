@@ -14,12 +14,14 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.deps import CurrentUser, DbSession
 from app.models.account import Account
 from app.schemas.common import ErrorResponse, to_cents
 from app.schemas.import_csv import (
+    ColumnMapping,
     ImportCommitRequest,
     ImportPreview,
     ImportResult,
@@ -43,10 +45,11 @@ def _require_account(session: DbSession, account_id: int) -> int:
     return int(exists)
 
 
-def _to_preview(plan: ImportPlan) -> ImportPreview:
+def _to_preview(plan: ImportPlan, mapping_source: str) -> ImportPreview:
     return ImportPreview(
         account_id=plan.account_id,
         detected_mapping=plan.mapping,
+        mapping_source=mapping_source,
         rows=[
             PreviewRow(
                 row_number=row.row_number,
@@ -73,11 +76,33 @@ async def preview_csv(
     user: CurrentUser,
     account_id: Annotated[int, Form()],
     file: Annotated[UploadFile, File()],
+    mapping: Annotated[str | None, Form()] = None,
 ) -> ImportPreview:
-    """Dry run. Writes nothing — the safety net for importing real exports."""
+    """Dry run. Writes nothing — the safety net for importing real exports.
+
+    `mapping` is an optional JSON `ColumnMapping`. Without it the account's saved
+    mapping is used, falling back to detection from the header row — so the first look
+    at a file needs no configuration. With it, a reader who spotted a wrong column or
+    an inverted sign can see the corrected result before committing to it, which is
+    the difference between a preview and a promise.
+
+    It arrives as a JSON string because the rest of the request is multipart: a file
+    upload cannot also carry a JSON body.
+    """
     _require_account(session, account_id)
+
+    supplied: ColumnMapping | None = None
+    if mapping:
+        try:
+            supplied = ColumnMapping.model_validate_json(mapping)
+        except ValidationError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"mapping is not a valid column mapping: {error.error_count()} problems",
+            ) from error
+
     try:
-        plan = csv_import.preview_import(session, account_id, await file.read())
+        plan, source = csv_import.preview_import(session, account_id, await file.read(), supplied)
     except CsvFormatError as exc:
         # A file with no header, no date column, or the wrong encoding has no rows to
         # show and no mapping to display, so there is no useful dry run to return.
@@ -87,7 +112,7 @@ async def preview_csv(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc
 
-    return _to_preview(plan)
+    return _to_preview(plan, source)
 
 
 @router.post("/commit", response_model=ImportResult)

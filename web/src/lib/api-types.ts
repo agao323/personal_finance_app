@@ -309,6 +309,15 @@ export interface paths {
     /**
      * Preview Csv
      * @description Dry run. Writes nothing — the safety net for importing real exports.
+     *
+     *     `mapping` is an optional JSON `ColumnMapping`. Without it the account's saved
+     *     mapping is used, falling back to detection from the header row — so the first look
+     *     at a file needs no configuration. With it, a reader who spotted a wrong column or
+     *     an inverted sign can see the corrected result before committing to it, which is
+     *     the difference between a preview and a promise.
+     *
+     *     It arrives as a JSON string because the rest of the request is multipart: a file
+     *     upload cannot also carry a JSON body.
      */
     post: operations["preview_csv_import_csv_preview_post"];
     delete?: never;
@@ -434,6 +443,34 @@ export interface paths {
      * @description Safe to re-run over all history. Never overwrites a manual category.
      */
     post: operations["apply_rules_rules_apply_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/rules/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Preview Rule
+     * @description Which existing transactions a pattern would match, before it is saved.
+     *
+     *     Runs the engine's own matcher over the same subject text `apply` uses, rather than
+     *     approximating it with a database `LIKE`. An approximation would agree with the
+     *     engine right up until the pattern got subtle enough to actually need checking,
+     *     which is the only time anyone looks.
+     *
+     *     Writes nothing, and saves nothing: this is the step between typing a regex and
+     *     finding out it re-categorised two years of history.
+     */
+    post: operations["preview_rule_rules_preview_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -873,6 +910,8 @@ export interface components {
       account_id: number;
       /** File */
       file: string;
+      /** Mapping */
+      mapping?: string | null;
     };
     /** BulkCategorise */
     BulkCategorise: {
@@ -1086,9 +1125,16 @@ export interface components {
     ImportPreview: {
       /** Account Id */
       account_id: number;
+      /** @description The mapping this dry run actually used, whatever its origin. */
       detected_mapping: components["schemas"]["ColumnMapping"];
       /** Errors */
       errors?: string[];
+      /**
+       * Mapping Source
+       * @description supplied | saved | detected. Lets the wizard say a mapping was remembered rather than presenting a guess and a memory as the same thing.
+       * @default detected
+       */
+      mapping_source: string;
       /** Rows */
       rows: components["schemas"]["PreviewRow"][];
       /** Will Create */
@@ -1299,6 +1345,41 @@ export interface components {
       pattern: string;
       /** Priority */
       priority?: number | null;
+    };
+    /**
+     * RulePreviewRequest
+     * @description A pattern to try before saving it.
+     */
+    RulePreviewRequest: {
+      /**
+       * Limit
+       * @default 20
+       */
+      limit: number;
+      match_type?: components["schemas"]["MatchType"] | null;
+      /** Pattern */
+      pattern: string;
+    };
+    /**
+     * RulePreviewResult
+     * @description What a pattern would hit, run through the engine's own matcher.
+     *
+     *     Computing this with a second implementation — a `LIKE` query, say — would produce a
+     *     preview that agrees with the engine until it doesn't, which is worse than no
+     *     preview: it is a safety net that fails silently in exactly the cases a regex is
+     *     subtle enough to need one.
+     *
+     *     `already_manual` counts matches the engine would leave alone because a human
+     *     already categorised them. It is what stops the count reading as a promise the run
+     *     will not keep.
+     */
+    RulePreviewResult: {
+      /** Already Manual */
+      already_manual: number;
+      /** Match Count */
+      match_count: number;
+      /** Matches */
+      matches: components["schemas"]["TransactionRead"][];
     };
     /** RuleRead */
     RuleRead: {
@@ -2347,6 +2428,48 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["RuleApplyResult"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  preview_rule_rules_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RulePreviewRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RulePreviewResult"];
         };
       };
       /** @description Not Found */

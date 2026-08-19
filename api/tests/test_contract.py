@@ -45,6 +45,7 @@ LIVE_PATHS = {
     "/rules",  # 022
     "/rules/{rule_id}",  # 022
     "/rules/apply",  # 022
+    "/rules/preview",  # 033
     "/import/csv/preview",  # 020
     "/import/csv/commit",  # 021
     "/transactions",  # 023

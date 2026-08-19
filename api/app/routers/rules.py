@@ -19,20 +19,50 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.deps import CurrentUser, DbSession
-from app.models.enums import MatchType
-from app.models.transaction import CategorizationRule, Category
-from app.schemas.common import ErrorResponse
+from app.models.account import Account
+from app.models.enums import CategorySource, MatchType
+from app.models.transaction import CategorizationRule, Category, Transaction
+from app.schemas.common import ErrorResponse, to_cents
 from app.schemas.rule import (
     RuleApplyRequest,
     RuleApplyResult,
     RuleCreate,
+    RulePreviewRequest,
+    RulePreviewResult,
     RuleRead,
     RuleUpdate,
 )
+from app.schemas.transaction import CategoryRead, TransactionRead
 from app.services import categorize
+
+
+def _transaction_read(transaction: Transaction, account_name: str) -> TransactionRead:
+    """The same shape `/transactions` returns, so the preview table is the same table."""
+    return TransactionRead(
+        id=transaction.id,
+        account_id=transaction.account_id,
+        account_name=account_name,
+        posted_at=transaction.posted_at,
+        amount_cents=to_cents(transaction.amount),
+        merchant=transaction.merchant,
+        description=transaction.description,
+        category=(
+            None
+            if transaction.category is None
+            else CategoryRead(
+                id=transaction.category.id,
+                name=transaction.category.name,
+                parent_id=transaction.category.parent_id,
+                kind=transaction.category.kind.value,
+            )
+        ),
+        category_source=transaction.category_source,
+        transfer_group_id=transaction.transfer_group_id,
+    )
+
 
 router = APIRouter(
     prefix="/rules",
@@ -167,6 +197,56 @@ def delete_rule(session: DbSession, user: CurrentUser, rule_id: int) -> Response
     session.flush()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/preview", response_model=RulePreviewResult)
+def preview_rule(
+    session: DbSession, user: CurrentUser, payload: RulePreviewRequest
+) -> RulePreviewResult:
+    """Which existing transactions a pattern would match, before it is saved.
+
+    Runs the engine's own matcher over the same subject text `apply` uses, rather than
+    approximating it with a database `LIKE`. An approximation would agree with the
+    engine right up until the pattern got subtle enough to actually need checking,
+    which is the only time anyone looks.
+
+    Writes nothing, and saves nothing: this is the step between typing a regex and
+    finding out it re-categorised two years of history.
+    """
+    match_type = payload.match_type or categorize.DEFAULT_MATCH_TYPE
+    _validated(payload.pattern, match_type)
+
+    candidate = CategorizationRule(
+        pattern=payload.pattern,
+        match_type=match_type,
+        category_id=0,
+        priority=categorize.DEFAULT_PRIORITY,
+    )
+    compiled = categorize.compile_rules([candidate])
+
+    rows = session.execute(
+        select(Transaction, Account.name)
+        .join(Account, Account.id == Transaction.account_id)
+        .options(selectinload(Transaction.category))
+        .order_by(Transaction.posted_at.desc(), Transaction.id.desc())
+    ).all()
+
+    matches: list[TransactionRead] = []
+    match_count = 0
+    already_manual = 0
+
+    for transaction, account_name in rows:
+        if categorize.first_match(compiled, categorize.subject_of(transaction)) is None:
+            continue
+        match_count += 1
+        if transaction.category_source is CategorySource.MANUAL:
+            already_manual += 1
+        if len(matches) < payload.limit:
+            matches.append(_transaction_read(transaction, account_name))
+
+    return RulePreviewResult(
+        match_count=match_count, already_manual=already_manual, matches=matches
+    )
 
 
 @router.post("/apply", response_model=RuleApplyResult)

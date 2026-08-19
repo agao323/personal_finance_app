@@ -659,23 +659,49 @@ def plan_import(
     return ImportPlan(account_id=account_id, mapping=mapping, rows=decided, errors=file_errors)
 
 
-def preview_import(session: Session, account_id: int, raw: bytes) -> ImportPlan:
-    """The dry run behind ``POST /import/csv/preview``. Writes nothing.
+#: Where the mapping a preview ran under came from. Surfaced so the wizard can say
+#: "we remembered this from last time" rather than presenting a guess and a memory
+#: as the same thing.
+SUPPLIED = "supplied"
+SAVED = "saved"
+DETECTED = "detected"
 
-    The mapping comes from whatever was saved against the account, falling back to
-    detection from the header row. Preview's route signature carries no mapping, which
-    is deliberate: the first look at a file should need no configuration, and the
-    second one should need none either because the first commit saved it.
+
+def resolve_mapping(
+    session: Session,
+    account_id: int,
+    content: str,
+    supplied: ColumnMapping | None = None,
+) -> tuple[ColumnMapping, str]:
+    """The mapping to plan under, and where it came from.
+
+    Precedence is supplied, then saved, then detected. The first look at a file should
+    need no configuration and the second should need none either, because the first
+    commit saved it — but a reader who can see the mapping has to be able to correct
+    it, and a correction that could not be previewed would have to be taken on trust.
     """
-    content = decode_csv(raw)
+    if supplied is not None:
+        return supplied, SUPPLIED
+
     saved = load_saved_mapping(session, account_id)
     if saved is not None:
-        mapping = saved
-    else:
-        headers, _ = read_csv(content)
-        mapping = detect_mapping(headers)
+        return saved, SAVED
 
-    return plan_import(session, account_id, content, mapping)
+    headers, _ = read_csv(content)
+    return detect_mapping(headers), DETECTED
+
+
+def preview_import(
+    session: Session,
+    account_id: int,
+    raw: bytes,
+    mapping: ColumnMapping | None = None,
+) -> tuple[ImportPlan, str]:
+    """The dry run behind ``POST /import/csv/preview``. Writes nothing."""
+    content = decode_csv(raw)
+    resolved, source = resolve_mapping(session, account_id, content, mapping)
+
+    return plan_import(session, account_id, content, resolved), source
 
 
 def commit_import(
