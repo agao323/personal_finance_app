@@ -19,6 +19,8 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { KIND_LABELS, SUBTYPE_LABELS, isSplit, type Account } from "@/components/account-row";
+import { BalanceForm } from "@/components/forms/balance-form";
+import { StakeForm } from "@/components/forms/stake-form";
 import { Sparkline } from "@/components/charts/sparkline";
 import { EmptyState, ErrorState, Skeleton, StaleBadge } from "@/components/states";
 import { TransactionTable, type TransactionRow } from "@/components/transaction-table";
@@ -57,6 +59,11 @@ export default function AccountDetailPage({ params }: PageProps<"/accounts/[id]"
 /** Exported so tests render it without having to resolve a params promise. */
 export function AccountDetailView({ accountId }: { accountId: string }) {
   const [view, setView] = useViewScope();
+  // Bumped after any write, to refetch the account and its history rather than
+  // patching state — these figures are derived server-side and guessing at the new
+  // ones in the browser is how the two drift.
+  const [revision, setRevision] = useState(0);
+  const [panel, setPanel] = useState<"balance" | "stake" | "close" | null>(null);
   const [detail, setDetail] = useState<{
     key: string;
     data: Detail | null;
@@ -84,7 +91,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
     return () => {
       live = false;
     };
-  }, [accountId, view]);
+  }, [accountId, view, revision]);
 
   // History and transactions carry no view scope, so they are fetched once per
   // account rather than again on every toggle.
@@ -111,7 +118,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
     return () => {
       live = false;
     };
-  }, [accountId]);
+  }, [accountId, revision]);
 
   const error = detail?.error ?? null;
   const account = detail?.data ?? null;
@@ -152,7 +159,22 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
         <ViewToggle view={view} onChange={setView} />
       </div>
 
-      <BalanceCard account={account} history={history} />
+      <BalanceCard
+        account={account}
+        history={history}
+        onRecordBalance={account.closed_at ? undefined : () => setPanel("balance")}
+      />
+
+      <ManageAccount
+        account={account}
+        panel={panel}
+        onPanel={setPanel}
+        onChanged={() => {
+          setPanel(null);
+          setRevision((current) => current + 1);
+        }}
+      />
+
       <StakeTable stakes={account.stakes} />
 
       <section className="border-hairline bg-surface-1 mt-4 rounded-xl border p-4">
@@ -182,7 +204,16 @@ function BackLink() {
   );
 }
 
-function BalanceCard({ account, history }: { account: Detail; history: History | null }) {
+function BalanceCard({
+  account,
+  history,
+  onRecordBalance,
+}: {
+  account: Detail;
+  history: History | null;
+  /** Omitted for a closed account, which has nothing left to record. */
+  onRecordBalance?: () => void;
+}) {
   const adjusted = account.adjusted_balance_cents;
   const points = history?.points ?? [];
   const first = points[0];
@@ -219,10 +250,15 @@ function BalanceCard({ account, history }: { account: Detail; history: History |
               <StaleBadge asOf={account.balance_as_of} />
               <p className="text-ink-secondary mt-1 text-sm">
                 This balance is being carried forward.{" "}
-                <Link href="/import" className="text-accent underline underline-offset-4">
-                  Record a newer one
-                </Link>
-                .
+                {onRecordBalance ? (
+                  <button
+                    type="button"
+                    onClick={onRecordBalance}
+                    className="text-accent underline underline-offset-4"
+                  >
+                    Record a newer one
+                  </button>
+                ) : null}
               </p>
             </div>
           ) : null}
@@ -312,5 +348,207 @@ function StakeTable({ stakes }: { stakes: Stake[] }) {
         </table>
       </div>
     </section>
+  );
+}
+
+/**
+ * The write actions: record a balance, change ownership, close the account.
+ *
+ * One panel open at a time, and each closed by default. These are the three ways to
+ * change what an account claims, and a page that presents all three expanded reads as
+ * a form rather than as a record.
+ */
+function ManageAccount({
+  account,
+  panel,
+  onPanel,
+  onChanged,
+}: {
+  account: Detail;
+  panel: "balance" | "stake" | "close" | null;
+  onPanel: (next: "balance" | "stake" | "close" | null) => void;
+  onChanged: () => void;
+}) {
+  // There is no /users endpoint, so the owners we can name are the ones already on
+  // this account. Ticket 034 brings a real session and this becomes "you".
+  const owners = [
+    ...new Map(
+      account.stakes.map((stake) => [
+        stake.owner_user_id,
+        { id: stake.owner_user_id, name: stake.owner_display_name },
+      ]),
+    ).values(),
+  ];
+  const [ownerId, setOwnerId] = useState(() => owners[0]?.id ?? null);
+
+  if (account.closed_at) {
+    return (
+      <section className="border-hairline mt-4 rounded-xl border border-dashed p-4">
+        <p className="text-ink-secondary text-sm">
+          This account was closed on {formatDate(account.closed_at)}. It keeps its history and
+          counts toward no total.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="border-hairline bg-surface-1 mt-4 rounded-xl border p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        {(
+          [
+            { key: "balance", label: "Record a balance" },
+            { key: "stake", label: "Change ownership" },
+            { key: "close", label: "Close account" },
+          ] as const
+        ).map((action) => (
+          <button
+            key={action.key}
+            type="button"
+            aria-expanded={panel === action.key}
+            onClick={() => onPanel(panel === action.key ? null : action.key)}
+            className="border-hairline hover:bg-surface-2 rounded-lg border px-3 py-1.5 text-sm transition-colors"
+          >
+            {action.label}
+          </button>
+        ))}
+      </div>
+
+      {panel === "balance" ? (
+        <div className="mt-4">
+          <BalanceForm
+            accountId={account.id}
+            accountName={account.name}
+            isLiability={account.kind === "liability"}
+            onRecorded={onChanged}
+          />
+        </div>
+      ) : null}
+
+      {panel === "stake" ? (
+        <div className="mt-4">
+          {owners.length > 1 ? (
+            <label className="text-ink-secondary mb-3 block text-sm">
+              Whose share
+              <select
+                value={ownerId ?? ""}
+                onChange={(event) => setOwnerId(Number(event.target.value))}
+                className="border-hairline bg-surface-1 text-ink ml-2 rounded-md border px-2 py-1"
+              >
+                {owners.map((owner) => (
+                  <option key={owner.id} value={owner.id}>
+                    {owner.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {ownerId === null ? (
+            <p className="text-ink-secondary text-sm">
+              This account has no stake to change. That should not happen — every account gets one
+              when it is created.
+            </p>
+          ) : (
+            <StakeForm
+              accountId={account.id}
+              stakes={account.stakes}
+              ownerUserId={ownerId}
+              ownerName={owners.find((owner) => owner.id === ownerId)?.name ?? "Owner"}
+              onSaved={onChanged}
+              onCancel={() => onPanel(null)}
+            />
+          )}
+        </div>
+      ) : null}
+
+      {panel === "close" ? (
+        <div className="mt-4">
+          <CloseAccount account={account} onClosed={onChanged} onCancel={() => onPanel(null)} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * Close an account.
+ *
+ * Not a delete, and the copy says so: the history stays and the balance stops
+ * counting. Those are different enough that a confirmation which only said "are you
+ * sure?" would leave the reader guessing which one they were agreeing to.
+ */
+function CloseAccount({
+  account,
+  onClosed,
+  onCancel,
+}: {
+  account: Detail;
+  onClosed: () => void;
+  onCancel: () => void;
+}) {
+  const [closedAt, setClosedAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [submitting, setSubmitting] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  async function close() {
+    setSubmitting(true);
+    setFailure(null);
+    try {
+      await apiFetch("/accounts/{account_id}", {
+        method: "patch",
+        params: { account_id: account.id },
+        body: { closed_at: closedAt },
+      });
+      onClosed();
+    } catch (cause: unknown) {
+      setFailure(cause instanceof Error ? cause.message : "The account was not closed.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="border-warning/40 rounded-lg border p-3">
+      <p className="text-sm font-medium">Close {account.name}?</p>
+      <ul className="text-ink-secondary mt-2 list-disc space-y-1 pl-5 text-sm">
+        <li>Its balance stops counting toward net worth from the closing date.</li>
+        <li>Its transactions and balance history are kept, and still appear in spending.</li>
+        <li>It moves to the closed section on the accounts list. Nothing is deleted.</li>
+      </ul>
+
+      <label className="text-ink-secondary mt-3 block text-sm">
+        Closed on
+        <input
+          type="date"
+          value={closedAt}
+          onChange={(event) => setClosedAt(event.target.value)}
+          className="border-hairline bg-surface-1 text-ink ml-2 rounded-md border px-2 py-1"
+        />
+      </label>
+
+      {failure ? (
+        <p role="alert" className="text-critical-text mt-2 text-sm">
+          {failure}
+        </p>
+      ) : null}
+
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={close}
+          disabled={submitting}
+          className="border-critical/40 text-critical-text rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50"
+        >
+          {submitting ? "Closing…" : "Close account"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-ink-secondary hover:text-ink text-sm underline underline-offset-4"
+        >
+          Keep it open
+        </button>
+      </div>
+    </div>
   );
 }

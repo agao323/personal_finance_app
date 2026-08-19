@@ -8,6 +8,8 @@ import {
   formatCurrency,
   formatDate,
   formatSignedCurrency,
+  centsToInputValue,
+  parseDollarsToCents,
 } from "@/lib/format";
 
 const MINUS = "−";
@@ -185,5 +187,68 @@ describe("formatAge", () => {
     ["2025-08-18", "1 year ago"],
   ])("describes %s as %s", (iso, expected) => {
     expect(formatAge(iso, now)).toBe(expected);
+  });
+});
+
+describe("parseDollarsToCents", () => {
+  it("converts a plain amount exactly", () => {
+    // parseFloat("12.34") * 100 is 1233.9999999999998. This is why the string is
+    // split rather than multiplied.
+    expect(parseDollarsToCents("12.34")).toBe(1234);
+  });
+
+  it("handles whole dollars and a bare decimal point", () => {
+    expect(parseDollarsToCents("12")).toBe(1200);
+    expect(parseDollarsToCents("12.")).toBe(1200);
+    expect(parseDollarsToCents(".50")).toBe(50);
+  });
+
+  it("pads a single decimal place", () => {
+    expect(parseDollarsToCents("12.3")).toBe(1230);
+  });
+
+  it("strips currency decoration people actually type", () => {
+    expect(parseDollarsToCents("$1,234.56")).toBe(123_456);
+  });
+
+  it("rounds a half cent away from zero, matching the server", () => {
+    // ROUND_HALF_UP in services/ownership.py. Rounding differently here is how a
+    // total ends up disagreeing with the row that produced it.
+    expect(parseDollarsToCents("12.345")).toBe(1235);
+    expect(parseDollarsToCents("-12.345")).toBe(-1235);
+  });
+
+  it("rounds below a half cent down", () => {
+    expect(parseDollarsToCents("12.344")).toBe(1234);
+    expect(parseDollarsToCents("12.3449999")).toBe(1234);
+  });
+
+  it("keeps the sign on a negative", () => {
+    expect(parseDollarsToCents("-0.05")).toBe(-5);
+  });
+
+  it("returns null for anything that is not a number", () => {
+    // Null lets the form say so. A silent zero is a balance claim.
+    expect(parseDollarsToCents("")).toBeNull();
+    expect(parseDollarsToCents("abc")).toBeNull();
+    expect(parseDollarsToCents("-")).toBeNull();
+    expect(parseDollarsToCents("1.2.3")).toBeNull();
+  });
+
+  it("refuses an amount too large to be exact", () => {
+    expect(parseDollarsToCents("999999999999999999999")).toBeNull();
+  });
+});
+
+describe("centsToInputValue", () => {
+  it("round-trips through parseDollarsToCents", () => {
+    for (const cents of [0, 5, 100, 123_456, -4_512]) {
+      expect(parseDollarsToCents(centsToInputValue(cents))).toBe(cents);
+    }
+  });
+
+  it("keeps both decimal places", () => {
+    expect(centsToInputValue(1200)).toBe("12.00");
+    expect(centsToInputValue(5)).toBe("0.05");
   });
 });

@@ -1,8 +1,16 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { AccountDetailView, stakeRange } from "./page";
-import { accountDetail, mockAccountDetail, mockFailure, mockTransactions } from "@/test/msw";
+import {
+  accountDetail,
+  mockAccountDetail,
+  mockFailure,
+  mockTransactions,
+  server,
+} from "@/test/msw";
 
 beforeEach(() => {
   globalThis.localStorage.clear();
@@ -93,16 +101,16 @@ describe("account detail", () => {
     expect(within(table).getByText("$440,000.00")).toBeInTheDocument();
   });
 
-  it("prompts to record a newer balance when one is being carried forward", async () => {
+  it("opens the balance form from the stale-balance prompt", async () => {
     mockAccountDetail({ is_stale: true, balance_as_of: "2026-01-04" });
 
     render(<AccountDetailView accountId="3" />);
 
     expect(await screen.findByText(/carried forward/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Record a newer one" })).toHaveAttribute(
-      "href",
-      "/import",
-    );
+    await userEvent.click(screen.getByRole("button", { name: "Record a newer one" }));
+
+    // The fix is on this page, so the prompt opens it rather than linking away.
+    expect(screen.getByLabelText("Balance")).toBeInTheDocument();
   });
 
   it("says a closed account has no balance instead of showing zero", async () => {
@@ -158,5 +166,98 @@ describe("account detail", () => {
       "href",
       "/accounts",
     );
+  });
+});
+
+describe("account management actions", () => {
+  it("offers the three write actions, all closed by default", async () => {
+    mockAccountDetail();
+
+    render(<AccountDetailView accountId="3" />);
+
+    expect(await screen.findByRole("button", { name: "Record a balance" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.getByRole("button", { name: "Change ownership" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close account" })).toBeInTheDocument();
+  });
+
+  it("opens one panel at a time", async () => {
+    mockAccountDetail();
+
+    render(<AccountDetailView accountId="3" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Record a balance" }));
+
+    expect(screen.getByLabelText("Balance")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Change ownership" }));
+
+    expect(screen.queryByLabelText("Balance")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("New share")).toBeInTheDocument();
+  });
+
+  it("says what closing does and does not do", async () => {
+    // Closing is not deleting, and a confirmation that only asked "are you sure?"
+    // would leave the reader guessing which one they were agreeing to.
+    mockAccountDetail();
+
+    render(<AccountDetailView accountId="3" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Close account" }));
+
+    expect(screen.getByText(/stops counting toward net worth/)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing is deleted/)).toBeInTheDocument();
+  });
+
+  it("sets closed_at when the close is confirmed", async () => {
+    let body: unknown = null;
+    mockAccountDetail();
+    server.use(
+      http.patch("/api/accounts/:id", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(accountDetail);
+      }),
+    );
+
+    render(<AccountDetailView accountId="3" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Close account" }));
+    await userEvent.click(
+      within(screen.getByText(/Close Rental property\?/).closest("div")!).getByRole("button", {
+        name: "Close account",
+      }),
+    );
+
+    await waitFor(() => expect(body).toEqual({ closed_at: new Date().toISOString().slice(0, 10) }));
+  });
+
+  it("offers no write actions on a closed account", async () => {
+    mockAccountDetail({ closed_at: "2026-01-01" });
+
+    render(<AccountDetailView accountId="3" />);
+
+    expect(await screen.findByText(/counts toward no total/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Record a balance" })).not.toBeInTheDocument();
+  });
+
+  it("lets a shared account pick whose share is changing", async () => {
+    // There is no /users endpoint, so the owners we can name are the ones already
+    // on the account. Ticket 034 turns this into "you".
+    mockAccountDetail({
+      stakes: [
+        { ...accountDetail.stakes[1], percentage_bps: 6_000 },
+        {
+          ...accountDetail.stakes[1],
+          id: 12,
+          owner_user_id: 2,
+          owner_display_name: "Partner",
+          percentage_bps: 4_000,
+        },
+      ],
+    });
+
+    render(<AccountDetailView accountId="3" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Change ownership" }));
+
+    expect(screen.getByRole("option", { name: "Partner" })).toBeInTheDocument();
   });
 });

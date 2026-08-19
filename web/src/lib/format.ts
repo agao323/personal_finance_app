@@ -154,6 +154,51 @@ export function formatDate(iso: string): string {
   return dateFormat.format(new Date(`${iso}T00:00:00Z`));
 }
 
+/**
+ * Parse a typed dollar amount into integer cents.
+ *
+ * Never `parseFloat(x) * 100`. `12.34` is not representable as a double, and the
+ * product is `1233.9999999999998` — every money input in the app would be a cent
+ * light on some fraction of entries, unpredictably. The string is split instead, so
+ * the arithmetic is exact.
+ *
+ * Returns null for anything that is not a number, so the caller can say so rather
+ * than submitting a silent zero.
+ *
+ * A half cent rounds **away from zero**, matching `ROUND_HALF_UP` in
+ * `services/ownership.py`. Rounding differently here than the server does is how a
+ * total ends up disagreeing with the row that produced it.
+ */
+export function parseDollarsToCents(input: string): number | null {
+  const cleaned = input.replace(/[$,\s]/g, "");
+  if (cleaned === "" || cleaned === "-" || cleaned === "." || cleaned === "-.") return null;
+  if (!/^-?\d*\.?\d*$/.test(cleaned)) return null;
+
+  const negative = cleaned.startsWith("-");
+  const magnitude = negative ? cleaned.slice(1) : cleaned;
+  const [whole = "", fraction = ""] = magnitude.split(".");
+
+  const dollars = whole === "" ? 0 : Number(whole);
+  if (!Number.isSafeInteger(dollars)) return null;
+
+  const cents = Number((fraction + "00").slice(0, 2));
+  // The third digit decides: 5 or more rounds the cent up. Digits beyond it cannot
+  // change that, since anything after a 5 only makes it larger.
+  const roundUp = Number(fraction[2] ?? "0") >= 5;
+
+  const total = dollars * 100 + cents + (roundUp ? 1 : 0);
+  return negative ? -total : total;
+}
+
+/** `1234.56` — integer cents in the form a number input expects back. */
+export function centsToInputValue(cents: number): string {
+  const negative = cents < 0;
+  const absolute = Math.abs(cents);
+  const fraction = absolute % 100;
+  const whole = (absolute - fraction) / 100;
+  return `${negative ? "-" : ""}${whole}.${String(fraction).padStart(2, "0")}`;
+}
+
 export type DateGrain = "day" | "month";
 
 const shortDate: Record<DateGrain, Intl.DateTimeFormat> = {

@@ -104,7 +104,15 @@ export default function AccountsPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-xl font-medium tracking-tight">Accounts</h1>
-        <ViewToggle view={view} onChange={setView} />
+        <div className="flex items-center gap-3">
+          <Link
+            href="/accounts/new"
+            className="border-hairline hover:bg-surface-2 rounded-lg border px-3 py-1.5 text-sm transition-colors"
+          >
+            New account
+          </Link>
+          <ViewToggle view={view} onChange={setView} />
+        </div>
       </div>
 
       {error ? (
@@ -122,12 +130,20 @@ export default function AccountsPage() {
             title="No accounts yet"
             detail="Import a CSV from your bank to create accounts and their balance history, or add one by hand."
             action={
-              <Link
-                href="/import"
-                className="border-hairline hover:bg-surface-2 inline-block rounded-lg border px-3 py-1.5 text-sm transition-colors"
-              >
-                Import transactions
-              </Link>
+              <div className="flex flex-wrap justify-center gap-3">
+                <Link
+                  href="/import"
+                  className="border-hairline hover:bg-surface-2 inline-block rounded-lg border px-3 py-1.5 text-sm transition-colors"
+                >
+                  Import transactions
+                </Link>
+                <Link
+                  href="/accounts/new"
+                  className="text-accent inline-block px-1 py-1.5 text-sm underline underline-offset-4"
+                >
+                  Add one by hand
+                </Link>
+              </div>
             }
           />
         </div>
