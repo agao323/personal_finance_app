@@ -1,0 +1,40 @@
+# Maps the exported spreadsheet's columns onto accounts.
+#
+# COLUMN NAMES ONLY. Never a balance, never a total, never anything that came out of
+# the real sheet's cells. This file is committed; `data/` is not. If you find yourself
+# pasting a number in here, stop — see docs/SECURITY.md#handling-real-data-during-development.
+#
+# Copy to `sheet_mapping.toml` (gitignored) and edit. Re-running the import after
+# correcting a mapping is safe: every write is an upsert on (account, date).
+#
+# TOML rather than the YAML the ticket named, so the parser is stdlib `tomllib` and
+# this file costs no dependency. It takes comments, which is the property that
+# mattered — a mapping nobody can annotate is a mapping nobody can correct.
+
+[sheet]
+# The column holding the date of each row.
+date_column = "Date"
+
+# The sheet's own net worth column, if it has one. Used only by the reconciliation
+# report, which compares it against the sum this import produces. Omit it and the
+# report still runs — it just has nothing to check the parse against, which is a
+# meaningfully weaker import.
+total_column = "Net Worth"
+
+# Date format, in strptime syntax. Left unset, a few common layouts are tried and the
+# one that parses every row wins — ambiguous ones (01/02/2026) are rejected rather
+# than guessed, because guessing wrong shifts a year of history by eleven months.
+# date_format = "%Y-%m-%d"
+
+# Maps a column in the sheet to an account by name, exactly as it appears in the
+# `accounts` table. A column with no entry here is ignored and named in the dry run,
+# so an unmapped account is visible rather than silently dropped.
+[columns]
+"Checking" = "Checking"
+"Savings" = "Savings"
+"Brokerage" = "Brokerage"
+"401k" = "401k"
+"House" = "Primary residence"
+"Rental" = "Rental property"
+"Credit Card" = "Credit card"
+"Mortgage" = "Mortgage"
