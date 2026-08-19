@@ -50,3 +50,7 @@ api/openapi.json
 
 # Agent worktrees. Real git worktrees of this repo — never commit them.
 .claude/worktrees/
+
+# The real column mapping. Names only, so it is not sensitive in itself — but it is
+# derived by reading the real export, and the example beside it is the committed one.
+api/config/sheet_mapping.toml
