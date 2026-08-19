@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, apiFetch, apiPath, fillPath } from "@/lib/api";
+import { ApiError, SESSION_EXPIRED_EVENT, apiFetch, apiPath, fillPath } from "@/lib/api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -170,5 +170,32 @@ describe("fillPath", () => {
     expect(fillPath("/accounts/{account_id}", { account_id: "../rules" })).toBe(
       "/accounts/..%2Frules",
     );
+  });
+});
+
+describe("session expiry", () => {
+  it("announces a 401 so the app can offer to sign in again", async () => {
+    // An event rather than a redirect from inside apiFetch: this module knows
+    // nothing about routing, and a redirect mid-fetch discards whatever the reader
+    // was partway through.
+    const heard = vi.fn();
+    globalThis.addEventListener(SESSION_EXPIRED_EVENT, heard);
+    stubFetch(new Response(JSON.stringify({ detail: "Session expired" }), { status: 401 }));
+
+    await expect(apiFetch("/net-worth")).rejects.toBeInstanceOf(ApiError);
+
+    expect(heard).toHaveBeenCalled();
+    globalThis.removeEventListener(SESSION_EXPIRED_EVENT, heard);
+  });
+
+  it("stays quiet for other failures", async () => {
+    const heard = vi.fn();
+    globalThis.addEventListener(SESSION_EXPIRED_EVENT, heard);
+    stubFetch(new Response(JSON.stringify({ detail: "boom" }), { status: 500 }));
+
+    await expect(apiFetch("/net-worth")).rejects.toBeInstanceOf(ApiError);
+
+    expect(heard).not.toHaveBeenCalled();
+    globalThis.removeEventListener(SESSION_EXPIRED_EVENT, heard);
   });
 });

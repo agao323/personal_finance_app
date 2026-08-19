@@ -81,6 +81,15 @@ export function fillPath(template: string, params: PathParams = {}): string {
   });
 }
 
+/**
+ * Fired when the API says the session is gone.
+ *
+ * An event rather than a redirect from inside `apiFetch`: this module knows nothing
+ * about routing and should not start, and a redirect mid-fetch would discard whatever
+ * the reader was in the middle of. The layout listens and offers to sign in again.
+ */
+export const SESSION_EXPIRED_EVENT = "pfa:session-expired";
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -173,6 +182,9 @@ export async function apiFetch<M extends HttpMethod = "get", P extends PathsWith
       }
     } catch {
       // Non-JSON error body — the status line is all we have.
+    }
+    if (response.status === 401) {
+      globalThis.dispatchEvent?.(new Event(SESSION_EXPIRED_EVENT));
     }
     throw new ApiError(response.status, detail);
   }
