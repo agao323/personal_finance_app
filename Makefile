@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web guards lint lint-api lint-web format types types-check seed migrate upgrade
+.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade
 
 # Compose merges docker-compose.override.yml automatically. PROD_COMPOSE opts out,
 # so smoke tests exercise the deploy-shaped images rather than the dev ones.
@@ -90,6 +90,14 @@ test-api: .env
 
 test-web:
 	@cd web && pnpm test
+
+e2e: .env ## Run the Playwright smoke tests against the compose stack
+	@# Seeded first, and deliberately: these assert against real figures, and a
+	@# half-empty database fails them for a reason that is not a bug. The seed also
+	@# clears registered passkeys, which is what lets the run register a fresh one.
+	@docker compose up -d --wait postgres api web >/dev/null
+	@$(MAKE) seed >/dev/null
+	@cd web && pnpm exec playwright test
 
 # ── Lint ──────────────────────────────────────────────────────────────────────
 lint: lint-api lint-web ## ruff + mypy + eslint + tsc + prettier
