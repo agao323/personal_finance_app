@@ -44,10 +44,15 @@ jobs:
         with:
           enable-cache: true
 
+      # `package_json_file`, not a pinned `version`. This repo has no root
+      # package.json, so the action's default lookup finds nothing and fails — which
+      # it did, in the e2e job below. Pointing at web/package.json takes the version
+      # from its `packageManager` field, so there is one source rather than a number
+      # duplicated into the workflow that can drift from the lockfile.
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11.22.0
+          package_json_file: web/package.json
 
       - uses: actions/setup-node@v4
         with:
@@ -129,6 +134,8 @@ jobs:
           docker compose up -d --build --wait postgres api web
 
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
