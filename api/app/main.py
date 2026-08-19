@@ -45,6 +45,22 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
     configure_sentry(settings.sentry_dsn)
+
+    # Refuse to serve a deployed environment with the session key that ships in the
+    # repo. Anyone who has read the source could mint a cookie for any user id, and
+    # nothing about the running app would look wrong — which is why this has to be a
+    # failed boot rather than a warning in a log nobody reads.
+    #
+    # Keyed off `cookie_secure`, which is derived from WEB_ORIGIN: an https origin is
+    # a deployment, and local dev on http://localhost keeps working untouched. One
+    # signal rather than a second setting that could disagree with the first.
+    if settings.cookie_secure and settings.session_secret_is_default:
+        raise RuntimeError(
+            "SESSION_SECRET is still the development default on an https origin. "
+            "Set it before serving: fly secrets set -a pfa-api "
+            'SESSION_SECRET="$(openssl rand -base64 32)"'
+        )
+
     yield
 
 

@@ -47,3 +47,54 @@ def test_get_settings_is_cached(monkeypatch: pytest.MonkeyPatch) -> None:
         assert get_settings() is get_settings()
     finally:
         get_settings.cache_clear()
+
+
+def test_a_deployed_app_refuses_the_default_session_secret(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A known signing key lets anyone mint a cookie for any user id.
+
+    Nothing about the running app would look wrong, which is exactly why this is a
+    failed boot rather than a warning in a log nobody reads.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    monkeypatch.setenv("WEB_ORIGIN", "https://allofmymoney.com")
+    monkeypatch.delenv("SESSION_SECRET", raising=False)
+    get_settings.cache_clear()
+
+    with pytest.raises(RuntimeError, match="SESSION_SECRET"):
+        with TestClient(app):
+            pass
+
+    get_settings.cache_clear()
+
+
+def test_a_deployed_app_starts_once_the_secret_is_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    monkeypatch.setenv("WEB_ORIGIN", "https://allofmymoney.com")
+    monkeypatch.setenv("SESSION_SECRET", "a-real-secret-from-fly")
+    get_settings.cache_clear()
+
+    with TestClient(app):
+        pass
+
+    get_settings.cache_clear()
+
+
+def test_local_development_is_unaffected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """http://localhost is not a deployment, and a clean clone must just run."""
+    monkeypatch.setenv("WEB_ORIGIN", "http://localhost:3000")
+    monkeypatch.delenv("SESSION_SECRET", raising=False)
+    get_settings.cache_clear()
+
+    settings = get_settings()
+    assert settings.session_secret_is_default is True
+    assert settings.cookie_secure is False
+
+    get_settings.cache_clear()

@@ -77,3 +77,15 @@ FastAPI version keeps an included router nested in `app.routes` instead of flatt
 its routes in, so a non-recursive walk saw two routes — both of them public — and the
 test went green. `test_the_route_walk_finds_the_whole_surface` is the tripwire against
 that; it currently sees 33 routes, 28 of them authenticated.
+
+### Addendum — 2026-08-19
+
+`session_secret_is_default` existed but nothing read it, which made it a guard in name
+only. The lifespan now **refuses to start** when the default secret is in use on an
+https origin: a known signing key lets anyone who has read the repo mint a cookie for
+any user id, and nothing about the running app would look wrong. Keyed off
+`cookie_secure`, so local dev on `http://localhost` is untouched.
+
+Found while checking the deployed state: `pfa-api` has `DATABASE_URL`, `OWNER_EMAIL` and
+`OWNER_DISPLAY_NAME` set, and none of `SESSION_SECRET`, `RP_ID` or `WEB_ORIGIN`. A deploy
+before this change would have shipped the repo's own key.
