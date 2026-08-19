@@ -119,7 +119,7 @@ def create_rule(session: DbSession, user: CurrentUser, payload: RuleCreate) -> R
         priority=categorize.DEFAULT_PRIORITY if payload.priority is None else payload.priority,
     )
     session.add(rule)
-    session.commit()
+    session.flush()
     session.refresh(rule)
 
     return _to_read(rule)
@@ -150,7 +150,7 @@ def update_rule(
     if payload.priority is not None:
         rule.priority = payload.priority
 
-    session.commit()
+    session.flush()
     session.refresh(rule)
 
     return _to_read(rule)
@@ -164,7 +164,7 @@ def delete_rule(session: DbSession, user: CurrentUser, rule_id: int) -> Response
     # make deleting one rule silently wipe history — see the "never destructive" note in
     # app/services/categorize.py.
     session.delete(rule)
-    session.commit()
+    session.flush()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -179,13 +179,12 @@ def apply_rules(
             session, only_uncategorised=bool(payload.only_uncategorised)
         )
     except categorize.RuleBudgetError as error:
-        # Nothing is committed, so the half-finished run leaves no trace. 422 rather
-        # than 500: the request is unprocessable because of a pattern the user wrote.
+        # get_session rolls back on the way out, so the half-finished run leaves no
+        # trace. 422 rather than 500: the request is unprocessable because of a
+        # pattern the user wrote.
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
         ) from error
-
-    session.commit()
 
     return RuleApplyResult(
         examined=result.examined,

@@ -262,7 +262,7 @@ export const transactions: ResponseOf<"/transactions", "get">["items"] = [
   {
     id: 3,
     account_id: 2,
-    account_name: "Credit card",
+    account_name: "Savings",
     posted_at: "2026-08-03",
     amount_cents: 2_000,
     merchant: "Corner Market",
@@ -460,5 +460,94 @@ export function mockAccountDetail(
       HttpResponse.json({ ...accountHistory, ...historyOverrides }),
     ),
     http.get("/api/accounts/:id", () => HttpResponse.json({ ...accountDetail, ...overrides })),
+  );
+}
+
+/**
+ * The category taxonomy, in the API's order: parents before their own children.
+ *
+ * Includes an income and a transfer category deliberately — a picker built from
+ * `/spend` would have neither, and "this was a transfer" is the correction the
+ * transactions screen exists to make.
+ */
+export const categories: ResponseOf<"/categories", "get"> = [
+  { id: 6, name: "Housing", parent_id: null, kind: "expense" },
+  { id: 10, name: "Food", parent_id: null, kind: "expense" },
+  { id: 1, name: "Income", parent_id: null, kind: "income" },
+  { id: 30, name: "Transfer", parent_id: null, kind: "transfer" },
+  { id: 8, name: "Utilities", parent_id: 6, kind: "expense" },
+  { id: 11, name: "Groceries", parent_id: 10, kind: "expense" },
+  { id: 12, name: "Restaurants", parent_id: 10, kind: "expense" },
+  { id: 2, name: "Salary", parent_id: 1, kind: "income" },
+  { id: 31, name: "Credit Card Payment", parent_id: 30, kind: "transfer" },
+];
+
+export function mockCategories(rows: ResponseOf<"/categories", "get"> = categories) {
+  server.use(http.get("/api/categories", () => HttpResponse.json(rows)));
+}
+
+/**
+ * A paginated `/transactions` that honours every filter the screen sends.
+ *
+ * Filtering in the handler rather than returning a fixed list is what makes the
+ * filter tests mean anything — against a handler that ignored its query they would
+ * pass with the filters wired to nothing.
+ */
+export function mockTransactionList(
+  rows: ResponseOf<"/transactions", "get">["items"] = transactions,
+) {
+  server.use(
+    http.get("/api/transactions", ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      let items = rows;
+
+      const from = params.get("from");
+      const to = params.get("to");
+      const accountId = params.get("account_id");
+      const categoryId = params.get("category_id");
+      const uncategorised = params.get("uncategorised");
+      const search = params.get("search");
+
+      if (from) items = items.filter((row) => row.posted_at >= from);
+      if (to) items = items.filter((row) => row.posted_at <= to);
+      if (accountId) items = items.filter((row) => row.account_id === Number(accountId));
+      if (categoryId) items = items.filter((row) => row.category?.id === Number(categoryId));
+      if (uncategorised === "true") items = items.filter((row) => row.category === null);
+      if (uncategorised === "false") items = items.filter((row) => row.category !== null);
+      if (search) {
+        const needle = search.toLowerCase();
+        items = items.filter((row) =>
+          `${row.merchant ?? ""} ${row.description ?? ""}`.toLowerCase().includes(needle),
+        );
+      }
+
+      const limit = Number(params.get("limit") ?? 50);
+      const offset = Number(params.get("offset") ?? 0);
+      return HttpResponse.json({
+        items: items.slice(offset, offset + limit),
+        page: { total: items.length, limit, offset },
+      });
+    }),
+  );
+}
+
+/** The write endpoints the transactions screen uses, all succeeding. */
+export function mockTransactionWrites() {
+  server.use(
+    http.patch("/api/transactions/:id", async ({ request }) => {
+      const body = (await request.json()) as { category_id: number | null };
+      return HttpResponse.json({ ...transactions[0], category_id: body.category_id });
+    }),
+    http.post("/api/transactions/bulk-categorise", async ({ request }) => {
+      const body = (await request.json()) as { transaction_ids: number[] };
+      return HttpResponse.json({ updated: body.transaction_ids.length });
+    }),
+    http.post("/api/transactions/bulk-transfer", async ({ request }) => {
+      const body = (await request.json()) as { transaction_ids: number[] };
+      return HttpResponse.json({
+        transfer_group_id: "group-1",
+        updated: body.transaction_ids.length,
+      });
+    }),
   );
 }

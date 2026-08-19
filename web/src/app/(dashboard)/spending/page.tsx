@@ -206,11 +206,7 @@ export default function SpendingPage() {
       </div>
 
       {uncategorised && !drill ? (
-        <UncategorisedCallout
-          bucket={uncategorised}
-          totalCents={totalCents}
-          onReview={() => setSelection({ id: null, name: uncategorised.category_name })}
-        />
+        <UncategorisedCallout bucket={uncategorised} totalCents={totalCents} />
       ) : null}
 
       <div className="border-hairline bg-surface-1 mt-4 rounded-xl border p-4">
@@ -292,18 +288,15 @@ export default function SpendingPage() {
  * Uncategorised spend, above the chart rather than inside it.
  *
  * Hiding this makes the chart prettier and the numbers worse: every dollar in here is
- * a dollar the breakdown cannot explain, and the only fix is a rule. So the callout
- * states the amount, states the share, and links straight at both ways of fixing it.
+ * a dollar the breakdown cannot explain. So the callout states the amount, states the
+ * share, and links straight at both ways of fixing it — categorise them by hand on
+ * the transactions screen, or write a rule so they stay fixed.
+ *
+ * Both are links out rather than the in-page drill, because neither fix can happen
+ * here. Clicking the uncategorised *bar* still opens the panel in place: that is the
+ * same drill every other bucket gets, and looking is not fixing.
  */
-function UncategorisedCallout({
-  bucket,
-  totalCents,
-  onReview,
-}: {
-  bucket: Bucket;
-  totalCents: number;
-  onReview: () => void;
-}) {
+function UncategorisedCallout({ bucket, totalCents }: { bucket: Bucket; totalCents: number }) {
   return (
     <div className="border-warning/40 bg-surface-1 mt-4 rounded-xl border p-4">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -324,13 +317,12 @@ function UncategorisedCallout({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm">
-          <button
-            type="button"
-            onClick={onReview}
+          <Link
+            href="/transactions?uncategorised=true"
             className="border-hairline hover:bg-surface-2 rounded-lg border px-3 py-1.5 transition-colors"
           >
-            Review transactions
-          </button>
+            Categorise them
+          </Link>
           <Link href="/rules" className="text-accent underline underline-offset-4">
             Create a rule
           </Link>

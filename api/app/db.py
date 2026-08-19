@@ -51,6 +51,23 @@ def get_sessionmaker() -> sessionmaker[Session]:
 
 
 def get_session() -> Iterator[Session]:
-    """FastAPI dependency yielding a session that is always closed."""
+    """FastAPI dependency yielding a request-scoped transaction.
+
+    **The request is the transaction boundary.** Endpoints flush to get generated ids
+    and to let later statements in the same request see earlier ones; committing is
+    this dependency's job, once, when the handler returns without raising.
+
+    Without the commit every write endpoint answered 200 and persisted nothing, and
+    the suite could not see it: `tests/conftest.py` overrides this dependency with a
+    session wrapped in a transaction it rolls back, so a flush is indistinguishable
+    from a commit for the length of a test. `tests/test_db.py` covers the real thing.
+    """
     with get_sessionmaker()() as session:
-        yield session
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            # Including HTTPException: a handler that raises a 4xx after a partial
+            # write must not leave that write behind.
+            session.rollback()
+            raise

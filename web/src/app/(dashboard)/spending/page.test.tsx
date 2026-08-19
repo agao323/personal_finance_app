@@ -146,15 +146,25 @@ describe("spending", () => {
     );
   });
 
-  it("lists the uncategorised transactions when asked to review them", async () => {
+  it("lists the uncategorised transactions when its bar is drilled into", async () => {
     render(<SpendingPage />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Review transactions" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Uncategorised:/ }));
 
     // Only the row with no category — the handler honours `uncategorised=true`.
     const table = await screen.findByRole("table", { name: "Uncategorised transactions" });
     expect(within(table).getByText("Unknown Vendor")).toBeInTheDocument();
     expect(within(table).queryByText("Corner Market")).not.toBeInTheDocument();
+  });
+
+  it("links to the transactions screen already filtered to uncategorised", async () => {
+    // Looking is not fixing. The callout points at the two places a fix can happen.
+    render(<SpendingPage />);
+
+    expect(await screen.findByRole("link", { name: "Categorise them" })).toHaveAttribute(
+      "href",
+      "/transactions?uncategorised=true",
+    );
   });
 
   it("hides the callout once inside a category, where it would be about something else", async () => {
