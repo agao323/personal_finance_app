@@ -1,8 +1,16 @@
 import "@testing-library/jest-dom/vitest";
 
+import { Blob as NodeBlob, File as NodeFile } from "node:buffer";
 import { afterAll, afterEach, beforeAll } from "vitest";
 
 import { server } from "@/test/msw";
+
+// jsdom installs its own File and Blob. MSW reads a request body in Node with
+// undici's multipart parser, which brand-checks against *its* File and rejects
+// jsdom's — so a real multipart upload fails in tests while working in a browser.
+// Restoring Node's implementations makes the two agree.
+Object.defineProperty(globalThis, "File", { configurable: true, writable: true, value: NodeFile });
+Object.defineProperty(globalThis, "Blob", { configurable: true, writable: true, value: NodeBlob });
 
 // MSW intercepts at the network layer, so components run their real fetch path.
 // `onUnhandledRequest: "error"` makes a forgotten mock a loud failure rather than a

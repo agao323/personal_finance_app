@@ -121,6 +121,15 @@ type Options<P extends keyof paths, M extends HttpMethod> = {
   headers?: HeadersInit;
   /** Values for any `{name}` placeholders in the route. */
   params?: PathParams;
+  /**
+   * Multipart body, for the one route that takes a file upload.
+   *
+   * An escape hatch from the typed `body`, because a `multipart/form-data` operation
+   * is generated as an object of field names rather than something `JSON.stringify`
+   * could ever produce. When set, `body` is ignored and no content-type is sent —
+   * the browser has to add its own boundary parameter.
+   */
+  formData?: FormData;
 } & ([QueryOf<P, M>] extends [never] ? { query?: never } : { query?: QueryOf<P, M> }) &
   ([BodyOf<P, M>] extends [never] ? { body?: never } : { body: BodyOf<P, M> });
 
@@ -140,18 +149,19 @@ export async function apiFetch<M extends HttpMethod = "get", P extends PathsWith
   path: P,
   options: Options<P & keyof paths, M> = {} as Options<P & keyof paths, M>,
 ): Promise<ResponseOf<P & keyof paths, M>> {
-  const { method = "get", query, body, headers, signal, params } = options;
+  const { method = "get", query, body, headers, signal, params, formData } = options;
 
   const url = apiPath(fillPath(path as string, params), query as Record<string, QueryValue>);
+  const payload = formData ?? (body === undefined ? undefined : JSON.stringify(body));
   const response = await fetch(url, {
     method: method.toUpperCase(),
     signal,
     headers: {
       accept: "application/json",
-      ...(body === undefined ? {} : { "content-type": "application/json" }),
+      ...(payload === undefined || formData ? {} : { "content-type": "application/json" }),
       ...headers,
     },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(payload === undefined ? {} : { body: payload }),
   });
 
   if (!response.ok) {

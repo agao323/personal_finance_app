@@ -551,3 +551,82 @@ export function mockTransactionWrites() {
     }),
   );
 }
+
+/** A CSV preview: one new row, one unchanged, one that failed to parse. */
+export const csvPreview: ResponseOf<"/import/csv/preview", "post"> = {
+  account_id: 1,
+  detected_mapping: {
+    posted_at: "Date",
+    amount: "Amount",
+    merchant: "Description",
+    description: null,
+    external_id: null,
+    invert_amount: false,
+  },
+  mapping_source: "detected",
+  will_create: 1,
+  will_update: 1,
+  will_skip: 1,
+  errors: ["1 of 3 rows have errors and would be skipped"],
+  rows: [
+    {
+      row_number: 2,
+      action: "create",
+      posted_at: "2026-08-14",
+      amount_cents: -4_512,
+      merchant: "Corner Market",
+      description: null,
+      external_id: "a1",
+      errors: [],
+    },
+    {
+      row_number: 3,
+      action: "update",
+      posted_at: "2026-08-09",
+      amount_cents: -12_800,
+      merchant: "Unknown Vendor",
+      description: null,
+      external_id: "a2",
+      errors: [],
+    },
+    {
+      row_number: 4,
+      action: "skip",
+      posted_at: null,
+      amount_cents: null,
+      merchant: null,
+      description: null,
+      external_id: null,
+      errors: ["could not read the date '31/02/2026'"],
+    },
+  ],
+};
+
+/** Honours a supplied mapping, so a re-preview after an edit actually differs. */
+export function mockCsvImport(overrides: Partial<typeof csvPreview> = {}) {
+  server.use(
+    http.post("/api/import/csv/preview", async ({ request }) => {
+      const form = await request.formData();
+      const supplied = form.get("mapping");
+      if (typeof supplied === "string") {
+        const mapping = JSON.parse(supplied) as typeof csvPreview.detected_mapping;
+        return HttpResponse.json({
+          ...csvPreview,
+          ...overrides,
+          detected_mapping: mapping,
+          mapping_source: "supplied",
+          // A flipped sign turns the outflows into inflows.
+          rows: csvPreview.rows.map((row) =>
+            row.amount_cents === null || row.amount_cents === undefined || !mapping.invert_amount
+              ? row
+              : { ...row, amount_cents: -row.amount_cents },
+          ),
+        });
+      }
+      return HttpResponse.json({ ...csvPreview, ...overrides });
+    }),
+    http.post("/api/import/csv/commit", () =>
+      HttpResponse.json({ created: 1, updated: 1, skipped: 1, errors: [] }),
+    ),
+  );
+}
