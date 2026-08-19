@@ -6,6 +6,9 @@ doesn't rewrite last year's charts.
 
 Next.js and FastAPI on Fly.io, Neon Postgres, behind Cloudflare Access and passkeys.
 
+[![CI](https://github.com/agao323/personal_finance_app/actions/workflows/ci.yml/badge.svg)](https://github.com/agao323/personal_finance_app/actions/workflows/ci.yml)
+[![Nightly backup](https://github.com/agao323/personal_finance_app/actions/workflows/backup.yml/badge.svg)](https://github.com/agao323/personal_finance_app/actions/workflows/backup.yml)
+
 ![The dashboard: net worth, runway, and net worth over time](docs/images/dashboard.png)
 
 <details>

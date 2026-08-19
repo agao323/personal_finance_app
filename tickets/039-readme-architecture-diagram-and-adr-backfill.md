@@ -13,7 +13,7 @@ future me. Not documentation debt.
 - [x] Architecture diagram (Mermaid, rendered in the README) showing the BFF topology and the private API
 - [x] Explicit trade-offs section: why FastAPI + Next.js, **why the API is private behind a BFF**, why not Kubernetes, why manual-first over aggregators, why the demo is a separate deployment, why one upfront migration, why effective-dated ownership
 - [x] ADRs backfilled for decisions made during implementation
-- [ ] Test and CI badges
+- [x] Test and CI badges
 - [ ] Clean-clone setup verified by following the README literally, on a machine with nothing cached
 - [ ] Tests: none — but the clean-clone verification is the acceptance criterion and must actually be performed
 
@@ -56,9 +56,9 @@ Two ADRs backfilled:
 ### Outstanding
 
 - [ ] **Live demo link** — needs ticket 037, which needs a separate Neon project.
-- [ ] **Test and CI badges** — the badge URL needs the real GitHub org and repo name.
-      Add once the repo is pushed:
-      `![CI](https://github.com/<owner>/<repo>/actions/workflows/ci.yml/badge.svg)`
+- [x] **Test and CI badges** — added for both workflows against
+      `agao323/personal_finance_app`. They render as "no status" until the branch is
+      pushed and CI has run once.
 - [ ] **Clean-clone verification** — the criterion with teeth, and it must actually be
       performed on a machine with nothing cached. Every path, `make` target and doc link
       referenced in the README has been checked to exist, and the E2E suite exercises
