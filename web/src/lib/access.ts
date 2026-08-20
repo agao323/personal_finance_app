@@ -51,6 +51,15 @@ export interface AccessResult {
   ok: boolean;
   reason?: string;
   email?: string;
+  /**
+   * True when an assertion was supplied and failed to verify, as opposed to none
+   * being supplied at all.
+   *
+   * The difference is what makes recovery possible: a token that failed is a *stuck*
+   * session and deleting it is the fix, while no token is an ordinary refusal with
+   * nothing to delete.
+   */
+  hadAssertion?: boolean;
 }
 
 /**
@@ -75,7 +84,7 @@ export async function verifyAccessJwt(
   token: string | undefined,
   config: AccessConfig,
 ): Promise<AccessResult> {
-  if (!token) return { ok: false, reason: "no Access assertion" };
+  if (!token) return { ok: false, reason: "no Access assertion", hadAssertion: false };
 
   try {
     const { payload } = await jwtVerify(token, keysFor(config), {
@@ -85,7 +94,7 @@ export async function verifyAccessJwt(
     return { ok: true, email: typeof payload.email === "string" ? payload.email : undefined };
   } catch (cause: unknown) {
     const why = cause instanceof Error ? cause.message : "invalid assertion";
-    return { ok: false, reason: why + claimedBy(token) };
+    return { ok: false, reason: why + claimedBy(token), hadAssertion: true };
   }
 }
 

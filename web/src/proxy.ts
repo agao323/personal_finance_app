@@ -35,7 +35,9 @@ const SESSION_COOKIE = "pfa_session";
  * No new information for an attacker: the edge already redirects to a Cloudflare
  * Access login page, so "this site uses Access" is not a secret.
  */
-const FORBIDDEN_PAGE = `<!doctype html>
+const ACCESS_COOKIE = "CF_Authorization";
+
+const forbiddenPage = (cleared: boolean): string => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Forbidden</title>
@@ -48,9 +50,14 @@ const FORBIDDEN_PAGE = `<!doctype html>
 </style></head><body>
 <h1>Forbidden</h1>
 <p>This request did not pass Cloudflare Access.</p>
-<p>If you are signed in and still seeing this, your Access session may predate a
-configuration change on this site. Clear cookies for this domain, or open a private
-window, and sign in again.</p>
+${
+  cleared
+    ? `<p>Your sign-in for this site has been cleared, because it could not be verified.
+<strong>Reload the page</strong> to sign in again.</p>
+<p>If reloading brings you straight back here, the problem is configuration rather than
+your session — the server log says which check failed.</p>`
+    : `<p>Sign in through Cloudflare Access and try again.</p>`
+}
 </body></html>`;
 
 /** Fly's liveness probe. Exempt from both the Access check and the auth redirect. */
@@ -99,10 +106,25 @@ export async function proxy(request: NextRequest) {
       // fails — and a bare 403 gives whoever is locked out nothing to go on. It also
       // must not tell an attacker which part of the check they failed.
       console.error(`[access] rejected: ${verified.reason} (issuer https://${access.teamDomain})`);
-      return new NextResponse(FORBIDDEN_PAGE, {
+      const response = new NextResponse(forbiddenPage(verified.hadAssertion === true), {
         status: 403,
         headers: { "content-type": "text/html; charset=utf-8" },
       });
+
+      if (verified.hadAssertion) {
+        // Delete the stuck token. This origin serves the same hostname Cloudflare
+        // set the cookie on, so it is ours to clear — which matters because every
+        // other escape hatch reads the very value that is broken: Cloudflare's own
+        // logout could not resolve an organisation out of a stale cookie, and the
+        // team-domain logout does not touch this cookie at all.
+        //
+        // Deliberately no redirect. If the rejection is a configuration error rather
+        // than a stale token, clear → Access → fresh token → rejected would loop and
+        // the browser would never stop. A reload the reader chooses cannot.
+        response.cookies.set(ACCESS_COOKIE, "", { maxAge: 0, path: "/" });
+      }
+
+      return response;
     }
   }
 

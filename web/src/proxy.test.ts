@@ -140,16 +140,90 @@ describe("rejection diagnostics", () => {
   });
 });
 
+/** A syntactically valid JWT with the given claims. The signature is nonsense. */
+function fakeToken(claims: Record<string, unknown>): string {
+  const part = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${part({ alg: "RS256" })}.${part(claims)}.sig`;
+}
+
+describe("recovering from a stuck Access session", () => {
+  it("clears the cookie when an assertion was supplied and failed", async () => {
+    // Every other escape hatch reads the very value that is broken: Cloudflare's own
+    // logout could not resolve an org out of the stale cookie, and the team-domain
+    // logout does not touch this cookie at all. This origin serves the hostname the
+    // cookie is set on, so it can simply delete it.
+    vi.stubEnv("CF_ACCESS_TEAM_DOMAIN", "new-team.cloudflareaccess.com");
+    vi.stubEnv("CF_ACCESS_AUD", "abc123");
+    const request = new NextRequest("http://localhost:3000/");
+    request.headers.set(
+      "cf-access-jwt-assertion",
+      fakeToken({ iss: "https://old-team.cloudflareaccess.com", aud: ["abc123"] }),
+    );
+
+    const response = await proxy(request);
+
+    expect(response.status).toBe(403);
+    expect(response.cookies.get("CF_Authorization")?.value).toBe("");
+    vi.unstubAllEnvs();
+  });
+
+  it("does not clear anything when no assertion was supplied", async () => {
+    // Nothing to clear, and that case is an ordinary refusal rather than a stuck
+    // session — a visitor who never authenticated should not be handed a Set-Cookie.
+    vi.stubEnv("CF_ACCESS_TEAM_DOMAIN", "new-team.cloudflareaccess.com");
+    vi.stubEnv("CF_ACCESS_AUD", "abc123");
+
+    const response = await proxy(new NextRequest("http://localhost:3000/"));
+
+    expect(response.status).toBe(403);
+    expect(response.cookies.get("CF_Authorization")).toBeUndefined();
+    vi.unstubAllEnvs();
+  });
+
+  it("tells the reader to reload once the session has been cleared", async () => {
+    vi.stubEnv("CF_ACCESS_TEAM_DOMAIN", "new-team.cloudflareaccess.com");
+    vi.stubEnv("CF_ACCESS_AUD", "abc123");
+    const request = new NextRequest("http://localhost:3000/");
+    request.headers.set(
+      "cf-access-jwt-assertion",
+      fakeToken({ iss: "https://old-team.cloudflareaccess.com", aud: ["abc123"] }),
+    );
+
+    const body = await (await proxy(request)).text();
+
+    expect(body).toContain("Reload the page");
+    // And says what a repeat means, so a configuration error is not mistaken for a
+    // stuck session forever.
+    expect(body).toContain("configuration rather than");
+    vi.unstubAllEnvs();
+  });
+
+  it("never redirects, because a configuration error would loop", async () => {
+    // clear → Access → fresh token → rejected → clear, and the browser never stops.
+    vi.stubEnv("CF_ACCESS_TEAM_DOMAIN", "new-team.cloudflareaccess.com");
+    vi.stubEnv("CF_ACCESS_AUD", "abc123");
+    const request = new NextRequest("http://localhost:3000/");
+    request.headers.set("cf-access-jwt-assertion", fakeToken({ iss: "https://x", aud: ["y"] }));
+
+    const response = await proxy(request);
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("location")).toBeNull();
+    vi.unstubAllEnvs();
+  });
+});
+
 describe("the forbidden page", () => {
-  it("tells a locked-out person what to try", async () => {
-    // A bare "Forbidden" is indistinguishable from a genuine refusal, and it is what
-    // made a stale Access session take hours to diagnose.
+  it("tells a visitor with no assertion to sign in", async () => {
+    // Not "clear your cookies" — there is nothing to clear, and advice that does not
+    // apply is worse than none. The stuck-session case gets its own wording above.
     vi.stubEnv("CF_ACCESS_TEAM_DOMAIN", "example.cloudflareaccess.com");
     vi.stubEnv("CF_ACCESS_AUD", "abc123");
 
     const body = await (await proxy(new NextRequest("http://localhost:3000/"))).text();
 
-    expect(body).toContain("Clear cookies");
+    expect(body).toContain("Sign in through Cloudflare Access");
+    expect(body).not.toContain("Reload the page");
     vi.unstubAllEnvs();
   });
 

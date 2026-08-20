@@ -1,5 +1,5 @@
 # 042 — Recover from a rejected Access session without clearing cookies by hand
-Status: todo
+Status: done
 Wave: 5   Lane: —
 Blocked by: 036
 Read first: docs/runbooks/access-verification.md
@@ -33,19 +33,19 @@ the stale token. The next request carries none, Cloudflare Access issues a fresh
 and the fresh one has the current issuer.
 
 ## Acceptance criteria
-- [ ] A 403 caused by an assertion that was **present and failed to verify** clears
+- [x] A 403 caused by an assertion that was **present and failed to verify** clears
       `CF_Authorization`
-- [ ] A 403 caused by **no assertion at all** does not — there is nothing to clear, and
+- [x] A 403 caused by **no assertion at all** does not — there is nothing to clear, and
       that case is an ordinary refusal rather than a stuck session
-- [ ] **No automatic redirect.** The page says the session was cleared and invites a
+- [x] **No automatic redirect.** The page says the session was cleared and invites a
       reload. Redirecting risks a loop: if the rejection is a *configuration* error
       rather than a stale token, clear → Access → fresh token → rejected → clear
       repeats forever and the browser never stops
-- [ ] The page distinguishes the two outcomes in plain language: "this should work if
+- [x] The page distinguishes the two outcomes in plain language: "this should work if
       you reload" versus "if this repeats, the configuration is wrong — check the logs"
-- [ ] Still says nothing about which check failed or what was expected. That stays in
+- [x] Still says nothing about which check failed or what was expected. That stays in
       the log
-- [ ] Tests: the cleared-cookie header is present for a failed assertion and absent when
+- [x] Tests: the cleared-cookie header is present for a failed assertion and absent when
       no assertion was supplied; the response body is unchanged in the second case
 
 ## Files
@@ -67,3 +67,24 @@ that is broken, so it fails exactly when it is needed.
 here read the same corrupted state the failure came from. A recovery mechanism that
 shares an input with the thing it recovers from is not a recovery mechanism. This one
 deliberately depends on nothing but the browser honouring `Max-Age=0`.
+
+## Done — 2026-08-20
+
+`verifyAccessJwt` now reports whether an assertion was **present and failed** as
+distinct from absent, because that difference is the whole ticket: a token that failed
+is a stuck session and deleting it is the fix, while no token is an ordinary refusal
+with nothing to delete. Handing a `Set-Cookie` to a visitor who never authenticated
+would be noise at best.
+
+The page wording branches on the same distinction. "Clear your cookies" is bad advice
+for someone who has none — an instruction that does not apply is worse than none, which
+is the mistake the stopgap version made.
+
+That stopgap's test had to be updated rather than kept: it asserted the no-assertion
+page said "Clear cookies", which was true and is now wrong. Worth noting because the
+temptation with a failing old test is to preserve it.
+
+**No redirect, deliberately.** A configuration error would otherwise produce
+clear → Access → fresh token → rejected → clear with nothing to stop it. A reload the
+reader chooses cannot loop, and the page says what a repeat means so the two causes stay
+distinguishable.
