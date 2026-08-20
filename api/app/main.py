@@ -32,6 +32,7 @@ from app.routers import (
     transactions,
     users,
 )
+from app.services import access
 
 
 @asynccontextmanager
@@ -60,6 +61,26 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             "SESSION_SECRET is still the development default on an https origin. "
             "Set it before serving: fly secrets set -a pfa-api "
             'SESSION_SECRET="$(openssl rand -base64 32)"'
+        )
+
+    # Refuse to serve a deployment with nothing authenticating it (ticket 047a).
+    #
+    # Cloudflare Access *is* the authentication now — there is no application
+    # credential behind it — so an unconfigured Access on a deployed environment is not
+    # a degraded mode, it is an open door. `deps.current_user` refuses every request in
+    # that state, which is correct but arrives one request too late to be reassuring:
+    # a deployment that cannot authenticate anyone should not accept a connection at
+    # all, and an operator should learn about it from a failed release rather than from
+    # a support conversation.
+    #
+    # The demo is the deliberate exception. It is public by design, serves synthetic
+    # data from a separate Neon project, and refuses mutating verbs.
+    if settings.is_deployment and not settings.demo_mode and access.configured() is None:
+        raise RuntimeError(
+            "Cloudflare Access is not configured on a deployed environment, so nothing "
+            "would authenticate this app. Set both values before serving: "
+            "fly secrets set -a pfa-api "
+            'CF_ACCESS_TEAM_DOMAIN="<team>.cloudflareaccess.com" CF_ACCESS_AUD="<aud tag>"'
         )
 
     yield

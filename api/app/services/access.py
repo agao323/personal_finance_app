@@ -1,19 +1,20 @@
 """Verifying Cloudflare Access assertions at the API.
 
-The web tier already does this in `web/src/lib/access.ts` and refuses anything that
-fails. This is not that check repeated for its own sake — it exists because **one route
-trusts Access as the sole factor**: account recovery, where somebody who has lost their
-passkey has no session and no second credential to offer.
+**This is the authentication** (ticket 047a). `deps.current_user` resolves the email
+verified here to a row in `users`; there is no application credential behind it. It
+began life in ticket 044 serving one route — account recovery — and was promoted when
+the passkey layer was removed. See docs/adr/0007-drop-passkeys.md.
 
-For that route the assertion is the credential, so it has to be verified *here*, by the
-service that acts on it, rather than inferred from a header the web tier attached. The
-API has no public address, but "unreachable" and "unauthenticated" are different
-properties and only one of them is enforced by a network.
+The web tier checks the assertion too, in `web/src/lib/access.ts`, and that is not this
+check repeated for its own sake. The assertion *is* the credential, so it has to be
+verified **here**, by the service that acts on it, rather than inferred from a header
+the web tier attached. The API has no public address, but "unreachable" and
+"unauthenticated" are different properties and only one of them is enforced by a network.
 
-**Unconfigured means disabled, and disabled means recovery is refused** — never
-"allowed without a check". That distinction is the whole security of the recovery
-route: locally, and anywhere Access is not in front, there is nothing to verify and so
-nothing may be recovered.
+**Unconfigured means disabled, and disabled means refused** — never "allowed without a
+check". Locally there is nothing in front of the app, so `Settings.dev_identity_email`
+names who you are, and it is inert on any https origin. A deployed environment with
+Access unconfigured does not start at all: see `main.lifespan`.
 """
 
 from __future__ import annotations

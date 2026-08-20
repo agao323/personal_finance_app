@@ -212,22 +212,6 @@ def test_the_bootstrap_window_is_open_before_any_passkey_exists(client: TestClie
     assert client.get("/auth/session").status_code == 200
 
 
-def test_the_bootstrap_window_closes_once_a_passkey_is_registered(
-    client: TestClient, db_session: Session, owner_id: int
-) -> None:
-    db_session.execute(
-        text(
-            "INSERT INTO credentials (user_id, credential_id, public_key, sign_count) "
-            "VALUES (:u, :c, :p, 0)"
-        ),
-        {"u": owner_id, "c": b"cred-1", "p": b"key-1"},
-    )
-
-    response = client.get("/auth/session")
-
-    assert response.status_code == 401
-
-
 def test_a_valid_cookie_authenticates(
     client: TestClient, db_session: Session, owner_id: int
 ) -> None:
@@ -262,37 +246,30 @@ def test_deactivating_a_user_revokes_their_session_immediately(
     assert response.status_code == 401
 
 
-def test_an_expired_cookie_does_not_fall_back_to_the_bootstrap(
-    client: TestClient, owner_id: int
+def test_a_session_cookie_is_not_a_way_in(
+    client: TestClient, owner_id: int, unauthenticated: None
 ) -> None:
-    """Otherwise an expired session silently downgrades to unauthenticated access."""
-    expired = sessions.issue(
-        owner_id, get_settings().session_secret, 1, now=dt.datetime(2020, 1, 1, tzinfo=dt.UTC)
-    )
+    """The cookie confers nothing — forged, or perfectly valid.
 
-    response = client.get("/auth/session", cookies={sessions.COOKIE_NAME: expired})
-
-    assert response.status_code == 401
-
-
-def test_a_forged_cookie_is_refused(client: TestClient, owner_id: int) -> None:
+    Until 047a a session cookie *was* the authentication, and this test asserted that a
+    cookie signed with the wrong secret was refused. That property is now far stronger
+    and worth stating as such: `current_user` does not read the cookie at all, so a
+    cookie the application itself minted a second ago is no more use than a forged one.
+    Both are checked, because "we stopped reading it" is exactly the kind of claim that
+    quietly stops being true.
+    """
     forged = sessions.issue(owner_id, "attacker-secret", 24)
+    genuine = sessions.issue(owner_id, get_settings().session_secret, 24)
 
-    assert client.get("/auth/session", cookies={sessions.COOKIE_NAME: forged}).status_code == 401
+    for cookie in (forged, genuine):
+        response = client.get("/auth/session", cookies={sessions.COOKIE_NAME: cookie})
+        assert response.status_code == 401
 
 
 def test_protected_routes_refuse_an_unauthenticated_request(
-    client: TestClient, db_session: Session, owner_id: int
+    client: TestClient, unauthenticated: None
 ) -> None:
     """The dependency guards every route that touches household data, not just /auth."""
-    db_session.execute(
-        text(
-            "INSERT INTO credentials (user_id, credential_id, public_key, sign_count) "
-            "VALUES (:u, :c, :p, 0)"
-        ),
-        {"u": owner_id, "c": b"cred-3", "p": b"key-3"},
-    )
-
     for path in ("/net-worth", "/accounts", "/transactions", "/spend", "/runway", "/export"):
         assert client.get(path).status_code == 401, path
 
@@ -409,8 +386,8 @@ def test_cannot_remove_someone_elses_passkey(
     assert response.json()["detail"] == "No such passkey"
 
 
-def test_listing_passkeys_needs_a_session(
-    client: TestClient, db_session: Session, owner_id: int
+def test_listing_passkeys_needs_authentication(
+    client: TestClient, db_session: Session, owner_id: int, unauthenticated: None
 ) -> None:
     _register(db_session, owner_id, b"one")
 

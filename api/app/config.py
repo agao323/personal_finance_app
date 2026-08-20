@@ -58,21 +58,42 @@ class Settings(BaseSettings):
         return self.session_secret == "dev-only-not-a-secret"
 
     @property
-    def cookie_secure(self) -> bool:
-        """Secure cookies everywhere but plain-HTTP local dev.
+    def is_deployment(self) -> bool:
+        """True anywhere this is served over https — i.e. not a developer's laptop.
 
         Derived from the origin rather than configured separately: two settings that
-        must agree are one setting and a bug waiting to happen.
+        must agree are one setting and a bug waiting to happen. Ticket 034 already
+        used this signal to refuse booting on the default session secret; ticket 047a
+        reuses the same one rather than introducing a second notion of "production"
+        that could disagree with the first.
         """
         return self.web_origin.startswith("https://")
 
-    # Cloudflare Access (ticket 044). Only the account-recovery route reads these —
-    # everything else is authenticated by a session, and Access is enforced at the
-    # edge and again at the web origin. Both must be set or recovery is refused: an
-    # audience with no issuer accepts a token from any Access tenant, and an issuer
-    # with no audience accepts one minted for a different application.
+    @property
+    def cookie_secure(self) -> bool:
+        """Secure cookies everywhere but plain-HTTP local dev."""
+        return self.is_deployment
+
+    # Cloudflare Access (ticket 044; promoted by 047a). **This is the authentication.**
+    # `current_user` resolves the email Access verified to a row in `users`; there is no
+    # application credential behind it any more. See docs/adr/0007-drop-passkeys.md.
+    #
+    # Both must be set or the check is disabled: an audience with no issuer accepts a
+    # token from any Access tenant, and an issuer with no audience accepts one minted
+    # for a different application. Either alone is worse than nothing, because it looks
+    # like a check. Disabled means **refused**, never "allowed without checking" — and
+    # `main.lifespan` will not let a deployment boot in that state at all.
     cf_access_team_domain: str | None = None
     cf_access_aud: str | None = None
+
+    # Who you are on a laptop, where there is no Access in front to say (ticket 047a).
+    #
+    # Inert unless Access is unconfigured *and* `is_deployment` is false, so setting it
+    # on a deployed environment does nothing — the value cannot become a way in. It is
+    # also how the test suite authenticates, which is deliberate: the mechanism that
+    # runs in development is the one the tests exercise, rather than a fixture-only
+    # path that could drift from it.
+    dev_identity_email: str | None = None
 
     # Observability (ticket 007). Sentry stays disabled while the DSN is unset.
     sentry_dsn: str | None = None

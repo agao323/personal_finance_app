@@ -29,6 +29,27 @@ from app.main import app
 
 API_ROOT = Path(__file__).resolve().parent.parent
 
+# Authentication, for the whole suite (ticket 047a).
+#
+# The tests sign in the way a laptop does: no Cloudflare Access in front, and an
+# identity named in the environment. That is deliberate — it exercises the same code
+# path development uses, rather than a fixture-only shortcut that could drift from it
+# and pass while the real path was broken.
+#
+# Set at import time rather than in a fixture because the migration that seeds the owner
+# reads OWNER_EMAIL, and it must already be settled before any session-scoped fixture
+# runs. Each value is pinned rather than merely defaulted where a developer's exported
+# environment would otherwise change what the tests mean:
+#
+#   WEB_ORIGIN         http, so `is_deployment` is false and the dev identity is honoured
+#   CF_ACCESS_*        cleared, so `access.configured()` is None
+#   DEV_IDENTITY_EMAIL mirrors whatever the owner row was actually seeded with
+os.environ.setdefault("OWNER_EMAIL", "owner@example.invalid")
+os.environ["DEV_IDENTITY_EMAIL"] = os.environ["OWNER_EMAIL"]
+os.environ["WEB_ORIGIN"] = "http://localhost:3000"
+os.environ.pop("CF_ACCESS_TEAM_DOMAIN", None)
+os.environ.pop("CF_ACCESS_AUD", None)
+
 
 def _alembic_upgrade(url: str) -> None:
     """Run `alembic upgrade head` against `url`."""
@@ -127,6 +148,21 @@ def client(db_session: Session) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def unauthenticated(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Strip the development identity, so a request carries no proof of anything.
+
+    The suite is otherwise authenticated by default — that is what makes the several
+    hundred functional tests readable. This is the fixture for the handful that need to
+    assert a refusal, and it removes the *only* remaining way in when Access is
+    unconfigured, which is what makes those assertions mean something.
+    """
+    monkeypatch.delenv("DEV_IDENTITY_EMAIL", raising=False)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture
