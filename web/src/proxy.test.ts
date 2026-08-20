@@ -139,3 +139,30 @@ describe("rejection diagnostics", () => {
     expect(result.reason).toContain("could not be decoded");
   });
 });
+
+describe("the forbidden page", () => {
+  it("tells a locked-out person what to try", async () => {
+    // A bare "Forbidden" is indistinguishable from a genuine refusal, and it is what
+    // made a stale Access session take hours to diagnose.
+    vi.stubEnv("CF_ACCESS_TEAM_DOMAIN", "example.cloudflareaccess.com");
+    vi.stubEnv("CF_ACCESS_AUD", "abc123");
+
+    const body = await (await proxy(new NextRequest("http://localhost:3000/"))).text();
+
+    expect(body).toContain("Clear cookies");
+    vi.unstubAllEnvs();
+  });
+
+  it("does not say which check failed", async () => {
+    // That belongs in the log, where only the operator reads it.
+    vi.stubEnv("CF_ACCESS_TEAM_DOMAIN", "example.cloudflareaccess.com");
+    vi.stubEnv("CF_ACCESS_AUD", "abc123");
+
+    const body = await (await proxy(new NextRequest("http://localhost:3000/"))).text();
+
+    expect(body).not.toContain("example.cloudflareaccess.com");
+    expect(body).not.toContain("abc123");
+    expect(body.toLowerCase()).not.toContain("iss");
+    vi.unstubAllEnvs();
+  });
+});

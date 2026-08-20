@@ -23,6 +23,36 @@ import { IS_DEMO } from "@/lib/demo";
  */
 const SESSION_COOKIE = "pfa_session";
 
+/**
+ * What an unauthenticated visitor sees instead of a bare "Forbidden".
+ *
+ * Deliberately says nothing about *which* check failed or what was expected — that
+ * belongs in the log, where only the operator can read it. What it does say is the one
+ * thing a legitimate person locked out needs to know, because a stale session and a
+ * genuine refusal look identical from here and the bare word "Forbidden" sends you
+ * nowhere. It cost hours the first time.
+ *
+ * No new information for an attacker: the edge already redirects to a Cloudflare
+ * Access login page, so "this site uses Access" is not a secret.
+ */
+const FORBIDDEN_PAGE = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Forbidden</title>
+<style>
+  :root { color-scheme: light dark }
+  body { font: 16px/1.6 system-ui, sans-serif; max-width: 34rem; margin: 12vh auto; padding: 0 1.5rem }
+  h1 { font-size: 1.25rem; margin: 0 0 .75rem }
+  p { margin: 0 0 1rem }
+  code { font-size: .9em }
+</style></head><body>
+<h1>Forbidden</h1>
+<p>This request did not pass Cloudflare Access.</p>
+<p>If you are signed in and still seeing this, your Access session may predate a
+configuration change on this site. Clear cookies for this domain, or open a private
+window, and sign in again.</p>
+</body></html>`;
+
 /** Fly's liveness probe. Exempt from both the Access check and the auth redirect. */
 const HEALTH_PATH = "/healthz";
 
@@ -69,7 +99,10 @@ export async function proxy(request: NextRequest) {
       // fails — and a bare 403 gives whoever is locked out nothing to go on. It also
       // must not tell an attacker which part of the check they failed.
       console.error(`[access] rejected: ${verified.reason} (issuer https://${access.teamDomain})`);
-      return new NextResponse("Forbidden", { status: 403 });
+      return new NextResponse(FORBIDDEN_PAGE, {
+        status: 403,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
     }
   }
 
