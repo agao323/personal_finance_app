@@ -54,8 +54,24 @@ def test_an_authenticator_that_never_counts_is_allowed() -> None:
 # ── session cookies ───────────────────────────────────────────────────────────
 
 
+def test_a_session_carries_the_passkey_that_issued_it() -> None:
+    """So the passkey list can mark the device you are holding.
+
+    Removing the one you are signed in with is a different decision from removing one
+    you lost, and a list that cannot tell them apart invites the wrong click.
+    """
+    identity = sessions.read(sessions.issue(7, SECRET, 24, credential_id=3), SECRET)
+
+    assert (identity.user_id, identity.credential_id) == (7, 3)
+
+
+def test_a_session_issued_before_that_field_still_works() -> None:
+    """Nobody should be signed out by a deploy that added a field."""
+    assert sessions.read(sessions.issue(7, SECRET, 24), SECRET).credential_id is None
+
+
 def test_a_session_round_trips() -> None:
-    assert sessions.read(sessions.issue(7, SECRET, 24), SECRET) == 7
+    assert sessions.read(sessions.issue(7, SECRET, 24), SECRET).user_id == 7
 
 
 def test_a_tampered_payload_is_rejected() -> None:
@@ -302,3 +318,100 @@ def test_logout_clears_the_cookie(client: TestClient) -> None:
 
     assert response.status_code == 204
     assert sessions.COOKIE_NAME in response.headers.get("set-cookie", "")
+
+
+# ── passkey management ────────────────────────────────────────────────────────
+
+
+def _register(db_session: Session, owner_id: int, marker: bytes) -> int:
+    return int(
+        db_session.execute(
+            text(
+                "INSERT INTO credentials (user_id, credential_id, public_key, sign_count) "
+                "VALUES (:u, :c, :p, 0) RETURNING id"
+            ),
+            {"u": owner_id, "c": marker, "p": b"key-" + marker},
+        ).scalar_one()
+    )
+
+
+def test_lists_your_passkeys(client: TestClient, db_session: Session, owner_id: int) -> None:
+    first = _register(db_session, owner_id, b"one")
+    second = _register(db_session, owner_id, b"two")
+    cookie = sessions.issue(owner_id, get_settings().session_secret, 24, credential_id=second)
+
+    body = client.get("/auth/credentials", cookies={sessions.COOKIE_NAME: cookie}).json()
+
+    assert [row["id"] for row in body] == [first, second]
+    assert [row["is_current"] for row in body] == [False, True]
+
+
+def test_the_list_carries_no_key_material(
+    client: TestClient, db_session: Session, owner_id: int
+) -> None:
+    """Which devices can sign in as me is the question. The key is not part of it."""
+    credential_id = _register(db_session, owner_id, b"one")
+    cookie = sessions.issue(
+        owner_id, get_settings().session_secret, 24, credential_id=credential_id
+    )
+
+    body = client.get("/auth/credentials", cookies={sessions.COOKIE_NAME: cookie}).json()
+
+    assert set(body[0]) == {"id", "created_at", "last_used_at", "is_current"}
+
+
+def test_removes_a_passkey_you_are_not_using(
+    client: TestClient, db_session: Session, owner_id: int
+) -> None:
+    lost = _register(db_session, owner_id, b"lost")
+    holding = _register(db_session, owner_id, b"holding")
+    cookie = sessions.issue(owner_id, get_settings().session_secret, 24, credential_id=holding)
+
+    response = client.delete(f"/auth/credentials/{lost}", cookies={sessions.COOKIE_NAME: cookie})
+
+    assert response.status_code == 204
+    remaining = client.get("/auth/credentials", cookies={sessions.COOKIE_NAME: cookie}).json()
+    assert [row["id"] for row in remaining] == [holding]
+
+
+def test_refuses_to_remove_the_last_passkey(
+    client: TestClient, db_session: Session, owner_id: int
+) -> None:
+    """It would be a lockout wearing the word remove, with no undo behind it.
+
+    The bootstrap window is closed for good once any credential exists, so an account
+    with none cannot be recovered from inside the app.
+    """
+    only = _register(db_session, owner_id, b"only")
+    cookie = sessions.issue(owner_id, get_settings().session_secret, 24, credential_id=only)
+
+    response = client.delete(f"/auth/credentials/{only}", cookies={sessions.COOKIE_NAME: cookie})
+
+    assert response.status_code == 409
+    assert "only passkey" in response.json()["detail"]
+
+
+def test_cannot_remove_someone_elses_passkey(
+    client: TestClient, db_session: Session, owner_id: int, partner_id: int
+) -> None:
+    """404, the same answer a nonexistent id gets.
+
+    Whether a given id belongs to somebody else is not a question this should answer.
+    """
+    mine = _register(db_session, owner_id, b"mine")
+    _register(db_session, owner_id, b"spare")
+    theirs = _register(db_session, partner_id, b"theirs")
+    cookie = sessions.issue(owner_id, get_settings().session_secret, 24, credential_id=mine)
+
+    response = client.delete(f"/auth/credentials/{theirs}", cookies={sessions.COOKIE_NAME: cookie})
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "No such passkey"
+
+
+def test_listing_passkeys_needs_a_session(
+    client: TestClient, db_session: Session, owner_id: int
+) -> None:
+    _register(db_session, owner_id, b"one")
+
+    assert client.get("/auth/credentials").status_code == 401

@@ -1,5 +1,5 @@
 # 041 — Account menu: identity, sign out, and passkey management
-Status: todo
+Status: done
 Wave: 5   Lane: —
 Blocked by: 035
 Read first: docs/SECURITY.md#auth
@@ -27,20 +27,20 @@ Three things are true today and none of them is obvious:
 That last one is the reason this is not cosmetic.
 
 ## Acceptance criteria
-- [ ] Account control in the nav showing the signed-in user's display name, from
+- [x] Account control in the nav showing the signed-in user's display name, from
       `GET /auth/session`
-- [ ] **Sign out**, clearing the application session
-- [ ] **Sign out of Cloudflare Access too**, as a separate and clearly-labelled action —
+- [x] **Sign out**, clearing the application session
+- [x] **Sign out of Cloudflare Access too**, as a separate and clearly-labelled action —
       see the open question below
-- [ ] A **passkeys** view: list registered credentials with their created and last-used
+- [x] A **passkeys** view: list registered credentials with their created and last-used
       dates, add one for this device, remove one
-- [ ] **Removing the last passkey is refused**, with a message saying why. An account
+- [x] **Removing the last passkey is refused**, with a message saying why. An account
       with no credential can only be recovered through the bootstrap window, which is
       closed the moment any credential exists — so removing the last one is a lockout,
       not a sign-out
-- [ ] Removing a credential that is not the one you are currently using is allowed, and
+- [x] Removing a credential that is not the one you are currently using is allowed, and
       the current one is marked so you can tell them apart
-- [ ] Tests: component tests for the menu, the sign-out call, the add-device ceremony
+- [x] Tests: component tests for the menu, the sign-out call, the add-device ceremony
       against a stubbed authenticator, and the refuse-to-remove-the-last-one path
 
 ## Files
@@ -85,3 +85,31 @@ credential.
 
 The `/login` page's "Register a passkey" button should be re-captioned once this lands:
 it is genuinely the first-run action there, and the add-a-device action lives here.
+
+## Done — 2026-08-20
+
+Took the recommendation on the open question: **two sign-out actions**, app-only as the
+primary and "Sign out of Access too" beneath it for a shared machine.
+
+**The session cookie now carries the credential id** that issued it, so the list can
+mark the device you are holding. Cookies minted before this field exists stay valid and
+simply cannot mark one — nobody is signed out by a deploy that added a field, and there
+is a test for that.
+
+`current_identity` is a **separate dependency** from `current_user`. Only this screen
+needs to know *which* passkey signed you in, and `current_user`'s behaviour is relied on
+by every route in the app — the contract test asserts exactly that. Widening it to carry
+more would have put the whole surface at risk for one screen's benefit.
+
+**Removing the last passkey is refused twice**: the API answers 409, and the button is
+disabled before you get there. Two guards rather than one because there is no undo — the
+bootstrap window shuts permanently on the first credential, so an account with none
+cannot be recovered from inside the app at all. The screen shows the API's own message
+rather than a local copy that could drift from the rule.
+
+A removal request for somebody else's credential gets the same 404 a nonexistent id
+does. Whether a given id belongs to another user is not a question this endpoint should
+answer.
+
+The `/login` copy was left alone. It already reads as the first-run action it is, and
+linking to a signed-in settings page from a signed-out screen would help nobody.

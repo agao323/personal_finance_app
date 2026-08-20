@@ -41,6 +41,27 @@ def _bootstrap_user(db: Session) -> User | None:
     ).scalar_one_or_none()
 
 
+def current_identity(
+    request: Request, db: Annotated[Session, Depends(get_session)]
+) -> sessions.Identity:
+    """Who is signed in, and which passkey signed them in.
+
+    Separate from `current_user` so that dependency's signature and behaviour stay
+    exactly as every route already relies on. Only the passkey screen needs to know
+    *which* credential is in use.
+    """
+    settings = get_settings()
+    cookie = request.cookies.get(sessions.COOKIE_NAME)
+    if not cookie:
+        return sessions.Identity(user_id=current_user(request, db).id)
+    try:
+        return sessions.read(cookie, settings.session_secret)
+    except sessions.SessionError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired"
+        ) from None
+
+
 def current_user(request: Request, db: Annotated[Session, Depends(get_session)]) -> User:
     """The authenticated household member.
 
@@ -53,7 +74,7 @@ def current_user(request: Request, db: Annotated[Session, Depends(get_session)])
 
     if cookie:
         try:
-            user_id = sessions.read(cookie, settings.session_secret)
+            user_id = sessions.read(cookie, settings.session_secret).user_id
         except sessions.SessionError:
             # A bad or expired cookie is "not signed in", not "try the bootstrap" —
             # falling through would turn an expired session into a silent downgrade.
@@ -73,4 +94,5 @@ def current_user(request: Request, db: Annotated[Session, Depends(get_session)])
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
+CurrentIdentity = Annotated[sessions.Identity, Depends(current_identity)]
 DbSession = Annotated[Session, Depends(get_session)]

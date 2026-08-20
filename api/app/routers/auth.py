@@ -17,14 +17,15 @@ from __future__ import annotations
 import datetime as dt
 
 from fastapi import APIRouter, HTTPException, Response, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app.config import get_settings
-from app.deps import CurrentUser, DbSession
+from app.deps import CurrentIdentity, CurrentUser, DbSession
 from app.models.user import Credential, User, WebAuthnChallenge
 from app.schemas.auth import (
     AuthenticationOptions,
     AuthenticationVerify,
+    CredentialRead,
     RegistrationOptions,
     RegistrationVerify,
     SessionRead,
@@ -83,11 +84,16 @@ def _spend_challenge(session: DbSession, challenge_id: str, purpose: str) -> byt
     return challenge
 
 
-def _set_cookie(response: Response, user_id: int) -> None:
+def _set_cookie(response: Response, user_id: int, credential_id: int | None = None) -> None:
     settings = get_settings()
     response.set_cookie(
         sessions.COOKIE_NAME,
-        sessions.issue(user_id, settings.session_secret, settings.session_ttl_hours),
+        sessions.issue(
+            user_id,
+            settings.session_secret,
+            settings.session_ttl_hours,
+            credential_id=credential_id,
+        ),
         httponly=True,
         secure=settings.cookie_secure,
         # `lax`, not `strict`: the Cloudflare Access redirect returns the user
@@ -139,17 +145,16 @@ def registration_verify(
     except webauthn.WebAuthnError as error:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=REFUSED) from error
 
-    session.add(
-        Credential(
-            user_id=user.id,
-            credential_id=registered.credential_id,
-            public_key=registered.public_key,
-            sign_count=registered.sign_count,
-        )
+    stored = Credential(
+        user_id=user.id,
+        credential_id=registered.credential_id,
+        public_key=registered.public_key,
+        sign_count=registered.sign_count,
     )
+    session.add(stored)
     session.flush()
 
-    _set_cookie(response, user.id)
+    _set_cookie(response, user.id, credential_id=stored.id)
     return SessionRead(user_id=user.id, email=user.email, display_name=user.display_name)
 
 
@@ -211,13 +216,64 @@ def authentication_verify(
     stored.last_used_at = dt.datetime.now(dt.UTC)
     session.flush()
 
-    _set_cookie(response, user.id)
+    _set_cookie(response, user.id, credential_id=stored.id)
     return SessionRead(user_id=user.id, email=user.email, display_name=user.display_name)
 
 
 @router.get("/session", response_model=SessionRead)
 def read_session(user: CurrentUser) -> SessionRead:
     return SessionRead(user_id=user.id, email=user.email, display_name=user.display_name)
+
+
+@router.get("/credentials", response_model=list[CredentialRead])
+def list_credentials(
+    session: DbSession, user: CurrentUser, identity: CurrentIdentity
+) -> list[CredentialRead]:
+    """The passkeys registered to you, newest last."""
+    rows = list(
+        session.execute(
+            select(Credential).where(Credential.user_id == user.id).order_by(Credential.created_at)
+        ).scalars()
+    )
+
+    return [
+        CredentialRead(
+            id=row.id,
+            created_at=row.created_at,
+            last_used_at=row.last_used_at,
+            is_current=row.id == identity.credential_id,
+        )
+        for row in rows
+    ]
+
+
+@router.delete("/credentials/{credential_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_credential(session: DbSession, user: CurrentUser, credential_id: int) -> Response:
+    """Remove a passkey.
+
+    Removing the last one is refused. An account with no credential can only be
+    recovered through the bootstrap window, and that window is closed for good the
+    moment any credential exists — so this would be a lockout wearing the word
+    "remove", and there is no undo behind it.
+    """
+    credential = session.get(Credential, credential_id)
+    # Same 404 for "not yours" as for "does not exist": whether a given id belongs to
+    # someone else is not a question this endpoint should answer.
+    if credential is None or credential.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="No such passkey")
+
+    remaining = session.execute(
+        select(func.count()).select_from(Credential).where(Credential.user_id == user.id)
+    ).scalar_one()
+    if remaining <= 1:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="This is your only passkey. Register another device before removing it.",
+        )
+
+    session.delete(credential)
+    session.flush()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

@@ -700,3 +700,57 @@ export function mockRules(rows: ResponseOf<"/rules", "get"> = rules) {
     }),
   );
 }
+
+export const sessionRead: ResponseOf<"/auth/session", "get"> = {
+  user_id: 1,
+  email: "owner@example.invalid",
+  display_name: "Owner",
+};
+
+export const credentials: ResponseOf<"/auth/credentials", "get"> = [
+  {
+    id: 1,
+    created_at: "2026-03-01T10:00:00Z",
+    last_used_at: "2026-08-01T09:00:00Z",
+    is_current: false,
+  },
+  {
+    id: 2,
+    created_at: "2026-07-14T10:00:00Z",
+    last_used_at: null,
+    is_current: true,
+  },
+];
+
+export function mockSession(overrides: Partial<ResponseOf<"/auth/session", "get">> = {}) {
+  server.use(
+    http.get("/api/auth/session", () => HttpResponse.json({ ...sessionRead, ...overrides })),
+  );
+}
+
+export function mockNoSession() {
+  server.use(
+    http.get("/api/auth/session", () =>
+      HttpResponse.json({ detail: "Not signed in" }, { status: 401 }),
+    ),
+  );
+}
+
+/** The passkey list, mutable so a removal is visible on the next read. */
+export function mockCredentials(rows: ResponseOf<"/auth/credentials", "get"> = credentials) {
+  let current = [...rows];
+  server.use(
+    http.get("/api/auth/credentials", () => HttpResponse.json(current)),
+    http.delete("/api/auth/credentials/:id", ({ params }) => {
+      if (current.length <= 1) {
+        return HttpResponse.json(
+          { detail: "This is your only passkey. Register another device before removing it." },
+          { status: 409 },
+        );
+      }
+      current = current.filter((row) => row.id !== Number(params.id));
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.post("/api/auth/logout", () => new HttpResponse(null, { status: 204 })),
+  );
+}

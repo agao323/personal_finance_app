@@ -59,6 +59,8 @@ LIVE_PATHS = {
     "/auth/login/verify",  # 034
     "/auth/session",  # 034
     "/auth/logout",  # 034
+    "/auth/credentials",  # 041
+    "/auth/credentials/{credential_id}",  # 041
 }
 
 

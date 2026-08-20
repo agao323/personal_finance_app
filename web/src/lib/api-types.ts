@@ -121,6 +121,51 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/auth/credentials": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Credentials
+     * @description The passkeys registered to you, newest last.
+     */
+    get: operations["list_credentials_auth_credentials_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/credentials/{credential_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Credential
+     * @description Remove a passkey.
+     *
+     *     Removing the last one is refused. An account with no credential can only be
+     *     recovered through the bootstrap window, and that window is closed for good the
+     *     moment any credential exists — so this would be a lockout wearing the word
+     *     "remove", and there is no undo behind it.
+     */
+    delete: operations["delete_credential_auth_credentials__credential_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/auth/login/options": {
     parameters: {
       query?: never;
@@ -1026,6 +1071,30 @@ export interface components {
       merchant?: string | null;
       /** Posted At */
       posted_at: string;
+    };
+    /**
+     * CredentialRead
+     * @description A registered authenticator, as the passkey screen needs it.
+     *
+     *     Deliberately no public key and no credential id bytes. "Which devices can sign in
+     *     as me" is what the screen is for and is not itself a secret; the key material is,
+     *     and there is no reason for it to leave the database.
+     */
+    CredentialRead: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Id */
+      id: number;
+      /**
+       * Is Current
+       * @default false
+       */
+      is_current: boolean;
+      /** Last Used At */
+      last_used_at?: string | null;
     };
     /**
      * DataSource
@@ -1934,6 +2003,73 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  list_credentials_auth_credentials_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CredentialRead"][];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  delete_credential_auth_credentials__credential_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        credential_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };
