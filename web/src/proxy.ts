@@ -64,7 +64,14 @@ your session — the server log says which check failed.</p>`
 const HEALTH_PATH = "/healthz";
 
 /** Paths that must stay reachable without a session. */
-const PUBLIC_PREFIXES = ["/login", HEALTH_PATH];
+const PUBLIC_PREFIXES = [
+  "/login",
+  // Redeeming an invitation cannot require a session: the person opening it does not
+  // have one yet, which is the entire point. They have already passed Access to reach
+  // it, and the token is single-use and expiring.
+  "/invitation",
+  HEALTH_PATH,
+];
 
 export function isPublicPath(pathname: string): boolean {
   // Every `/api/*` path is exempt, not just the auth ones. Redirecting a `fetch` to

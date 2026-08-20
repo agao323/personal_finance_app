@@ -80,3 +80,34 @@ class WebAuthnChallenge(Base):
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class Invitation(Base):
+    """A single-use, time-limited token letting a new member register their first passkey.
+
+    It exists because the bootstrap window cannot be reopened. That window is
+    "`credentials` is empty" and it shuts for good on the first registration; making it
+    "empty *for this user*" would let anyone who reached the origin claim any account
+    that had not registered yet.
+
+    **It never grants a session by itself.** Redeeming it registers a passkey and
+    nothing more — the passkey is what signs you in afterwards. And redemption still
+    happens from behind Cloudflare Access, so the token is a second factor rather than
+    the only one.
+
+    The token is stored hashed. A readable invitation in the database is a credential
+    sitting in a backup.
+    """
+
+    __tablename__ = "invitations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    redeemed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

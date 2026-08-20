@@ -21,11 +21,14 @@ from sqlalchemy import delete, func, select
 
 from app.config import get_settings
 from app.deps import CurrentIdentity, CurrentUser, DbSession
-from app.models.user import Credential, User, WebAuthnChallenge
+from app.models.user import Credential, Invitation, User, WebAuthnChallenge
+from app.routers import users
 from app.schemas.auth import (
     AuthenticationOptions,
     AuthenticationVerify,
     CredentialRead,
+    InvitationRedeemOptions,
+    InvitationRedeemVerify,
     RegistrationOptions,
     RegistrationVerify,
     SessionRead,
@@ -42,6 +45,10 @@ AUTHENTICATE = "authenticate"
 #: One message for every failed ceremony. Distinguishing "no such user" from "wrong
 #: authenticator" tells an attacker which addresses are in the household.
 REFUSED = "Could not verify that passkey"
+
+#: One message for every invitation failure — unknown, expired, already spent. The
+#: token is the secret, and saying which of those you hit is a way to probe it.
+INVITATION_REFUSED = "That invitation is not valid"
 
 
 def _issue_challenge(session: DbSession, purpose: str, user_id: int | None) -> webauthn.Ceremony:
@@ -223,6 +230,100 @@ def authentication_verify(
 @router.get("/session", response_model=SessionRead)
 def read_session(user: CurrentUser) -> SessionRead:
     return SessionRead(user_id=user.id, email=user.email, display_name=user.display_name)
+
+
+def _invited_user(session: DbSession, token: str) -> User:
+    """The account an invitation belongs to, or a refusal.
+
+    Every failure — unknown, expired, already redeemed — returns the same message. The
+    token is the secret; telling someone which of those they hit is a way to probe it.
+    """
+    row = session.execute(
+        select(Invitation).where(Invitation.token_hash == users.hash_token(token))
+    ).scalar_one_or_none()
+
+    if row is None or row.redeemed_at is not None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=INVITATION_REFUSED)
+    if webauthn.is_expired(row.expires_at):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=INVITATION_REFUSED)
+
+    user = session.get(User, row.user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=INVITATION_REFUSED)
+    return user
+
+
+@router.post("/invitation/redeem/options", response_model=RegistrationOptions)
+def invitation_options(session: DbSession, payload: InvitationRedeemOptions) -> RegistrationOptions:
+    """Options for registering a passkey against an invited account.
+
+    Takes no `CurrentUser`, deliberately. The whole point is that the invited person
+    has no session yet — and if it took the *current* user, an owner clicking this
+    would attach the newcomer's authenticator to their own account, which is silently
+    wrong in the way that matters most: every ownership figure is per-user.
+
+    Still behind Cloudflare Access on the real deployment, so the token is a second
+    factor rather than the only one.
+    """
+    settings = get_settings()
+    invited = _invited_user(session, payload.token)
+    ceremony = _issue_challenge(session, REGISTER, invited.id)
+
+    return RegistrationOptions(
+        options=webauthn.registration_options(
+            rp_id=settings.rp_id,
+            rp_name=settings.rp_name,
+            user_id=invited.id,
+            email=invited.email,
+            display_name=invited.display_name,
+            challenge=ceremony.challenge,
+            existing_credential_ids=[],
+        ),
+        challenge_id=ceremony.challenge_id,
+    )
+
+
+@router.post("/invitation/redeem/verify", response_model=SessionRead)
+def invitation_verify(
+    session: DbSession, payload: InvitationRedeemVerify, response: Response
+) -> SessionRead:
+    """Register the passkey, mark the invitation spent, and sign them in.
+
+    The credential is attached to the **invited** user, read from the token — never to
+    whoever happens to be holding a session in this browser.
+    """
+    settings = get_settings()
+    invited = _invited_user(session, payload.token)
+    challenge = _spend_challenge(session, payload.challenge_id, REGISTER)
+
+    try:
+        registered = webauthn.verify_registration(
+            credential=payload.credential,
+            challenge=challenge,
+            rp_id=settings.rp_id,
+            origin=settings.web_origin,
+        )
+    except webauthn.WebAuthnError as error:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=REFUSED) from error
+
+    stored = Credential(
+        user_id=invited.id,
+        credential_id=registered.credential_id,
+        public_key=registered.public_key,
+        sign_count=registered.sign_count,
+    )
+    session.add(stored)
+
+    # Spent, not deleted: a redeemed invitation is a fact worth being able to see, and
+    # marking it is what makes a second attempt fail rather than silently work.
+    invitation = session.execute(
+        select(Invitation).where(Invitation.token_hash == users.hash_token(payload.token))
+    ).scalar_one()
+    invitation.redeemed_at = dt.datetime.now(dt.UTC)
+    session.flush()
+
+    _set_cookie(response, invited.id, credential_id=stored.id)
+    return SessionRead(user_id=invited.id, email=invited.email, display_name=invited.display_name)
 
 
 @router.get("/credentials", response_model=list[CredentialRead])

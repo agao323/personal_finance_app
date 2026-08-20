@@ -30,6 +30,7 @@ from app.routers import (
     runway,
     spend,
     transactions,
+    users,
 )
 
 
@@ -82,6 +83,7 @@ for _router in (
     rules.router,
     transactions.router,
     auth.router,
+    users.router,
 ):
     app.include_router(_router)
 

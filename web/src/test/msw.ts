@@ -754,3 +754,55 @@ export function mockCredentials(rows: ResponseOf<"/auth/credentials", "get"> = c
     http.post("/api/auth/logout", () => new HttpResponse(null, { status: 204 })),
   );
 }
+
+export const members: ResponseOf<"/members", "get"> = [
+  {
+    id: 1,
+    email: "owner@example.invalid",
+    display_name: "Owner",
+    is_active: true,
+    passkey_count: 2,
+  },
+  {
+    id: 2,
+    email: "partner@example.invalid",
+    display_name: "Partner",
+    is_active: true,
+    passkey_count: 0,
+  },
+];
+
+/** Mutable, so adding or deactivating is visible on the next read. */
+export function mockMembers(rows: ResponseOf<"/members", "get"> = members) {
+  let current = [...rows];
+  server.use(
+    http.get("/api/members", () => HttpResponse.json(current)),
+    http.post("/api/members", async ({ request }) => {
+      const body = (await request.json()) as { email: string; display_name: string };
+      const created = {
+        id: 99,
+        email: body.email,
+        display_name: body.display_name,
+        is_active: true,
+        passkey_count: 0,
+      };
+      current = [...current, created];
+      return HttpResponse.json(created, { status: 201 });
+    }),
+    http.patch("/api/members/:id", async ({ params, request }) => {
+      const body = (await request.json()) as { is_active?: boolean };
+      const id = Number(params.id);
+      current = current.map((m) =>
+        m.id === id && body.is_active !== undefined ? { ...m, is_active: body.is_active } : m,
+      );
+      return HttpResponse.json(current.find((m) => m.id === id));
+    }),
+    http.post("/api/members/:id/invitation", ({ params }) =>
+      HttpResponse.json({
+        token: "invitation-token",
+        expires_at: "2026-08-27T00:00:00Z",
+        member_id: Number(params.id),
+      }),
+    ),
+  );
+}

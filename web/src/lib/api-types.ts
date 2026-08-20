@@ -166,6 +166,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/auth/invitation/redeem/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Invitation Options
+     * @description Options for registering a passkey against an invited account.
+     *
+     *     Takes no `CurrentUser`, deliberately. The whole point is that the invited person
+     *     has no session yet — and if it took the *current* user, an owner clicking this
+     *     would attach the newcomer's authenticator to their own account, which is silently
+     *     wrong in the way that matters most: every ownership figure is per-user.
+     *
+     *     Still behind Cloudflare Access on the real deployment, so the token is a second
+     *     factor rather than the only one.
+     */
+    post: operations["invitation_options_auth_invitation_redeem_options_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/invitation/redeem/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Invitation Verify
+     * @description Register the passkey, mark the invitation spent, and sign them in.
+     *
+     *     The credential is attached to the **invited** user, read from the token — never to
+     *     whoever happens to be holding a session in this browser.
+     */
+    post: operations["invitation_verify_auth_invitation_redeem_verify_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/auth/login/options": {
     parameters: {
       query?: never;
@@ -385,6 +436,82 @@ export interface paths {
      *     upload cannot also carry a JSON body.
      */
     post: operations["preview_csv_import_csv_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/members": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Members
+     * @description Everyone in the household, active or not.
+     */
+    get: operations["list_members_members_get"];
+    put?: never;
+    /**
+     * Add Member
+     * @description Create the row. They still need an Access policy entry and a passkey.
+     */
+    post: operations["add_member_members_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/members/{member_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Member
+     * @description Activate or deactivate. There is deliberately no delete.
+     *
+     *     `ownership_stakes.owner_user_id` is `ON DELETE RESTRICT` on purpose: a stake is a
+     *     historical fact, and removing the user it points at would silently rewrite past net
+     *     worth. Deactivating revokes access on the very next request — `current_user` reads
+     *     `is_active` every time — and leaves the history intact.
+     */
+    patch: operations["update_member_members__member_id__patch"];
+    trace?: never;
+  };
+  "/members/{member_id}/invitation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create Invitation
+     * @description Issue a single-use token letting this member register their first passkey.
+     *
+     *     **The token is returned once and never again** — only its hash is stored. Losing it
+     *     means issuing another, which is cheap; being able to read it back out of the
+     *     database later would mean every backup carries a live credential.
+     *
+     *     Issuing a second invitation invalidates any earlier unredeemed one, so a token that
+     *     went to the wrong place stops working the moment you reissue.
+     */
+    post: operations["create_invitation_members__member_id__invitation_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1256,6 +1383,40 @@ export interface components {
      * @enum {string}
      */
     Interval: "day" | "week" | "month";
+    /**
+     * InvitationCreated
+     * @description Returned once. Only the hash is kept, so it cannot be read back.
+     */
+    InvitationCreated: {
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /** Member Id */
+      member_id: number;
+      /** Token */
+      token: string;
+    };
+    /**
+     * InvitationRedeemOptions
+     * @description Start registering a passkey against an invited account.
+     */
+    InvitationRedeemOptions: {
+      /** Token */
+      token: string;
+    };
+    /** InvitationRedeemVerify */
+    InvitationRedeemVerify: {
+      /** Challenge Id */
+      challenge_id: string;
+      /** Credential */
+      credential: {
+        [key: string]: unknown;
+      };
+      /** Token */
+      token: string;
+    };
     /** KindBreakdown */
     KindBreakdown: {
       kind: components["schemas"]["AccountKind"];
@@ -1270,6 +1431,36 @@ export interface components {
      * @enum {string}
      */
     MatchType: "contains" | "equals" | "starts_with" | "regex";
+    /** MemberCreate */
+    MemberCreate: {
+      /** Display Name */
+      display_name: string;
+      /** Email */
+      email: string;
+    };
+    /** MemberRead */
+    MemberRead: {
+      /** Display Name */
+      display_name: string;
+      /** Email */
+      email: string;
+      /** Id */
+      id: number;
+      /** Is Active */
+      is_active: boolean;
+      /**
+       * Passkey Count
+       * @default 0
+       */
+      passkey_count: number;
+    };
+    /** MemberUpdate */
+    MemberUpdate: {
+      /** Display Name */
+      display_name?: string | null;
+      /** Is Active */
+      is_active?: boolean | null;
+    };
     /** NetWorthPoint */
     NetWorthPoint: {
       /**
@@ -2074,6 +2265,90 @@ export interface operations {
       };
     };
   };
+  invitation_options_auth_invitation_redeem_options_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InvitationRedeemOptions"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RegistrationOptions"];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  invitation_verify_auth_invitation_redeem_verify_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InvitationRedeemVerify"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SessionRead"];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   authentication_options_auth_login_options_post: {
     parameters: {
       query?: never;
@@ -2412,6 +2687,161 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  list_members_members_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MemberRead"][];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  add_member_members_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MemberCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MemberRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_member_members__member_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        member_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MemberUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MemberRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_invitation_members__member_id__invitation_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        member_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InvitationCreated"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

@@ -56,3 +56,15 @@ class CredentialRead(Schema):
     last_used_at: dt.datetime | None = None
     #: True for the passkey this request's session was issued with.
     is_current: bool = False
+
+
+class InvitationRedeemOptions(Schema):
+    """Start registering a passkey against an invited account."""
+
+    token: str
+
+
+class InvitationRedeemVerify(Schema):
+    token: str
+    challenge_id: str
+    credential: dict[str, Any]

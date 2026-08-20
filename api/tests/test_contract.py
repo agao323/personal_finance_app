@@ -61,6 +61,11 @@ LIVE_PATHS = {
     "/auth/logout",  # 034
     "/auth/credentials",  # 041
     "/auth/credentials/{credential_id}",  # 041
+    "/members",  # 043
+    "/members/{member_id}",  # 043
+    "/members/{member_id}/invitation",  # 043
+    "/auth/invitation/redeem/options",  # 043
+    "/auth/invitation/redeem/verify",  # 043
 }
 
 
@@ -261,6 +266,12 @@ PUBLIC_PATHS = {
     "/auth/register/options",
     "/auth/register/verify",
     "/auth/logout",
+    # Redeeming an invitation cannot require a session: the whole point is that the
+    # invited person does not have one yet. The token is the credential, it is
+    # single-use and expiring, and on the real deployment Cloudflare Access has
+    # already refused anyone outside the household before this route is reached.
+    "/auth/invitation/redeem/options",
+    "/auth/invitation/redeem/verify",
     "/openapi.json",
     "/docs",
     "/docs/oauth2-redirect",
