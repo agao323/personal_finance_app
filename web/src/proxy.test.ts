@@ -240,3 +240,20 @@ describe("the forbidden page", () => {
     vi.unstubAllEnvs();
   });
 });
+
+describe("routes a locked-out person must still reach", () => {
+  it("lets recovery through without a session", () => {
+    // Someone who lost their only passkey cannot produce one, so a session check here
+    // would make the recovery page unreachable by exactly the people who need it.
+    expect(isPublicPath("/recover")).toBe(true);
+  });
+
+  it("lets an invitation through without a session", () => {
+    expect(isPublicPath("/invitation")).toBe(true);
+  });
+
+  it("still guards the app's own pages", () => {
+    expect(isPublicPath("/settings/passkeys")).toBe(false);
+    expect(isPublicPath("/recovery-notes")).toBe(false);
+  });
+});

@@ -16,6 +16,7 @@ dependencies = [
     "sentry-sdk[fastapi]>=2.68.0",
     "python-multipart>=0.0.32",
     "webauthn>=2.5",
+    "pyjwt[crypto]>=2.10",
 ]
 
 [dependency-groups]

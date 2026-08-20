@@ -66,6 +66,14 @@ class Settings(BaseSettings):
         """
         return self.web_origin.startswith("https://")
 
+    # Cloudflare Access (ticket 044). Only the account-recovery route reads these —
+    # everything else is authenticated by a session, and Access is enforced at the
+    # edge and again at the web origin. Both must be set or recovery is refused: an
+    # audience with no issuer accepts a token from any Access tenant, and an issuer
+    # with no audience accepts one minted for a different application.
+    cf_access_team_domain: str | None = None
+    cf_access_aud: str | None = None
+
     # Observability (ticket 007). Sentry stays disabled while the DSN is unset.
     sentry_dsn: str | None = None
     log_level: str = "INFO"

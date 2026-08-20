@@ -35,6 +35,12 @@ and it is the most common way projects like this get owned. No recovery codes ei
 passkey is recovered by re-registering from behind Access, which is a stronger gate than any
 recovery flow would be.
 
+That is implemented at `/recover` (ticket 044). It takes no session, because somebody who has
+lost their only device cannot produce one; the API verifies the `Cf-Access-Jwt-Assertion`
+itself and matches the email to an **active** user, so passing Access is necessary and not
+sufficient. It refuses outright when Access is not configured — locally there is nothing in
+front of the app, and an unguarded version would be a free "register as anybody" endpoint.
+
 ### Why the API has no public address
 
 The browser never calls the API directly; Next.js proxies to it over Fly's private network.

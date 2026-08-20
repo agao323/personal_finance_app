@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from sqlalchemy import delete, func, select
 
 from app.config import get_settings
@@ -34,8 +34,8 @@ from app.schemas.auth import (
     SessionRead,
 )
 from app.schemas.common import ErrorResponse
+from app.services import access, webauthn
 from app.services import session as sessions
-from app.services import webauthn
 
 router = APIRouter(prefix="/auth", tags=["auth"], responses={401: {"model": ErrorResponse}})
 
@@ -49,6 +49,10 @@ REFUSED = "Could not verify that passkey"
 #: One message for every invitation failure — unknown, expired, already spent. The
 #: token is the secret, and saying which of those you hit is a way to probe it.
 INVITATION_REFUSED = "That invitation is not valid"
+
+#: One message whether Access is unconfigured, the assertion failed, or the identity is
+#: not in the household. Which of those you hit is not a probe worth answering.
+RECOVERY_REFUSED = "Account recovery is not available for this identity"
 
 
 def _issue_challenge(session: DbSession, purpose: str, user_id: int | None) -> webauthn.Ceremony:
@@ -324,6 +328,105 @@ def invitation_verify(
 
     _set_cookie(response, invited.id, credential_id=stored.id)
     return SessionRead(user_id=invited.id, email=invited.email, display_name=invited.display_name)
+
+
+def _recovering_user(session: DbSession, request: Request) -> User:
+    """The account Cloudflare Access says you are, for recovery only.
+
+    This is the one place the application treats Access as sufficient on its own, and
+    it is what ADR 0002 has always described: "a lost passkey is recovered by
+    re-registering from behind Access". Somebody who has lost their only device has no
+    session and no second credential, so Access is the only thing left that knows who
+    they are — and it is the layer this project calls the security in the first place.
+
+    Refused outright when Access is not configured. Locally there is nothing in front
+    of the app, so an unguarded version of this would be a free "register as anybody"
+    endpoint.
+    """
+    try:
+        email = access.verified_email(request.headers.get(access.ASSERTION_HEADER))
+    except access.AccessError as error:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=RECOVERY_REFUSED) from error
+
+    user = session.execute(
+        select(User).where(func.lower(User.email) == email.lower())
+    ).scalar_one_or_none()
+    # The `users` table is still the allowlist. Passing Access is necessary and not
+    # sufficient: an identity Cloudflare authenticated but this household never added
+    # gets the same refusal as a forged assertion.
+    if user is None or not user.is_active:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=RECOVERY_REFUSED)
+    return user
+
+
+@router.post("/recover/options", response_model=RegistrationOptions)
+def recover_options(session: DbSession, request: Request) -> RegistrationOptions:
+    """Begin registering a replacement passkey, identified only by Cloudflare Access."""
+    settings = get_settings()
+    user = _recovering_user(session, request)
+    ceremony = _issue_challenge(session, REGISTER, user.id)
+
+    existing = list(
+        session.execute(
+            select(Credential.credential_id).where(Credential.user_id == user.id)
+        ).scalars()
+    )
+
+    return RegistrationOptions(
+        options=webauthn.registration_options(
+            rp_id=settings.rp_id,
+            rp_name=settings.rp_name,
+            user_id=user.id,
+            email=user.email,
+            display_name=user.display_name,
+            challenge=ceremony.challenge,
+            existing_credential_ids=existing,
+        ),
+        challenge_id=ceremony.challenge_id,
+    )
+
+
+@router.post("/recover/verify", response_model=SessionRead)
+def recover_verify(
+    session: DbSession, request: Request, payload: RegistrationVerify, response: Response
+) -> SessionRead:
+    """Register the replacement passkey and sign them in.
+
+    The Access assertion is verified **again** here rather than trusting that the
+    challenge was issued to the right person. The challenge id travels through the
+    browser, and a check that happens only on the way out is a check somebody can walk
+    around.
+
+    The old credentials are deliberately left in place. A lost phone that turns up in a
+    coat pocket still works, and anything genuinely gone can be removed from the
+    passkeys screen once you are back in — which is a decision to make while signed in,
+    not while panicking.
+    """
+    settings = get_settings()
+    user = _recovering_user(session, request)
+    challenge = _spend_challenge(session, payload.challenge_id, REGISTER)
+
+    try:
+        registered = webauthn.verify_registration(
+            credential=payload.credential,
+            challenge=challenge,
+            rp_id=settings.rp_id,
+            origin=settings.web_origin,
+        )
+    except webauthn.WebAuthnError as error:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=REFUSED) from error
+
+    stored = Credential(
+        user_id=user.id,
+        credential_id=registered.credential_id,
+        public_key=registered.public_key,
+        sign_count=registered.sign_count,
+    )
+    session.add(stored)
+    session.flush()
+
+    _set_cookie(response, user.id, credential_id=stored.id)
+    return SessionRead(user_id=user.id, email=user.email, display_name=user.display_name)
 
 
 @router.get("/credentials", response_model=list[CredentialRead])

@@ -271,6 +271,56 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/auth/recover/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Recover Options
+     * @description Begin registering a replacement passkey, identified only by Cloudflare Access.
+     */
+    post: operations["recover_options_auth_recover_options_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/recover/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Recover Verify
+     * @description Register the replacement passkey and sign them in.
+     *
+     *     The Access assertion is verified **again** here rather than trusting that the
+     *     challenge was issued to the right person. The challenge id travels through the
+     *     browser, and a check that happens only on the way out is a check somebody can walk
+     *     around.
+     *
+     *     The old credentials are deliberately left in place. A lost phone that turns up in a
+     *     coat pocket still works, and anything genuinely gone can be removed from the
+     *     passkeys screen once you are back in — which is a decision to make while signed in,
+     *     not while panicking.
+     */
+    post: operations["recover_verify_auth_recover_verify_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/auth/register/options": {
     parameters: {
       query?: never;
@@ -2443,6 +2493,77 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  recover_options_auth_recover_options_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RegistrationOptions"];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  recover_verify_auth_recover_verify_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RegistrationVerify"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SessionRead"];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

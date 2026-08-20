@@ -321,6 +321,8 @@ inventory is worse than none, because it is trusted.
 | DELETE | `/auth/credentials/{credential_id}` | 041 |
 | POST | `/auth/invitation/redeem/options` | 043 |
 | POST | `/auth/invitation/redeem/verify` | 043 |
+| POST | `/auth/recover/options` | 044 |
+| POST | `/auth/recover/verify` | 044 |
 | GET POST | `/members` | 043 |
 | PATCH | `/members/{member_id}` | 043 |
 | POST | `/members/{member_id}/invitation` | 043 |

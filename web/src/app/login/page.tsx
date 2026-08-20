@@ -15,6 +15,7 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 import { Skeleton } from "@/components/states";
 import { apiFetch } from "@/lib/api";
@@ -139,6 +140,16 @@ export function LoginScreen() {
           ) : null}
         </div>
       )}
+
+      {supported ? (
+        <p className="text-ink-secondary mt-4 text-sm">
+          Lost the device with your passkey?{" "}
+          <Link href="/recover" className="text-accent underline underline-offset-4">
+            Register a replacement
+          </Link>
+          .
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 # Tickets
 
-43 tickets in six waves. Waves 0, 1, 3, and 4 are serial. **Wave 2 runs in three parallel
+44 tickets in six waves. Waves 0, 1, 3, and 4 are serial. **Wave 2 runs in three parallel
 lanes.**
 
 ## How to work a ticket
@@ -27,7 +27,7 @@ runs out of budget mid-change and leaves the repo broken.
 | 2 — Build | 013–033 | **3 lanes** | Every feature |
 | 3 — Auth & ship | 034–037 | serial | Passkeys, Access, origin lock, public demo |
 | 4 — Close | 038–039 | serial | E2E green, README and ADRs |
-| 5 — Account | 041–043 | serial | Sign out, manage passkeys, add a partner |
+| 5 — Account | 041–044 | serial | Sign out, manage passkeys, add a partner, recover a lockout |
 
 Wave 1 is what makes Wave 2 parallel. Ticket 009 puts the entire v1 schema in one
 hand-reviewed migration, because Alembic's revision chain is linear and cannot absorb

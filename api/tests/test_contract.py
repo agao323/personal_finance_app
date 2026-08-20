@@ -66,6 +66,8 @@ LIVE_PATHS = {
     "/members/{member_id}/invitation",  # 043
     "/auth/invitation/redeem/options",  # 043
     "/auth/invitation/redeem/verify",  # 043
+    "/auth/recover/options",  # 044
+    "/auth/recover/verify",  # 044
 }
 
 
@@ -272,6 +274,11 @@ PUBLIC_PATHS = {
     # already refused anyone outside the household before this route is reached.
     "/auth/invitation/redeem/options",
     "/auth/invitation/redeem/verify",
+    # Recovery cannot require a session either: the person using it has lost the only
+    # passkey that could produce one. Cloudflare Access is the credential, verified by
+    # the API itself, and the route refuses outright when Access is not configured.
+    "/auth/recover/options",
+    "/auth/recover/verify",
     "/openapi.json",
     "/docs",
     "/docs/oauth2-redirect",

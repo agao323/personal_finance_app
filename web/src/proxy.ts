@@ -70,6 +70,10 @@ const PUBLIC_PREFIXES = [
   // have one yet, which is the entire point. They have already passed Access to reach
   // it, and the token is single-use and expiring.
   "/invitation",
+  // Recovery is for somebody who cannot produce a session — that is the definition of
+  // the problem it solves. Cloudflare Access has already identified them, and the API
+  // verifies that assertion itself before registering anything.
+  "/recover",
   HEALTH_PATH,
 ];
 
