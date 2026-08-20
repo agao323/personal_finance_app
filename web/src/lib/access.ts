@@ -14,7 +14,7 @@
  * sits behind Access — do not need a team domain to run. The deployment sets both
  * variables, and `isEnforced` is what a startup check can assert on.
  */
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, decodeJwt, jwtVerify } from "jose";
 
 const HEADER = "cf-access-jwt-assertion";
 
@@ -53,6 +53,24 @@ export interface AccessResult {
   email?: string;
 }
 
+/**
+ * What the token *claimed*, for the log line only.
+ *
+ * Decoded without verifying, which is safe precisely because nothing acts on it — it
+ * exists so "unexpected iss claim value" can say which value, rather than sending
+ * someone to compare two dashboards. Only `iss` and `aud` are read: both already
+ * appear in every Access redirect URL, so neither is a disclosure. The identity
+ * claims are deliberately left alone.
+ */
+function claimedBy(token: string): string {
+  try {
+    const payload = decodeJwt(token);
+    return ` [token iss=${String(payload.iss)} aud=${JSON.stringify(payload.aud)}]`;
+  } catch {
+    return " [token could not be decoded]";
+  }
+}
+
 export async function verifyAccessJwt(
   token: string | undefined,
   config: AccessConfig,
@@ -66,7 +84,8 @@ export async function verifyAccessJwt(
     });
     return { ok: true, email: typeof payload.email === "string" ? payload.email : undefined };
   } catch (cause: unknown) {
-    return { ok: false, reason: cause instanceof Error ? cause.message : "invalid assertion" };
+    const why = cause instanceof Error ? cause.message : "invalid assertion";
+    return { ok: false, reason: why + claimedBy(token) };
   }
 }
 

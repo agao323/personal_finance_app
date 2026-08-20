@@ -110,3 +110,32 @@ describe("the health path and Cloudflare Access", () => {
     vi.unstubAllEnvs();
   });
 });
+
+describe("rejection diagnostics", () => {
+  it("names the issuer the token claimed, not just the one expected", async () => {
+    // "unexpected iss claim value" without the value sends you comparing dashboards.
+    // Decoded without verifying, because nothing acts on it — iss and aud already
+    // appear in every Access redirect URL.
+    const header = Buffer.from(JSON.stringify({ alg: "RS256" })).toString("base64url");
+    const body = Buffer.from(
+      JSON.stringify({ iss: "https://old-team.cloudflareaccess.com", aud: ["abc"] }),
+    ).toString("base64url");
+
+    const result = await verifyAccessJwt(`${header}.${body}.sig`, {
+      teamDomain: "new-team.cloudflareaccess.com",
+      audience: "abc",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("old-team.cloudflareaccess.com");
+  });
+
+  it("says so when the token is not a JWT at all", async () => {
+    const result = await verifyAccessJwt("garbage", {
+      teamDomain: "t.cloudflareaccess.com",
+      audience: "abc",
+    });
+
+    expect(result.reason).toContain("could not be decoded");
+  });
+});
