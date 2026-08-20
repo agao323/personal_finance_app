@@ -21,12 +21,14 @@ primary_region = "iad"
   # Access JWT: an audience with no issuer accepts a token from any Access tenant,
   # and an issuer with no audience accepts one minted for a different application.
   # CF_ACCESS_AUD is the Application Audience tag from the Access dashboard.
-  # Cloudflare assigns this; it is NOT derived from your domain. Find it in any
-  # Access redirect URL, or Zero Trust → Settings → Custom Pages. Getting it wrong
-  # locks everyone out with a bare 403, because the origin cannot fetch the signing
-  # keys and every assertion then fails to verify — which is exactly what happened
-  # when this file shipped with a guessed value.
-  CF_ACCESS_TEAM_DOMAIN = "withered-hill-9584.cloudflareaccess.com"
+  # The default. Override it with `fly secrets set` rather than editing and
+  # redeploying — renaming the team in Cloudflare changes which host serves the
+  # signing keys, and the old one starts returning 404 immediately. Everyone gets a
+  # bare 403 until this matches, so it wants to be a one-command fix.
+  #
+  # Cloudflare assigns the name and you can change it; it is NOT derived from your
+  # domain. It appears in every Access redirect URL.
+  CF_ACCESS_TEAM_DOMAIN = "allofmymoney.cloudflareaccess.com"
 
 [http_service]
   internal_port = 3000

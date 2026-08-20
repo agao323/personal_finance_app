@@ -23,8 +23,11 @@ import { IS_DEMO } from "@/lib/demo";
  */
 const SESSION_COOKIE = "pfa_session";
 
+/** Fly's liveness probe. Exempt from both the Access check and the auth redirect. */
+const HEALTH_PATH = "/healthz";
+
 /** Paths that must stay reachable without a session. */
-const PUBLIC_PREFIXES = ["/login", "/healthz"];
+const PUBLIC_PREFIXES = ["/login", HEALTH_PATH];
 
 export function isPublicPath(pathname: string): boolean {
   // Every `/api/*` path is exempt, not just the auth ones. Redirecting a `fetch` to
@@ -42,6 +45,16 @@ export function isPublicPath(pathname: string): boolean {
 export async function proxy(request: NextRequest) {
   // The demo has no accounts to sign in to, and its bundle contains no sign-in path.
   if (IS_DEMO) return NextResponse.next();
+
+  // Liveness first, before the Access check. Fly's health prober runs *inside* the
+  // machine and therefore never carries an Access assertion — so with Access
+  // configured, checking it first returns 403 to the prober, both machines go
+  // critical, and deploys start timing out on health. That happened.
+  //
+  // Safe to exempt: it returns `{"status":"ok"}` and nothing else, and it is only
+  // reachable on the internal port. Nothing else gets this treatment — `/api/*`
+  // arrives through the edge and must still prove it passed Access.
+  if (request.nextUrl.pathname === HEALTH_PATH) return NextResponse.next();
 
   // Cloudflare Access, when configured. Nothing that fails this should ever arrive —
   // Access refuses it at the edge — so a failure here means the origin was reached

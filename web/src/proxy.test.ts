@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { NextRequest } from "next/server";
+import { describe, expect, it, vi } from "vitest";
 
 import { isEnforced, readConfig, verifyAccessJwt } from "@/lib/access";
-import { isPublicPath } from "@/proxy";
+import { isPublicPath, proxy } from "@/proxy";
 
 describe("isPublicPath", () => {
   it("lets the sign-in page through", () => {
@@ -76,5 +77,36 @@ describe("the health path", () => {
     // The check used to point at "/", which now redirects. Fly reads the 307 as a
     // failing machine and the deploy times out on one that is serving correctly.
     expect(isPublicPath("/healthz")).toBe(true);
+  });
+});
+
+describe("the health path and Cloudflare Access", () => {
+  it("is exempt from the auth redirect", () => {
+    expect(isPublicPath("/healthz")).toBe(true);
+  });
+
+  it("answers the prober even with Access configured and no assertion", async () => {
+    // Fly's prober runs inside the machine and never carries an Access assertion.
+    // Checking Access first returns 403 to it, both machines go critical, and
+    // deploys time out waiting for health — which is exactly what happened.
+    vi.stubEnv("CF_ACCESS_TEAM_DOMAIN", "example.cloudflareaccess.com");
+    vi.stubEnv("CF_ACCESS_AUD", "abc123");
+
+    const response = await proxy(new NextRequest("http://localhost:3000/healthz"));
+
+    expect(response.status).not.toBe(403);
+    vi.unstubAllEnvs();
+  });
+
+  it("still refuses an ordinary path that did not pass Access", async () => {
+    // The exemption is for the probe alone. Everything else arrives through the
+    // edge and must prove it got there legitimately.
+    vi.stubEnv("CF_ACCESS_TEAM_DOMAIN", "example.cloudflareaccess.com");
+    vi.stubEnv("CF_ACCESS_AUD", "abc123");
+
+    const response = await proxy(new NextRequest("http://localhost:3000/accounts"));
+
+    expect(response.status).toBe(403);
+    vi.unstubAllEnvs();
   });
 });
