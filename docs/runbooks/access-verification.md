@@ -92,6 +92,34 @@ the origin accepts the request, so run it after step 4 passes:
 fly ssh console -a pfa-web -C "node -e \"fetch('http://localhost:3000/healthz').then(r=>console.log([...r.headers].filter(([k])=>/strict|robots|frame/i.test(k))))\""
 ```
 
+## Renaming the Access team
+
+Cheap to do and wider-reaching than it looks. Two things break, both instantly:
+
+**The old team domain stops serving signing keys.** `<old>.cloudflareaccess.com/cdn-cgi/access/certs`
+starts returning 404 the moment you save, so the origin cannot verify anything and
+everyone gets 403. Fix without a deploy:
+
+```bash
+fly secrets set -a pfa-web CF_ACCESS_TEAM_DOMAIN=<new>.cloudflareaccess.com
+```
+
+**Existing sessions keep the old issuer.** A browser holding an Access session from
+before the rename presents a token whose `iss` is still the old team domain. That is a
+*correct* rejection and it looks identical to a misconfiguration. `fly logs -a pfa-web`
+distinguishes them — the line names both the issuer the token carried and the one the
+origin expected.
+
+Clear it at the **application** domain, not the team domain:
+
+```
+https://allofmymoney.com/cdn-cgi/access/logout
+```
+
+The `CF_Authorization` cookie is set on the application's hostname, so the team-domain
+logout leaves it in place. Both URLs return 200, which makes the wrong one look like it
+worked. Clearing cookies for the app domain does the same job.
+
 ## 6. The demo is *not* covered by any of this
 
 Once ticket 037 exists, confirm the opposite for `demo.allofmymoney.com`: no Access
