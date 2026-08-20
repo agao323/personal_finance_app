@@ -33,6 +33,12 @@ Tickets that call for an ADR by name:
 | `0004-backups.md` | 017 | Encrypted dumps to R2, and the restore drill | written |
 | `0005-request-scoped-transactions.md` | — | The request is the transaction boundary | backfilled by 039 |
 | `0006-contract-changes-during-wave-2.md` | — | Re-freezing the contract four times | backfilled by 039 |
+| `0007-drop-passkeys.md` | 047 | Access is the authentication; the passkey layer is removed | written |
+
+0007 supersedes half of 0002 rather than replacing it. The Access decision in 0002 was
+correct and still stands; the passkey decision beside it was undermined by a later
+ticket of our own. That is the case the numbering rule is for — 0002 stays readable as
+what was decided in August, with a banner pointing at what changed.
 
 0005 and 0006 were backfilled by ticket 039. Both describe decisions that were made
 deliberately during implementation but had no ticket calling for an ADR — 0005 because

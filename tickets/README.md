@@ -28,6 +28,14 @@ runs out of budget mid-change and leaves the repo broken.
 | 3 — Auth & ship | 034–037 | serial | Passkeys, Access, origin lock, public demo |
 | 4 — Close | 038–039 | serial | E2E green, README and ADRs |
 | 5 — Account | 041–044 | serial | Sign out, manage passkeys, add a partner, recover a lockout |
+| 6 — Simplify | 045–047 | serial | **Remove the passkey layer**; Access is the authentication |
+
+Wave 6 undoes a decision rather than adding a feature. Ticket 044 made a Cloudflare
+Access assertion sufficient to register a passkey on any device, which left the passkey
+layer unable to refuse anyone Access admitted — a second factor the first factor could
+re-issue. [ADR 0007](../docs/adr/0007-drop-passkeys.md) has the threat-by-threat
+reasoning. 045 and 046 are kept as superseded rather than deleted: they are the record
+of what the removed subsystem was costing.
 
 Wave 1 is what makes Wave 2 parallel. Ticket 009 puts the entire v1 schema in one
 hand-reviewed migration, because Alembic's revision chain is linear and cannot absorb

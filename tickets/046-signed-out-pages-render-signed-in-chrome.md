@@ -1,8 +1,13 @@
 # 046 — Signed-out pages render the signed-in app's chrome
-Status: todo
+Status: todo — superseded, see below
 Wave: 5   Lane: —
 Blocked by: none
 Read first: docs/ARCHITECTURE.md#request-path
+
+> **Do not implement.** Superseded by [ADR 0007](../docs/adr/0007-drop-passkeys.md):
+> the passkey layer is being removed and `/login` ceases to exist, so this defect is
+> deleted rather than fixed. Ticket 047b closes it. Kept in the tree because what a
+> removed subsystem was costing is worth being able to read later.
 
 ## Goal
 `/login`, `/recover`, and `/invitation` show only what they need. No nav to pages you

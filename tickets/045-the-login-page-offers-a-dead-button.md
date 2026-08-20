@@ -1,8 +1,13 @@
 # 045 — The login page offers a button that cannot work
-Status: todo
+Status: todo — superseded, see below
 Wave: 5   Lane: —
 Blocked by: none
 Read first: docs/SECURITY.md#auth
+
+> **Do not implement.** Superseded by [ADR 0007](../docs/adr/0007-drop-passkeys.md):
+> the passkey layer is being removed and `/login` ceases to exist, so this defect is
+> deleted rather than fixed. Ticket 047b closes it. Kept in the tree because what a
+> removed subsystem was costing is worth being able to read later.
 
 ## Goal
 A second device landing on `/login` is pointed at an action that works, instead of one
