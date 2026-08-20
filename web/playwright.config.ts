@@ -24,15 +24,8 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     trace: "retain-on-failure",
   },
-  projects: [
-    // The passkey ceremony runs once. The API's bootstrap window closes as soon as
-    // the first credential exists, so a per-test registration would be refused —
-    // correctly — and every test after the first would fail for the wrong reason.
-    { name: "setup", testMatch: /auth\.setup\.ts/ },
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"], storageState: "e2e/.auth/session.json" },
-      dependencies: ["setup"],
-    },
-  ],
+  // No setup project and no stored session. Ticket 047b removed passkeys, so there is
+  // no ceremony to run once and no cookie to carry between tests — the compose stack
+  // authenticates by DEV_IDENTITY_EMAIL, the same way a laptop does.
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });

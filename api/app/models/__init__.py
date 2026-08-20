@@ -22,7 +22,7 @@ from app.models.enums import (
 )
 from app.models.system import DataMarker, ImportMapping
 from app.models.transaction import CategorizationRule, Category, Transaction
-from app.models.user import Credential, User
+from app.models.user import User
 
 __all__ = [
     "MONEY",
@@ -34,7 +34,6 @@ __all__ = [
     "Category",
     "CategoryKind",
     "CategorySource",
-    "Credential",
     "DataMarker",
     "DataSource",
     "ImportMapping",

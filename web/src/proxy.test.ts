@@ -2,31 +2,7 @@ import { NextRequest } from "next/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { isEnforced, readConfig, verifyAccessJwt } from "@/lib/access";
-import { isPublicPath, proxy } from "@/proxy";
-
-describe("isPublicPath", () => {
-  it("lets the sign-in page through", () => {
-    expect(isPublicPath("/login")).toBe(true);
-  });
-
-  it("lets every API path through, not just the auth ones", () => {
-    // Redirecting a fetch answers it with a 200 and an HTML body, which the caller
-    // parses as JSON and reports as a mystery. An expired session has to come back
-    // as a real 401 so the app can say "your session ended".
-    expect(isPublicPath("/api/auth/login/options")).toBe(true);
-    expect(isPublicPath("/api/net-worth")).toBe(true);
-  });
-
-  it("guards the app's own pages", () => {
-    expect(isPublicPath("/")).toBe(false);
-    expect(isPublicPath("/accounts")).toBe(false);
-    expect(isPublicPath("/transactions")).toBe(false);
-  });
-
-  it("does not treat a lookalike prefix as public", () => {
-    expect(isPublicPath("/logins-are-fun")).toBe(false);
-  });
-});
+import { proxy } from "@/proxy";
 
 describe("Cloudflare Access configuration", () => {
   it("is disabled when unconfigured, so local dev and the demo still run", () => {
@@ -73,16 +49,10 @@ describe("Cloudflare Access configuration", () => {
 });
 
 describe("the health path", () => {
-  it("is public, or Fly cannot check a machine that has no session", () => {
-    // The check used to point at "/", which now redirects. Fly reads the 307 as a
-    // failing machine and the deploy times out on one that is serving correctly.
-    expect(isPublicPath("/healthz")).toBe(true);
-  });
-});
+  it("passes straight through, so Fly can check a machine nobody has signed into", async () => {
+    const response = await proxy(new NextRequest("http://localhost:3000/healthz"));
 
-describe("the health path and Cloudflare Access", () => {
-  it("is exempt from the auth redirect", () => {
-    expect(isPublicPath("/healthz")).toBe(true);
+    expect(response.status).toBe(200);
   });
 
   it("answers the prober even with Access configured and no assertion", async () => {
@@ -238,22 +208,5 @@ describe("the forbidden page", () => {
     expect(body).not.toContain("abc123");
     expect(body.toLowerCase()).not.toContain("iss");
     vi.unstubAllEnvs();
-  });
-});
-
-describe("routes a locked-out person must still reach", () => {
-  it("lets recovery through without a session", () => {
-    // Someone who lost their only passkey cannot produce one, so a session check here
-    // would make the recovery page unreachable by exactly the people who need it.
-    expect(isPublicPath("/recover")).toBe(true);
-  });
-
-  it("lets an invitation through without a session", () => {
-    expect(isPublicPath("/invitation")).toBe(true);
-  });
-
-  it("still guards the app's own pages", () => {
-    expect(isPublicPath("/settings/passkeys")).toBe(false);
-    expect(isPublicPath("/recovery-notes")).toBe(false);
   });
 });

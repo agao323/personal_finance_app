@@ -73,3 +73,22 @@ implementations of the transfer rules.
 **In a project without parallel lanes, this ceremony is unnecessary.** The freeze exists
 to serialise contract changes across concurrent work. Wave 3 onward has one worker and
 changes the contract directly.
+
+## Addendum — 2026-08-20, the first non-additive change
+
+Ticket 047b removed the passkey layer, and with it fourteen routes: the WebAuthn
+ceremonies, credential management, invitation redemption, recovery, and logout.
+`api-types.ts` lost 806 lines.
+
+Everything above describes re-freezes that **added**, and says so repeatedly, because
+every one of them until now did. That was a property of the work rather than a rule, and
+it is worth not letting the distinction blur: an additive change cannot break a caller
+that has not been updated, and this one can. What made it safe was that Wave 2 had
+finished and no lane was building against the removed routes — not the pipeline, which
+would have regenerated the file just as happily mid-wave and broken three lanes at once.
+
+The mechanism needed no changes. `make types` regenerated, CI's drift check saw the
+removal, and the frozen-signature contract test caught the route inventory before the
+suite did. Worth recording that the pipeline handled a deletion without special
+treatment, and equally worth recording that it would not have warned anyone if the
+deletion had been a mistake.

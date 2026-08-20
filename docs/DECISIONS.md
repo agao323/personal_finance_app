@@ -237,6 +237,12 @@ suite, preserving the learning value without putting real money behind hand-roll
 
 *Rules out:* password auth entirely.
 
+> **Superseded 2026-08-20 by [ADR 0007](adr/0007-drop-passkeys.md).** The passkey half was
+> removed. Ticket 044 made a Cloudflare Access assertion sufficient to register a passkey on
+> any device, so the second layer could no longer refuse anyone the first admitted — it was
+> downstream, not independent. The Access decision above stands and is now the whole of it.
+> Password auth is still ruled out, and always was.
+
 **Workflow: ticketed sessions, contracts first.**
 Lock schema and API contract before implementation tickets. Small tickets — one migration +
 one endpoint + one component + tests; split anything touching more than ~5 files. Every

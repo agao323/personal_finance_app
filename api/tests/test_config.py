@@ -49,36 +49,12 @@ def test_get_settings_is_cached(monkeypatch: pytest.MonkeyPatch) -> None:
         get_settings.cache_clear()
 
 
-def test_a_deployed_app_refuses_the_default_session_secret(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A known signing key lets anyone mint a cookie for any user id.
-
-    Nothing about the running app would look wrong, which is exactly why this is a
-    failed boot rather than a warning in a log nobody reads.
-    """
+def test_a_deployed_app_with_access_configured_starts(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi.testclient import TestClient
 
     from app.main import app
 
     monkeypatch.setenv("WEB_ORIGIN", "https://allofmymoney.com")
-    monkeypatch.delenv("SESSION_SECRET", raising=False)
-    get_settings.cache_clear()
-
-    with pytest.raises(RuntimeError, match="SESSION_SECRET"):
-        with TestClient(app):
-            pass
-
-    get_settings.cache_clear()
-
-
-def test_a_deployed_app_starts_once_the_secret_is_set(monkeypatch: pytest.MonkeyPatch) -> None:
-    from fastapi.testclient import TestClient
-
-    from app.main import app
-
-    monkeypatch.setenv("WEB_ORIGIN", "https://allofmymoney.com")
-    monkeypatch.setenv("SESSION_SECRET", "a-real-secret-from-fly")
     # Access is the authentication as of 047a, and a deployment without it does not
     # boot — so "the secret is set" is no longer sufficient on its own.
     monkeypatch.setenv("CF_ACCESS_TEAM_DOMAIN", "allofmymoney.cloudflareaccess.com")
@@ -103,7 +79,6 @@ def test_a_deployment_without_access_refuses_to_boot(monkeypatch: pytest.MonkeyP
     from app.main import app
 
     monkeypatch.setenv("WEB_ORIGIN", "https://allofmymoney.com")
-    monkeypatch.setenv("SESSION_SECRET", "a-real-secret-from-fly")
     monkeypatch.delenv("CF_ACCESS_TEAM_DOMAIN", raising=False)
     monkeypatch.delenv("CF_ACCESS_AUD", raising=False)
     get_settings.cache_clear()
@@ -127,7 +102,6 @@ def test_the_demo_is_the_deliberate_exception(monkeypatch: pytest.MonkeyPatch) -
     from app.main import app
 
     monkeypatch.setenv("WEB_ORIGIN", "https://demo.allofmymoney.com")
-    monkeypatch.setenv("SESSION_SECRET", "a-real-secret-from-fly")
     monkeypatch.setenv("DEMO_MODE", "true")
     monkeypatch.delenv("CF_ACCESS_TEAM_DOMAIN", raising=False)
     monkeypatch.delenv("CF_ACCESS_AUD", raising=False)
@@ -140,13 +114,14 @@ def test_the_demo_is_the_deliberate_exception(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_local_development_is_unaffected(monkeypatch: pytest.MonkeyPatch) -> None:
-    """http://localhost is not a deployment, and a clean clone must just run."""
+    """http://localhost is not a deployment, and a clean clone must just run.
+
+    `is_deployment` is what every startup guard keys off, so a clone that accidentally
+    read as deployed would refuse to boot with no Access to configure.
+    """
     monkeypatch.setenv("WEB_ORIGIN", "http://localhost:3000")
-    monkeypatch.delenv("SESSION_SECRET", raising=False)
     get_settings.cache_clear()
 
-    settings = get_settings()
-    assert settings.session_secret_is_default is True
-    assert settings.cookie_secure is False
+    assert get_settings().is_deployment is False
 
     get_settings.cache_clear()

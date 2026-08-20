@@ -53,21 +53,9 @@ LIVE_PATHS = {
     "/transactions/bulk-categorise",  # 023
     "/transactions/bulk-transfer",  # 030
     "/categories",  # 030
-    "/auth/register/options",  # 034
-    "/auth/register/verify",  # 034
-    "/auth/login/options",  # 034
-    "/auth/login/verify",  # 034
-    "/auth/session",  # 034
-    "/auth/logout",  # 034
-    "/auth/credentials",  # 041
-    "/auth/credentials/{credential_id}",  # 041
+    "/auth/session",  # 034, reduced to this one route by 047b
     "/members",  # 043
     "/members/{member_id}",  # 043
-    "/members/{member_id}/invitation",  # 043
-    "/auth/invitation/redeem/options",  # 043
-    "/auth/invitation/redeem/verify",  # 043
-    "/auth/recover/options",  # 044
-    "/auth/recover/verify",  # 044
 }
 
 
@@ -255,30 +243,19 @@ def test_error_shape_is_defined_once() -> None:
     assert set(schemas["ErrorResponse"]["properties"]) == {"detail", "errors"}
 
 
-#: Routes that must stay reachable without a session.
+#: Routes that may be reached without an identity.
 #:
-#: `/health` and `/ready` because a health check that needs a session cannot report
-#: that the app is unhealthy, and the auth ceremonies because requiring a session to
-#: get one is a closed loop.
+#: A short list, and it should stay short. Ticket 047b emptied most of it: the auth
+#: ceremonies were exempt because requiring a session to obtain one is a closed loop,
+#: and there are no ceremonies any more — Cloudflare Access authenticates before a
+#: request reaches this service at all.
+#:
+#: `/health` and `/ready` stay, because a health check that needs an identity cannot
+#: report that the app is unhealthy. Fly's prober runs inside the machine and carries
+#: no Access assertion, so an authenticated probe would fail on every machine at once.
 PUBLIC_PATHS = {
     "/health",
     "/ready",
-    "/auth/login/options",
-    "/auth/login/verify",
-    "/auth/register/options",
-    "/auth/register/verify",
-    "/auth/logout",
-    # Redeeming an invitation cannot require a session: the whole point is that the
-    # invited person does not have one yet. The token is the credential, it is
-    # single-use and expiring, and on the real deployment Cloudflare Access has
-    # already refused anyone outside the household before this route is reached.
-    "/auth/invitation/redeem/options",
-    "/auth/invitation/redeem/verify",
-    # Recovery cannot require a session either: the person using it has lost the only
-    # passkey that could produce one. Cloudflare Access is the credential, verified by
-    # the API itself, and the route refuses outright when Access is not configured.
-    "/auth/recover/options",
-    "/auth/recover/verify",
     "/openapi.json",
     "/docs",
     "/docs/oauth2-redirect",

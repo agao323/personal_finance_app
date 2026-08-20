@@ -31,7 +31,7 @@ Two deployments of the same code:
 | | real | demo |
 |---|---|---|
 | host | `<domain>` | `demo.<domain>` |
-| auth | Cloudflare Access + passkey | none (public) |
+| auth | Cloudflare Access | none (public) |
 | database | real Neon project | **separate Neon project**, synthetic seed |
 | writes | yes | rejected at the API layer |
 | indexing | `noindex` | indexed |
@@ -96,7 +96,9 @@ id, email, display_name, is_active
 ```
 
 v1 ships with one row. The second row is a partner: insert it, add the identity to the
-Cloudflare Access policy, register a passkey. No invitations, no roles, no sharing UI.
+Cloudflare Access policy. That is the whole procedure — no passkey, no invitation, no
+roles, no sharing UI. Miss the Access step and they never reach the origin, which from
+their side is indistinguishable from being refused.
 
 The `users` table is also the auth allowlist — there is no separate allowlist config.
 
@@ -311,21 +313,9 @@ inventory is worse than none, because it is trusted.
 | PATCH | `/transactions/{transaction_id}` | 023 |
 | POST | `/transactions/bulk-categorise` | 023 |
 | POST | `/transactions/bulk-transfer` | 030 |
-| POST | `/auth/register/options` | 034 |
-| POST | `/auth/register/verify` | 034 |
-| POST | `/auth/login/options` | 034 |
-| POST | `/auth/login/verify` | 034 |
 | GET | `/auth/session` | 034 |
-| POST | `/auth/logout` | 034 |
-| GET | `/auth/credentials` | 041 |
-| DELETE | `/auth/credentials/{credential_id}` | 041 |
-| POST | `/auth/invitation/redeem/options` | 043 |
-| POST | `/auth/invitation/redeem/verify` | 043 |
-| POST | `/auth/recover/options` | 044 |
-| POST | `/auth/recover/verify` | 044 |
 | GET POST | `/members` | 043 |
 | PATCH | `/members/{member_id}` | 043 |
-| POST | `/members/{member_id}/invitation` | 043 |
 
 Query parameters, request bodies, and response shapes are defined in
 `api/app/schemas/` and generated into `web/src/lib/api-types.ts`. They are deliberately

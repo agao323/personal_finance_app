@@ -18,35 +18,20 @@ beforeEach(() => {
 });
 
 describe("household", () => {
-  it("lists members and whether they can sign in yet", async () => {
+  it("lists members", async () => {
     render(<HouseholdPage />);
 
     expect(await screen.findByText("Owner")).toBeInTheDocument();
-    expect(screen.getByText("2 passkeys")).toBeInTheDocument();
-    expect(screen.getByText("No passkey yet — they cannot sign in")).toBeInTheDocument();
+    expect(screen.getByText("Partner")).toBeInTheDocument();
   });
 
-  it("only offers an invitation to someone with no passkey", async () => {
-    // Someone who already has one adds devices from their own account.
+  it("offers no invitation, because there is nothing left to hand over", async () => {
+    // Ticket 047b: a member is a users row plus the Access policy. There is no
+    // passkey for them to register and so no token to deliver.
     render(<HouseholdPage />);
     await screen.findByText("Owner");
 
-    const rows = screen.getAllByRole("listitem");
-    expect(within(rows[0]).queryByRole("button", { name: "Create invitation" })).toBeNull();
-    expect(within(rows[1]).getByRole("button", { name: "Create invitation" })).toBeInTheDocument();
-  });
-
-  it("shows the invitation link once, and says so", async () => {
-    // Only the hash is stored, so it genuinely cannot be retrieved later.
-    render(<HouseholdPage />);
-    await screen.findByText("Owner");
-
-    await userEvent.click(screen.getByRole("button", { name: "Create invitation" }));
-
-    expect(await screen.findByText(/copy it now/)).toBeInTheDocument();
-    expect(
-      screen.getByText("https://allofmymoney.com/invitation?token=invitation-token"),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /invitation/i })).toBeNull();
   });
 
   it("adds a member", async () => {
@@ -105,8 +90,8 @@ describe("household", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("That did not work");
   });
 
-  it("checks the household fixture actually exercises both states", () => {
-    expect(members.some((m) => m.passkey_count === 0)).toBe(true);
-    expect(members.some((m) => m.passkey_count > 0)).toBe(true);
+  it("checks the household fixture actually has someone to act on", () => {
+    // A screen whose list is empty passes most assertions above vacuously.
+    expect(members.length).toBeGreaterThan(1);
   });
 });

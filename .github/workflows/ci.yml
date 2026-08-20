@@ -171,9 +171,7 @@ jobs:
         run: pnpm exec playwright install chromium
 
       # Seeded deliberately: these assert against real figures, and a half-empty
-      # database fails them for a reason that is not a bug. The seed also clears
-      # registered passkeys, so the run can register a fresh one through the real
-      # ceremony with a virtual authenticator.
+      # database fails them for a reason that is not a bug.
       # Explicit, because the deploy-shaped stack has no migration step by design:
       # on Fly that is the release command, and compose has no equivalent. The dev
       # override runs it inside the API's command, which is why this only surfaced

@@ -3,10 +3,14 @@
 /**
  * Who is in the household.
  *
- * Adding someone is three systems deep and only one of them is here: a `users` row,
- * an entry on the Cloudflare Access policy, and their own passkey. The Access step
- * cannot be automated from inside the app, so this screen states it rather than
- * letting you discover it when the invitation silently never loads for them.
+ * Adding someone is two systems deep and only one of them is here: a `users` row, and
+ * their email on the Cloudflare Access policy. The Access step cannot be automated from
+ * inside the app, so this screen states it rather than letting you discover it when
+ * they hit a refusal that looks identical to not existing.
+ *
+ * There used to be a third step — their own passkey, delivered as an invitation link.
+ * Ticket 047b removed it: Access authenticates them, so there is nothing left to hand
+ * over. See docs/adr/0007-drop-passkeys.md.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -15,7 +19,6 @@ import { Field, FormActions, inputClass } from "@/components/forms/fields";
 import { ErrorState, Skeleton } from "@/components/states";
 import type { ResponseOf } from "@/lib/api";
 import { apiFetch } from "@/lib/api";
-import { formatDate } from "@/lib/format";
 
 type Member = ResponseOf<"/members", "get">[number];
 
@@ -26,7 +29,6 @@ export default function HouseholdPage() {
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [invitation, setInvitation] = useState<{ url: string; expires: string } | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -66,28 +68,6 @@ export default function HouseholdPage() {
     }
   }
 
-  async function invite(member: Member) {
-    setBusy(true);
-    setError(null);
-    setInvitation(null);
-    try {
-      const created = await apiFetch("/members/{member_id}/invitation", {
-        method: "post",
-        params: { member_id: member.id },
-      });
-      // Shown once, because only its hash is stored. Reissuing is cheap; being able
-      // to read it back later would mean every backup carries a live credential.
-      setInvitation({
-        url: `${globalThis.location.origin}/invitation?token=${encodeURIComponent(created.token)}`,
-        expires: created.expires_at,
-      });
-    } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : "No invitation was created.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function setActive(member: Member, isActive: boolean) {
     setBusy(true);
     setError(null);
@@ -118,20 +98,6 @@ export default function HouseholdPage() {
         </div>
       ) : null}
 
-      {invitation ? (
-        <div className="border-accent/40 bg-surface-1 mt-4 rounded-xl border p-4">
-          <p className="text-sm font-medium">Invitation link — copy it now</p>
-          <p className="text-ink-secondary mt-1 text-sm">
-            It is shown once and cannot be retrieved later. Valid until{" "}
-            {formatDate(invitation.expires.slice(0, 10))}. Send it however you like; it only works
-            from behind Cloudflare Access, so it is not the only thing protecting the account.
-          </p>
-          <code className="border-hairline bg-surface-2 mt-3 block overflow-x-auto rounded-lg border p-2 text-xs">
-            {invitation.url}
-          </code>
-        </div>
-      ) : null}
-
       <div className="border-hairline bg-surface-1 mt-4 rounded-xl border p-4">
         {members === null && !error ? (
           <Skeleton className="h-24 w-full" />
@@ -152,24 +118,9 @@ export default function HouseholdPage() {
                     ) : null}
                   </span>
                   <span className="text-ink-muted block text-xs">{member.email}</span>
-                  <span className="text-ink-muted block text-xs">
-                    {member.passkey_count === 0
-                      ? "No passkey yet — they cannot sign in"
-                      : `${member.passkey_count} passkey${member.passkey_count === 1 ? "" : "s"}`}
-                  </span>
                 </span>
 
                 <span className="flex items-center gap-3 text-sm">
-                  {member.passkey_count === 0 ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => invite(member)}
-                      className="border-hairline hover:bg-surface-2 rounded-lg border px-3 py-1.5 transition-colors disabled:opacity-50"
-                    >
-                      Create invitation
-                    </button>
-                  ) : null}
                   <button
                     type="button"
                     disabled={busy}
@@ -220,14 +171,12 @@ export default function HouseholdPage() {
       </form>
 
       <div className="border-warning/40 mt-4 rounded-xl border p-4">
-        <p className="text-sm font-medium">Two steps this screen cannot do</p>
-        <ol className="text-ink-secondary mt-2 list-decimal space-y-1 pl-5 text-sm">
-          <li>
-            Add their email to the <strong>Cloudflare Access policy</strong>. Without it they never
-            reach this app at all, which from their side looks exactly like being refused.
-          </li>
-          <li>Give them the invitation link, which they open to register their own passkey.</li>
-        </ol>
+        <p className="text-sm font-medium">One step this screen cannot do</p>
+        <p className="text-ink-secondary mt-2 text-sm">
+          Add their email to the <strong>Cloudflare Access policy</strong>, exactly as typed above.
+          Without it they never reach this app at all — which from their side looks identical to
+          being refused, and there is nothing here that would tell either of you which it was.
+        </p>
       </div>
     </div>
   );

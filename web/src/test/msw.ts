@@ -707,21 +707,6 @@ export const sessionRead: ResponseOf<"/auth/session", "get"> = {
   display_name: "Owner",
 };
 
-export const credentials: ResponseOf<"/auth/credentials", "get"> = [
-  {
-    id: 1,
-    created_at: "2026-03-01T10:00:00Z",
-    last_used_at: "2026-08-01T09:00:00Z",
-    is_current: false,
-  },
-  {
-    id: 2,
-    created_at: "2026-07-14T10:00:00Z",
-    last_used_at: null,
-    is_current: true,
-  },
-];
-
 export function mockSession(overrides: Partial<ResponseOf<"/auth/session", "get">> = {}) {
   server.use(
     http.get("/api/auth/session", () => HttpResponse.json({ ...sessionRead, ...overrides })),
@@ -736,39 +721,18 @@ export function mockNoSession() {
   );
 }
 
-/** The passkey list, mutable so a removal is visible on the next read. */
-export function mockCredentials(rows: ResponseOf<"/auth/credentials", "get"> = credentials) {
-  let current = [...rows];
-  server.use(
-    http.get("/api/auth/credentials", () => HttpResponse.json(current)),
-    http.delete("/api/auth/credentials/:id", ({ params }) => {
-      if (current.length <= 1) {
-        return HttpResponse.json(
-          { detail: "This is your only passkey. Register another device before removing it." },
-          { status: 409 },
-        );
-      }
-      current = current.filter((row) => row.id !== Number(params.id));
-      return new HttpResponse(null, { status: 204 });
-    }),
-    http.post("/api/auth/logout", () => new HttpResponse(null, { status: 204 })),
-  );
-}
-
 export const members: ResponseOf<"/members", "get"> = [
   {
     id: 1,
     email: "owner@example.invalid",
     display_name: "Owner",
     is_active: true,
-    passkey_count: 2,
   },
   {
     id: 2,
     email: "partner@example.invalid",
     display_name: "Partner",
     is_active: true,
-    passkey_count: 0,
   },
 ];
 
@@ -784,7 +748,6 @@ export function mockMembers(rows: ResponseOf<"/members", "get"> = members) {
         email: body.email,
         display_name: body.display_name,
         is_active: true,
-        passkey_count: 0,
       };
       current = [...current, created];
       return HttpResponse.json(created, { status: 201 });
@@ -797,12 +760,5 @@ export function mockMembers(rows: ResponseOf<"/members", "get"> = members) {
       );
       return HttpResponse.json(current.find((m) => m.id === id));
     }),
-    http.post("/api/members/:id/invitation", ({ params }) =>
-      HttpResponse.json({
-        token: "invitation-token",
-        expires_at: "2026-08-27T00:00:00Z",
-        member_id: Number(params.id),
-      }),
-    ),
   );
 }

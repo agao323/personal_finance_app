@@ -20,22 +20,27 @@ Each ticket's own file has the reasoning. This is the sequence.
 **Why first:** `pfa-web` is suspended and `pfa-api` is running a build from before
 passkeys existed. Nothing else can be verified against a stale deployment.
 
-### A1. Set the three missing API secrets
+### A1. Set the API secrets
 
 ```bash
 fly secrets set -a pfa-api \
-  SESSION_SECRET="$(openssl rand -base64 32)" \
-  RP_ID=allofmymoney.com \
-  WEB_ORIGIN=https://allofmymoney.com
+  WEB_ORIGIN=https://allofmymoney.com \
+  CF_ACCESS_TEAM_DOMAIN=allofmymoney.cloudflareaccess.com \
+  CF_ACCESS_AUD='<Application Audience tag from the Access dashboard>'
 ```
 
-`RP_ID` **must be the apex**, not a subdomain. A passkey scoped to
-`app.allofmymoney.com` stops working permanently the moment anything moves — and you
-already moved to the apex once, which was only free because no passkey existed yet.
+**All three are required and the API will not start without the Access pair** (ticket
+047a). Cloudflare Access is the authentication now — nothing else authenticates a
+request — so an unconfigured deployment is an open door rather than a degraded mode, and
+it fails the release instead of serving one.
 
-`SESSION_SECRET` is generated in your shell and never printed. The API now refuses to
-start on the development default when the origin is https, so a missing value fails the
-deploy loudly instead of signing cookies with a key that is in the repo.
+`WEB_ORIGIN` is not a URL the API ever requests. It is the signal for "this is a
+deployment", which is what makes the Access requirement bite and what makes
+`DEV_IDENTITY_EMAIL` inert. One signal rather than a second setting that could disagree.
+
+`SESSION_SECRET` and `RP_ID` used to be here and are gone — this app holds no credential
+of its own. Clear them if they are still set: `fly secrets unset -a pfa-api
+SESSION_SECRET RP_ID`.
 
 ### A2. Deploy both apps
 
@@ -112,13 +117,20 @@ Fill in the table at the bottom of [`../adr/0002-auth.md`](../adr/0002-auth.md).
 should be private" is not the same as having checked, and in six months the table is
 the only evidence either way.
 
-### B6. Register your passkey
+### B6. Set the Access session duration to 24 hours
 
-Visit `https://allofmymoney.com/login` and choose **Register a passkey**.
+Access → your application → **Session Duration**.
 
-This works only while no passkey exists. The window closes permanently on the first
-registration — after that, sign in from a device you have already registered. Behind
-Access the whole time, so the window is not an exposure.
+This is not housekeeping. [ADR 0007](../adr/0007-drop-passkeys.md) accepted losing one
+threat when the passkey layer went — somebody with physical possession of a device that
+has already authenticated — and a short session is the mitigation it was accepted on. A
+month-long session gives that threat back.
+
+While you are there, confirm the **Google account carries a hardware key or passkey**,
+not SMS or TOTP. It is the entire perimeter now.
+
+There is nothing to register in the app itself. Visit `https://allofmymoney.com`, pass
+Access, and you are signed in.
 
 ---
 
@@ -273,7 +285,7 @@ fly apps create pfa-demo-api
 fly apps create pfa-demo-web
 fly secrets set -a pfa-demo-api \
   DATABASE_URL='<the demo project pooled URL>' \
-  SESSION_SECRET="$(openssl rand -base64 32)"
+  DEMO_MODE=true
 make deploy-demo
 fly certs add -a pfa-demo-web demo.allofmymoney.com
 ```
@@ -335,8 +347,9 @@ make dev
 make seed
 ```
 
-Then open http://localhost:3000, register a passkey, and confirm the dashboard renders
-with data.
+Then open http://localhost:3000 and confirm the dashboard renders with data. There is
+nothing to sign in to: `DEV_IDENTITY_EMAIL` in `.env.example` names the seeded owner,
+because there is no Cloudflare Access in front of a laptop.
 
 A README that drifted from reality is worse than no README — it sends you debugging a
 setup that was never going to work. Every path, `make` target and doc link in it has

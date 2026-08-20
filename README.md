@@ -4,7 +4,7 @@ Net worth, spending, and runway for one household — with **fractional, effecti
 ownership**, so a 50%-owned property counts for half, and changing that split next year
 doesn't rewrite last year's charts.
 
-Next.js and FastAPI on Fly.io, Neon Postgres, behind Cloudflare Access and passkeys.
+Next.js and FastAPI on Fly.io, Neon Postgres, behind Cloudflare Access.
 
 [![CI](https://github.com/agao323/personal_finance_app/actions/workflows/ci.yml/badge.svg)](https://github.com/agao323/personal_finance_app/actions/workflows/ci.yml)
 [![Nightly backup](https://github.com/agao323/personal_finance_app/actions/workflows/backup.yml/badge.svg)](https://github.com/agao323/personal_finance_app/actions/workflows/backup.yml)
@@ -91,13 +91,14 @@ make seed
 ownership change, a closed account, matched transfers, and deliberately uncategorised
 rows to try the rules screen against.
 
-The app is behind passkeys. On a database with no passkey registered, `/login` offers to
-register one — that window closes as soon as the first one exists.
+There is nothing to sign in to locally. Cloudflare Access authenticates the deployed app,
+and there is none in front of a laptop, so `DEV_IDENTITY_EMAIL` in `.env` names who you
+are — it is ignored on any https origin. See [ADR 0007](docs/adr/0007-drop-passkeys.md).
 
 | Command | What |
 |---|---|
 | `make dev` | Full stack, hot reload |
-| `make seed` | Synthetic data. Resets the database, including registered passkeys |
+| `make seed` | Synthetic data. Resets the database, leaving household members alone |
 | `make test` | Guards, pytest, vitest |
 | `make e2e` | Playwright against the running stack |
 | `make lint` | ruff + mypy + eslint + tsc + prettier |
@@ -152,8 +153,9 @@ public internet. Separate projects mean separate credentials, so the demo's data
 **One upfront migration for the whole v1 schema.** Alembic's revision chain is linear and
 cannot absorb concurrent branches, and Wave 2 ran three lanes in parallel. Declaring the
 whole schema first meant they never collided. The cost was designing tables before
-writing the code that used them; it held, with exactly one addition since
-(`webauthn_challenges`, for the passkey ceremonies).
+writing the code that used them; it held, with one addition since
+(`webauthn_challenges`) that ticket 047b then dropped again along with the rest of the
+passkey layer.
 
 **Ownership is effective-dated.** A stake that changes on a date closes the old row and
 opens a new one, so past net worth never silently rewrites itself. This costs almost
@@ -232,7 +234,7 @@ each one worked.
 | API | pytest against real migrated Postgres — never SQLite, so a test cannot pass against a schema production does not have |
 | Web | vitest + Testing Library + MSW, with fixtures typed from the generated contract |
 | Integration | The pipeline through HTTP: import, categorise, read the figure back |
-| E2E | Playwright against the compose stack, holding a real passkey via a virtual authenticator |
+| E2E | Playwright against the compose stack, signed in as `DEV_IDENTITY_EMAIL` |
 | Guards | Shell checks with their own self-tests: no float in a money column, no public API URL in the browser bundle, no public Fly service on the API |
 
 Coverage is reported in CI and deliberately not gated on a percentage — a coverage gate

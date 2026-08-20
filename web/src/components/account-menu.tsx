@@ -3,19 +3,18 @@
 /**
  * Who you are, and how to stop being signed in.
  *
- * Both of the endpoints behind this existed for a while with nothing calling them.
- * With one household member "whose numbers are these" reads as a question nobody
- * needed to ask; the moment a second person exists it is the first one.
+ * **One sign-out, because there is only one session.** Ticket 041 built two — the
+ * application's own and Cloudflare's — and argued that collapsing them would be wrong in
+ * both directions. 047b removed the application session entirely, so the argument no
+ * longer has two sides: Cloudflare's is the only session, and only Cloudflare can end it.
  *
- * **Two sign-out actions, not one.** The application session and the Cloudflare Access
- * session are independent, and collapsing them would be wrong in both directions: one
- * button that ended only the app session would leave a "signed out" state where Access
- * still waves you through, and one that always ended both would make the ordinary case
- * — lock this app on my own laptop — cost a full Access round trip to undo.
+ * That logout is served by the edge, and it is worth knowing it fails when the Access
+ * organisation named in the cookie no longer resolves — which is exactly when somebody
+ * most needs it. The recovery for that case is `proxy.ts` clearing `CF_Authorization`
+ * from the origin on a failed assertion (ticket 042), not this button.
  */
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 import { IS_DEMO } from "@/lib/demo";
 import type { ResponseOf } from "@/lib/api";
@@ -23,10 +22,12 @@ import { apiFetch } from "@/lib/api";
 
 type SessionRead = ResponseOf<"/auth/session", "get">;
 
+/** Cloudflare's own logout, on this hostname. Not a route this app serves. */
+const ACCESS_LOGOUT = "/cdn-cgi/access/logout";
+
 export function AccountMenu() {
   const [session, setSession] = useState<SessionRead | null>(null);
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     // The demo has no accounts and no session to read.
@@ -37,8 +38,10 @@ export function AccountMenu() {
         if (live) setSession(data);
       })
       .catch(() => {
-        // Not signed in, or the session just ended. The expiry bar handles saying so;
-        // this control simply has nothing to show.
+        // Nothing to show. A request that gets this far has already passed Access, so
+        // a failure here is the app's own refusal — an identity Access authenticated
+        // that this household never added, or one since deactivated — and the answer
+        // is an absent control rather than a banner about a session that never existed.
         if (live) setSession(null);
       });
     return () => {
@@ -47,20 +50,6 @@ export function AccountMenu() {
   }, []);
 
   if (IS_DEMO || !session) return null;
-
-  async function signOut(alsoAccess: boolean) {
-    setBusy(true);
-    try {
-      await apiFetch("/auth/logout", { method: "post" });
-    } catch {
-      // Clearing the cookie is the server's job and it may already be gone. Either
-      // way the next step is the same, and refusing to navigate because logout
-      // returned an error would strand someone trying to leave.
-    }
-    // Full navigation, never a client-side push: every cached render was produced
-    // with a session that no longer exists.
-    globalThis.location.assign(alsoAccess ? "/cdn-cgi/access/logout" : "/login");
-  }
 
   return (
     <div className="relative">
@@ -94,37 +83,18 @@ export function AccountMenu() {
           >
             <p className="text-ink-muted px-3 py-2 text-xs break-all">{session.email}</p>
 
-            <Link
+            {/* A plain link, not a fetch. This is Cloudflare's endpoint on this
+                hostname and the browser has to follow it for the redirect to land. */}
+            <a
               role="menuitem"
-              href="/settings/passkeys"
-              onClick={() => setOpen(false)}
+              href={ACCESS_LOGOUT}
               className="hover:bg-surface-1 block rounded-lg px-3 py-2 text-sm"
             >
-              Passkeys
-            </Link>
-
-            <button
-              type="button"
-              role="menuitem"
-              disabled={busy}
-              onClick={() => signOut(false)}
-              className="hover:bg-surface-1 block w-full rounded-lg px-3 py-2 text-left text-sm disabled:opacity-50"
-            >
               Sign out
-            </button>
-
-            <button
-              type="button"
-              role="menuitem"
-              disabled={busy}
-              onClick={() => signOut(true)}
-              className="hover:bg-surface-1 text-ink-secondary block w-full rounded-lg px-3 py-2 text-left text-sm disabled:opacity-50"
-            >
-              Sign out of Access too
               <span className="text-ink-muted mt-0.5 block text-xs">
-                For a shared or borrowed machine.
+                Ends your Cloudflare Access session.
               </span>
-            </button>
+            </a>
           </div>
         </>
       ) : null}

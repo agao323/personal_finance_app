@@ -1,8 +1,6 @@
-"""Household members and invitations."""
+"""Household members."""
 
 from __future__ import annotations
-
-import datetime as dt
 
 from pydantic import Field
 
@@ -14,8 +12,6 @@ class MemberRead(Schema):
     email: str
     display_name: str
     is_active: bool
-    #: How many passkeys they have registered. Zero means they cannot sign in yet.
-    passkey_count: int = 0
 
 
 class MemberCreate(Schema):
@@ -31,11 +27,3 @@ class MemberCreate(Schema):
 class MemberUpdate(Schema):
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
     is_active: bool | None = None
-
-
-class InvitationCreated(Schema):
-    """Returned once. Only the hash is kept, so it cannot be read back."""
-
-    token: str
-    expires_at: dt.datetime
-    member_id: int

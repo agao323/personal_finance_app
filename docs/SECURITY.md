@@ -20,26 +20,62 @@ free. It's the intuitive worry and the least of the actual ones. Enforce HSTS an
 
 ## Auth
 
-Two independent layers on the real deployment:
+**Cloudflare Access is the authentication. The `users` table is the authorisation.**
 
-1. **Cloudflare Access** in front of `<domain>`. Identity enforced at the edge — requests
-   from unauthorized identities never reach the origin. Zero auth code in the request path.
-2. **Passkeys (WebAuthn)** implemented in the application, with the `users` table as a hard
-   allowlist. Phishing-resistant.
+Identity is enforced at the edge — requests from unauthorised identities never reach the
+origin, and there is zero auth code in the request path. The API then verifies the same
+`Cf-Access-Jwt-Assertion` itself (signature, issuer, audience) and resolves the email to an
+**active** row in `users`. Passing Access is necessary and not sufficient: an identity Access
+authenticated but this household never added is refused.
 
-Layer 1 is the security. Layer 2 is real, exercised by the production app and its test suite,
-and is the part that's worth understanding and building.
+Both halves matter. Without the `users` allowlist, an Access policy written one line too
+broadly would be a total compromise rather than a refused request.
 
-**No password auth. Ever.** There is no version of hand-rolled password auth worth the time,
-and it is the most common way projects like this get owned. No recovery codes either — a lost
-passkey is recovered by re-registering from behind Access, which is a stronger gate than any
-recovery flow would be.
+**This app holds no credential of its own.** No passwords, no passkeys, no session cookie, no
+`SESSION_SECRET`. There is nothing here to steal, phish, or leak, and nothing to rotate.
 
-That is implemented at `/recover` (ticket 044). It takes no session, because somebody who has
-lost their only device cannot produce one; the API verifies the `Cf-Access-Jwt-Assertion`
-itself and matches the email to an **active** user, so passing Access is necessary and not
-sufficient. It refuses outright when Access is not configured — locally there is nothing in
-front of the app, and an unguarded version would be a free "register as anybody" endpoint.
+### What was here before, and why it went
+
+Until 2026-08-20 there was a second layer: passkeys in the application, described here as
+"layer 1 is the security, layer 2 is real." Ticket 044 then made a valid Access assertion
+sufficient to register a passkey on any device — the correct fix for a lockout, and the end of
+the second layer's independence. It could no longer refuse anyone the first layer admitted.
+
+Working the threats through, the only one it still covered was physical possession of an
+already-authenticated device. [ADR 0007](adr/0007-drop-passkeys.md) has the full table, the
+cost, and the conditions the removal was accepted on — which are part of the decision, not
+follow-ups:
+
+- The Google account carries a **hardware key or passkey**, not SMS or TOTP. It is now the
+  entire perimeter and must be the strongest link.
+- **Access session duration is 24 hours.** This is the mitigation for the threat given up.
+- The `users` allowlist stays.
+- Screen locks on every device.
+
+Further defence in depth belongs **in Access** — device posture, WARP enrolment, a second
+identity provider — where Cloudflare maintains it rather than this codebase.
+
+### Signing out, and getting unstuck
+
+The only session is Cloudflare's, so the only sign-out is `/cdn-cgi/access/logout` on this
+hostname. Know that it fails when the Access organisation named in the cookie no longer
+resolves — a renamed team, for instance — which is precisely when it is most needed. The
+recovery for that is the origin clearing `CF_Authorization` itself on a failed assertion
+(ticket 042), since the origin serves the same hostname the cookie is set on. That is now the
+only in-browser way out of a stuck Access session, so it must not be removed.
+
+### Locally, and on the demo
+
+There is no Access in front of a laptop or the public demo, so absence of a check must never
+read as a passing one:
+
+- **Local development** names an identity in `DEV_IDENTITY_EMAIL`. It is ignored the moment
+  the origin is https, and ignored whenever Access is configured.
+- **The demo** serves a fixed synthetic identity, is a separate deployment against a separate
+  Neon project, and refuses every mutating verb.
+- **A deployed environment with Access unconfigured does not start at all.** Refusing each
+  request would be correct and one request too late; an operator should learn from a failed
+  release, not a support conversation.
 
 ### Why the API has no public address
 
@@ -52,8 +88,8 @@ hostname to forget to lock down.
 The origin still validates the `Cf-Access-Jwt-Assertion` JWT — defense in depth, in case the
 Fly app is ever given a public address by accident.
 
-Session cookies are `httpOnly`, `secure`, `sameSite=lax`, host-scoped to the single origin.
-`lax` rather than `strict` because the Access redirect returns the user cross-site.
+This app sets no cookies of its own. The only one in play is Cloudflare's
+`CF_Authorization`, which Cloudflare sets and scopes.
 
 ## Demo isolation
 

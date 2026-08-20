@@ -1,5 +1,5 @@
 # 046 — Signed-out pages render the signed-in app's chrome
-Status: todo — superseded, see below
+Status: closed — superseded by 047b
 Wave: 5   Lane: —
 Blocked by: none
 Read first: docs/ARCHITECTURE.md#request-path
@@ -80,3 +80,11 @@ placement is the mechanism the App Router already provides.
 
 Related to [045] — same screen, same shape of error: a correct refusal reported as
 something it is not.
+
+## Closed — 2026-08-20
+
+Deleted rather than fixed, by 047b. There are no signed-out pages left. `/login`, `/recover` and `/invitation` were the
+three, and all three were deleted; `SessionExpiry` went with them, so nothing can
+announce a session that never existed. The `(dashboard)` layout split this ticket
+asked for turned out to be unnecessary — not because the reasoning was wrong, but
+because the pages it was separating stopped existing.

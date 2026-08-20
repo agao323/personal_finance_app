@@ -20,7 +20,6 @@ from tests.conftest import TEST_DATABASE_URL, _alembic_upgrade
 
 EXPECTED_TABLES = {
     "users",
-    "credentials",
     "institutions",
     "accounts",
     "ownership_stakes",

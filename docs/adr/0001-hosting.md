@@ -101,13 +101,12 @@ people who build web apps, and the apex is the name that gets said out loud.
 
 Two consequences worth recording:
 
-- **The session cookie must stay host-only.** Set without a `Domain` attribute it is
-  confined to the apex and never sent to `demo.`. Setting `Domain=allofmymoney.com`
-  would send it to every subdomain including the public demo. Ticket 034.
-- **The WebAuthn RP ID becomes `allofmymoney.com`.** A passkey scoped to the apex is
-  usable on every subdomain, which is broader than scoping it to a single host would
-  have been. Acceptable here because the demo bypasses authentication at build time
-  and has no login to present a passkey to.
+- ~~**The session cookie must stay host-only.**~~ ~~**The WebAuthn RP ID becomes
+  `allofmymoney.com`.**~~ Both obsolete as of ticket 047b — this app sets no cookies and
+  holds no credentials. See [ADR 0007](0007-drop-passkeys.md). The apex-versus-subdomain
+  reasoning still applies to Cloudflare's own `CF_Authorization`, which Cloudflare scopes,
+  and to the Access application itself: the demo is a **separate** Access-less deployment
+  on `demo.`, which is why the apex choice cost nothing.
 
 ## Consequences
 

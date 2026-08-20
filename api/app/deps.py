@@ -24,7 +24,6 @@ from app.config import Settings, get_settings
 from app.db import get_session
 from app.models.user import User
 from app.services import access
-from app.services import session as sessions
 
 logger = logging.getLogger(__name__)
 
@@ -126,26 +125,5 @@ def current_user(request: Request, db: Annotated[Session, Depends(get_session)])
     return _member(db, _authenticated_email(request, settings))
 
 
-def current_identity(
-    request: Request, db: Annotated[Session, Depends(get_session)]
-) -> sessions.Identity:
-    """Who is signed in, and which passkey signed them in.
-
-    Vestigial as of 047a and removed by 047b. The session cookie is **no longer an
-    authentication mechanism** — honouring it here would be a way into the app that
-    never passed Access, which is precisely the bypass this change closes. It survives
-    only so the passkey screen keeps rendering until it is deleted.
-    """
-    settings = get_settings()
-    cookie = request.cookies.get(sessions.COOKIE_NAME)
-    if not cookie:
-        return sessions.Identity(user_id=current_user(request, db).id)
-    try:
-        return sessions.read(cookie, settings.session_secret)
-    except sessions.SessionError:
-        return sessions.Identity(user_id=current_user(request, db).id)
-
-
 CurrentUser = Annotated[User, Depends(current_user)]
-CurrentIdentity = Annotated[sessions.Identity, Depends(current_identity)]
 DbSession = Annotated[Session, Depends(get_session)]

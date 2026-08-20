@@ -1,40 +1,17 @@
-import { test as base, type Page } from "@playwright/test";
+import { test as base } from "@playwright/test";
 
 /**
- * A signed-in page, using a virtual authenticator.
+ * Nothing to sign in to.
  *
- * The app is behind passkeys, so an end-to-end run has to actually hold one. Chrome's
- * CDP `WebAuthn` domain provides a software authenticator that responds to the real
- * ceremonies, which means these tests exercise tickets 034 and 035 for real rather
- * than around them — the ceremony, the challenge, the signature, and the session
- * cookie are all genuine.
+ * Until ticket 047b this file drove a Chrome CDP virtual authenticator through a real
+ * passkey registration, because the app was behind passkeys and an end-to-end run had
+ * to actually hold one. Cloudflare Access is the authentication now, and the compose
+ * stack has no Access in front of it — `DEV_IDENTITY_EMAIL` names the identity instead,
+ * exactly as it does on a developer's laptop. See docs/adr/0007-drop-passkeys.md.
  *
- * It registers rather than signs in because the authenticator is fresh for every run
- * and holds no credential from the last one. `make seed` clears `credentials`, which
- * is what keeps the API's bootstrap window open for it.
+ * Kept as a file rather than deleted so the specs' imports stay put, and because the
+ * next thing that needs a shared fixture will want somewhere to go.
  */
-export async function signIn(page: Page): Promise<void> {
-  const client = await page.context().newCDPSession(page);
-  await client.send("WebAuthn.enable");
-  await client.send("WebAuthn.addVirtualAuthenticator", {
-    options: {
-      protocol: "ctap2",
-      transport: "internal",
-      hasResidentKey: true,
-      hasUserVerification: true,
-      isUserVerified: true,
-      automaticPresenceSimulation: true,
-    },
-  });
-
-  await page.goto("/login");
-  await page.getByRole("button", { name: "Register a passkey" }).click();
-  // The app navigates on success. Waiting for the nav rather than a selector keeps
-  // this honest: if the ceremony failed, this fails here rather than three
-  // assertions later with a confusing message.
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 15_000 });
-}
-
 export const test = base;
 
 export { expect } from "@playwright/test";

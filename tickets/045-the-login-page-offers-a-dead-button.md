@@ -1,5 +1,5 @@
 # 045 — The login page offers a button that cannot work
-Status: todo — superseded, see below
+Status: closed — superseded by 047b
 Wave: 5   Lane: —
 Blocked by: none
 Read first: docs/SECURITY.md#auth
@@ -65,3 +65,7 @@ right; only its prominence and its failure message are wrong.
 renders `API <status>: <detail>` for every failure, and `detail` is written for whichever
 route raises it. Worth a sweep, but not in this ticket — add another if the sweep finds
 more.
+
+## Closed — 2026-08-20
+
+Deleted rather than fixed, by 047b. The dead button, the page it sat on, and the 401 it produced are all gone.

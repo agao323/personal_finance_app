@@ -16,7 +16,7 @@ Personal finance app. One household (Allen, plus a partner later). Read this, th
 
 - **Backend:** FastAPI, Python 3.12, SQLAlchemy 2.0, Alembic, Pydantic v2. Package manager: `uv`.
 - **Frontend:** Next.js (App Router), TypeScript, Tailwind. Package manager: `pnpm`.
-- **DB:** Neon Postgres. **Deploy:** Docker → Fly.io. **Auth:** Cloudflare Access + passkeys.
+- **DB:** Neon Postgres. **Deploy:** Docker → Fly.io. **Auth:** Cloudflare Access (ADR 0007).
 - Repo layout: `api/` and `web/` at top level. Not a JS workspace — two ecosystems side by side.
 
 ## Commands

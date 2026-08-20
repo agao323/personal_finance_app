@@ -28,6 +28,11 @@ services:
       target: runtime
     environment:
       DATABASE_URL: ${DATABASE_URL}
+      # There is no Cloudflare Access in front of the compose stack, so nothing would
+      # authenticate a request. This names who you are locally — see the note in
+      # api/app/config.py. It is ignored the moment WEB_ORIGIN is https, so it cannot
+      # follow the image into a deployment.
+      DEV_IDENTITY_EMAIL: ${DEV_IDENTITY_EMAIL:-owner@example.invalid}
     depends_on:
       postgres:
         condition: service_healthy

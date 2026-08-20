@@ -3,19 +3,17 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AccountMenu } from "@/components/account-menu";
-import { mockCredentials, mockNoSession, mockSession } from "@/test/msw";
-
-const assign = vi.fn();
+import { mockNoSession, mockSession } from "@/test/msw";
 
 beforeEach(() => {
-  assign.mockClear();
+  // `href` as well as `origin`: relative fetches resolve against `href`, and a stub
+  // without it breaks every request in the component under test. That has cost time
+  // twice in this codebase now.
   vi.stubGlobal("location", {
-    assign,
     pathname: "/",
     href: "http://localhost:3000/",
     origin: "http://localhost:3000",
   });
-  mockCredentials();
 });
 
 afterEach(() => {
@@ -31,8 +29,10 @@ describe("AccountMenu", () => {
     expect(await screen.findByRole("button", { name: /Owner/ })).toBeInTheDocument();
   });
 
-  it("shows nothing at all when there is no session", async () => {
-    // The expiry bar says what happened. This control simply has nothing to show.
+  it("shows nothing at all when the app refuses the identity", async () => {
+    // Whoever this is passed Access and is not an active member here. There is no
+    // sign-in to offer them — Access already signed them in — so the control is simply
+    // absent rather than inviting an action that cannot help.
     mockNoSession();
 
     const { container } = render(<AccountMenu />);
@@ -40,68 +40,28 @@ describe("AccountMenu", () => {
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
-  it("offers the email and a link to passkeys", async () => {
+  it("offers the email and a single sign-out", async () => {
     mockSession();
 
     render(<AccountMenu />);
     await userEvent.click(await screen.findByRole("button", { name: /Owner/ }));
 
     expect(screen.getByText("owner@example.invalid")).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Passkeys" })).toHaveAttribute(
+    expect(screen.getAllByRole("menuitem")).toHaveLength(1);
+  });
+
+  it("signs out through Cloudflare, because that is the only session", async () => {
+    // A link the browser follows, not a fetch: `/cdn-cgi/access/logout` is served by
+    // the edge and needs a real navigation for its redirect to land. There is no
+    // application session left to end first.
+    mockSession();
+
+    render(<AccountMenu />);
+    await userEvent.click(await screen.findByRole("button", { name: /Owner/ }));
+
+    expect(screen.getByRole("menuitem", { name: /Sign out/ })).toHaveAttribute(
       "href",
-      "/settings/passkeys",
+      "/cdn-cgi/access/logout",
     );
-  });
-
-  it("signs out of the app and lands on the sign-in page", async () => {
-    mockSession();
-
-    render(<AccountMenu />);
-    await userEvent.click(await screen.findByRole("button", { name: /Owner/ }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
-
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("/login"));
-  });
-
-  it("offers a separate action that also ends the Access session", async () => {
-    // Collapsing these would be wrong in both directions: app-only leaves a "signed
-    // out" state Access still waves through, and always-both makes the ordinary case
-    // cost a full Access round trip.
-    mockSession();
-
-    render(<AccountMenu />);
-    await userEvent.click(await screen.findByRole("button", { name: /Owner/ }));
-    await userEvent.click(screen.getByRole("menuitem", { name: /Sign out of Access too/ }));
-
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("/cdn-cgi/access/logout"));
-  });
-
-  it("still navigates when logout itself fails", async () => {
-    // Refusing to leave because the sign-out call errored strands the person trying
-    // to leave. The cookie is the server's to clear and may already be gone.
-    mockSession();
-    const { server } = await import("@/test/msw");
-    const { http, HttpResponse } = await import("msw");
-    server.use(
-      http.post("/api/auth/logout", () => HttpResponse.json({ detail: "no" }, { status: 500 })),
-    );
-
-    render(<AccountMenu />);
-    await userEvent.click(await screen.findByRole("button", { name: /Owner/ }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
-
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("/login"));
-  });
-
-  it("closes when you click away", async () => {
-    mockSession();
-
-    render(<AccountMenu />);
-    await userEvent.click(await screen.findByRole("button", { name: /Owner/ }));
-    expect(screen.getByRole("menu")).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { hidden: true, name: "" }));
-
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 });

@@ -4,24 +4,22 @@ import { assertionFrom, readConfig, verifyAccessJwt } from "@/lib/access";
 import { IS_DEMO } from "@/lib/demo";
 
 /**
- * Send unauthenticated visitors to the sign-in page.
+ * Refuse anything that did not come through Cloudflare Access.
  *
  * Named `proxy.ts` because Next 16 deprecated the `middleware` file convention and
  * renamed it. Confusingly this app already has something it calls "the proxy" — the
  * `/api/[...path]` route handler that forwards to the private API. They are unrelated:
- * that one is the request path, this one is a redirect that runs before rendering.
+ * that one is the request path, this one runs before rendering.
  *
- * This is a **convenience, not the security boundary**. It checks only that a session
- * cookie is present — it cannot verify the signature, because the secret lives in the
- * API and putting it in the edge runtime would be a second copy of the one thing that
- * must not leak. Every request that matters is authenticated again by the API, and on
- * the real deployment Cloudflare Access has already refused anyone who does not
- * belong before this code runs at all.
+ * **There is no sign-in redirect any more.** Ticket 047b removed the passkey layer, so
+ * there is no session cookie to look for and no `/login` to send anyone to — Access
+ * authenticates before a request reaches this origin, and the API verifies the same
+ * assertion itself. See docs/adr/0007-drop-passkeys.md.
  *
- * What it buys is that an expired session lands on a sign-in page instead of a
- * dashboard full of error panels.
+ * Nothing that fails the check below should ever arrive, since Access refuses it at the
+ * edge. A failure here means the origin was reached some other way, which is the
+ * accident this exists to catch.
  */
-const SESSION_COOKIE = "pfa_session";
 
 /**
  * What an unauthenticated visitor sees instead of a bare "Forbidden".
@@ -60,38 +58,12 @@ your session — the server log says which check failed.</p>`
 }
 </body></html>`;
 
-/** Fly's liveness probe. Exempt from both the Access check and the auth redirect. */
+/** Fly's liveness probe. The one path exempt from the Access check. */
 const HEALTH_PATH = "/healthz";
 
-/** Paths that must stay reachable without a session. */
-const PUBLIC_PREFIXES = [
-  "/login",
-  // Redeeming an invitation cannot require a session: the person opening it does not
-  // have one yet, which is the entire point. They have already passed Access to reach
-  // it, and the token is single-use and expiring.
-  "/invitation",
-  // Recovery is for somebody who cannot produce a session — that is the definition of
-  // the problem it solves. Cloudflare Access has already identified them, and the API
-  // verifies that assertion itself before registering anything.
-  "/recover",
-  HEALTH_PATH,
-];
-
-export function isPublicPath(pathname: string): boolean {
-  // Every `/api/*` path is exempt, not just the auth ones. Redirecting a `fetch` to
-  // the sign-in page answers it with a 200 and an HTML body, which the caller parses
-  // as JSON and reports as a mystery. An expired session has to come back as a real
-  // 401 so the app can say "your session ended" — that is the thing the BFF topology
-  // buys, and throwing it away here would be a waste of it.
-  if (pathname.startsWith("/api/")) return true;
-  // Exact match, or the prefix followed by a separator. A bare `startsWith` would
-  // make `/loginsomething` public, which is a way to accidentally expose a route by
-  // naming it badly.
-  return PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
-
 export async function proxy(request: NextRequest) {
-  // The demo has no accounts to sign in to, and its bundle contains no sign-in path.
+  // The demo is public by design and has no Access in front of it. The API makes the
+  // same exception for the same reason, and refuses every mutating verb besides.
   if (IS_DEMO) return NextResponse.next();
 
   // Liveness first, before the Access check. Fly's health prober runs *inside* the
@@ -139,15 +111,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  const { pathname, search } = request.nextUrl;
-  if (isPublicPath(pathname)) return NextResponse.next();
-  if (request.cookies.has(SESSION_COOKIE)) return NextResponse.next();
-
-  const url = request.nextUrl.clone();
-  url.pathname = "/login";
-  // Where they were going, so signing in does not dump them on the dashboard.
-  url.search = `?next=${encodeURIComponent(pathname + search)}`;
-  return NextResponse.redirect(url);
+  return NextResponse.next();
 }
 
 export const config = {

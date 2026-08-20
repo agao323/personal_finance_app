@@ -90,12 +90,10 @@ def assert_not_real(session: Session) -> None:
 def wipe(session: Session) -> None:
     """Clear generated data, leaving the schema, the marker, and seeded categories.
 
-    Registered passkeys go too. Reseeding is a "reset this database" action, and a
-    synthetic database carrying a real authenticator's credential is a confusing
-    half-state: it is not what the demo deployment should serve, and locally it leaves
-    the bootstrap window shut against a database that has nothing in it. It also makes
-    the end-to-end run repeatable, since a fresh virtual authenticator has no
-    credential to present to a stale row.
+    Nothing here touches identity. Members are `users` rows paired with the Cloudflare
+    Access policy, and a reseed that silently removed people from the household would
+    be a lockout dressed as a reset — the Access side is a dashboard this script cannot
+    reach, so the two would fall out of step with no way back from inside the app.
     """
     for table in (
         "transactions",
@@ -104,8 +102,6 @@ def wipe(session: Session) -> None:
         "accounts",
         "institutions",
         "categorization_rules",
-        "webauthn_challenges",
-        "credentials",
     ):
         session.execute(text(f"DELETE FROM {table}"))
     session.execute(text("DELETE FROM users WHERE email LIKE '%@example.invalid'"))

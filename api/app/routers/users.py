@@ -3,64 +3,36 @@
 One household, two people. There are no roles, no permissions, and no invitation
 management screen — see the "prefer boring" rule in CLAUDE.md.
 
-**Adding a member is three systems deep and only one of them is here.** A `users` row
-(this module), an entry on the Cloudflare Access policy (a dashboard edit nobody can
-automate from inside the app), and their own passkey (the invitation below). Missing the
-Access step means they never reach the origin at all, which looks from their side
-exactly like being refused.
+**Adding a member is two systems deep and only one of them is here.** A `users` row
+(this module) and their email on the Cloudflare Access policy — a dashboard edit nobody
+can automate from inside the app. Missing the Access step means they never reach the
+origin at all, which looks from their side exactly like being refused.
+
+Ticket 047b removed the third step. A new member used to need their own passkey, which
+they could not register without a session and could not get a session without, so 043
+built single-use invitations to break the loop. Access authenticates them now, so the
+loop is gone and the invitation with it.
 """
 
 from __future__ import annotations
-
-import datetime as dt
-import hashlib
-import secrets
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
 
 from app.deps import CurrentUser, DbSession
-from app.models.user import Credential, Invitation, User
+from app.models.user import User
 from app.schemas.common import ErrorResponse
-from app.schemas.user import (
-    InvitationCreated,
-    MemberCreate,
-    MemberRead,
-    MemberUpdate,
-)
+from app.schemas.user import MemberCreate, MemberRead, MemberUpdate
 
 router = APIRouter(prefix="/members", tags=["members"], responses={404: {"model": ErrorResponse}})
 
-#: Long enough to be unguessable, short enough to read aloud over a phone. It is
-#: single-use and expires, and it is redeemed from behind Cloudflare Access — the
-#: entropy is not the only thing standing in the way.
-TOKEN_BYTES = 24
 
-#: A window measured in days, not minutes. The person receiving it is in the same
-#: household, not clicking a link in an email while it is still warm.
-INVITATION_TTL = dt.timedelta(days=7)
-
-
-def hash_token(token: str) -> str:
-    """SHA-256 of the token. Only the hash is stored.
-
-    Not a password hash: the token is 24 random bytes, so there is no dictionary to
-    attack and nothing for bcrypt's work factor to buy. What matters is that a database
-    dump — or a backup — contains no usable invitation.
-    """
-    return hashlib.sha256(token.encode()).hexdigest()
-
-
-def _to_read(session: DbSession, user: User) -> MemberRead:
-    passkeys = session.execute(
-        select(func.count()).select_from(Credential).where(Credential.user_id == user.id)
-    ).scalar_one()
+def _to_read(user: User) -> MemberRead:
     return MemberRead(
         id=user.id,
         email=user.email,
         display_name=user.display_name,
         is_active=user.is_active,
-        passkey_count=int(passkeys),
     )
 
 
@@ -68,7 +40,7 @@ def _to_read(session: DbSession, user: User) -> MemberRead:
 def list_members(session: DbSession, user: CurrentUser) -> list[MemberRead]:
     """Everyone in the household, active or not."""
     members = list(session.execute(select(User).order_by(User.id)).scalars())
-    return [_to_read(session, member) for member in members]
+    return [_to_read(member) for member in members]
 
 
 @router.post("", response_model=MemberRead, status_code=status.HTTP_201_CREATED)
@@ -83,7 +55,7 @@ def add_member(session: DbSession, user: CurrentUser, payload: MemberCreate) -> 
     member = User(email=payload.email, display_name=payload.display_name, is_active=True)
     session.add(member)
     session.flush()
-    return _to_read(session, member)
+    return _to_read(member)
 
 
 @router.patch("/{member_id}", response_model=MemberRead)
@@ -112,43 +84,4 @@ def update_member(
         member.display_name = payload.display_name
 
     session.flush()
-    return _to_read(session, member)
-
-
-@router.post("/{member_id}/invitation", response_model=InvitationCreated)
-def create_invitation(session: DbSession, user: CurrentUser, member_id: int) -> InvitationCreated:
-    """Issue a single-use token letting this member register their first passkey.
-
-    **The token is returned once and never again** — only its hash is stored. Losing it
-    means issuing another, which is cheap; being able to read it back out of the
-    database later would mean every backup carries a live credential.
-
-    Issuing a second invitation invalidates any earlier unredeemed one, so a token that
-    went to the wrong place stops working the moment you reissue.
-    """
-    member = session.get(User, member_id)
-    if member is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="No such member")
-
-    registered = session.execute(
-        select(func.count()).select_from(Credential).where(Credential.user_id == member.id)
-    ).scalar_one()
-    if registered:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            detail=(
-                "That member already has a passkey. They can add devices from their own account."
-            ),
-        )
-
-    for stale in session.execute(
-        select(Invitation).where(Invitation.user_id == member.id, Invitation.redeemed_at.is_(None))
-    ).scalars():
-        session.delete(stale)
-
-    token = secrets.token_urlsafe(TOKEN_BYTES)
-    expires_at = dt.datetime.now(dt.UTC) + INVITATION_TTL
-    session.add(Invitation(user_id=member.id, token_hash=hash_token(token), expires_at=expires_at))
-    session.flush()
-
-    return InvitationCreated(token=token, expires_at=expires_at, member_id=member.id)
+    return _to_read(member)
