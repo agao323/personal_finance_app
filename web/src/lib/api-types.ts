@@ -141,6 +141,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/cards": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Cards
+     * @description Every credit card account with its perks and their current periods.
+     */
+    get: operations["list_cards_cards_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/cards/{account_id}/perks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Add Perk
+     * @description Add a recurring benefit to a credit card.
+     */
+    post: operations["add_perk_cards__account_id__perks_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/categories": {
     parameters: {
       query?: never;
@@ -367,6 +407,80 @@ export interface paths {
     put?: never;
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/perks/upcoming": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Upcoming
+     * @description Unused perks whose current period ends within `within_days`, soonest first.
+     *
+     *     The point of the feature. Closed cards are excluded — a perk on a card you no longer
+     *     hold is not something you can still use.
+     */
+    get: operations["upcoming_perks_upcoming_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/perks/{perk_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Perk
+     * @description Edit a perk, or retire it by setting `is_active` false.
+     *
+     *     Retiring rather than deleting: a perk the card stopped offering still has a
+     *     redemption history, and removing it would rewrite what you did last year.
+     */
+    patch: operations["update_perk_perks__perk_id__patch"];
+    trace?: never;
+  };
+  "/perks/{perk_id}/redemptions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Mark Used
+     * @description Mark the period containing `on` as used. Idempotent.
+     *
+     *     Marking twice is not an error. This button gets pressed twice — on a phone, in a
+     *     restaurant, when the first tap did not visibly do anything — and answering 409 to
+     *     the second would be a worse outcome than the no-op it actually is.
+     */
+    post: operations["mark_used_perks__perk_id__redemptions_post"];
+    /**
+     * Mark Unused
+     * @description Undo a mark. Idempotent — unmarking something already unused is a no-op.
+     */
+    delete: operations["mark_unused_perks__perk_id__redemptions_delete"];
     options?: never;
     head?: never;
     patch?: never;
@@ -932,6 +1046,27 @@ export interface components {
        */
       months_of_runway?: number | null;
     };
+    /**
+     * CardRead
+     * @description A credit card account and its perks.
+     */
+    CardRead: {
+      /** Account Id */
+      account_id: number;
+      /** Institution */
+      institution?: string | null;
+      /** Is Closed */
+      is_closed: boolean;
+      /** Name */
+      name: string;
+      /** Perks */
+      perks: components["schemas"]["PerkRead"][];
+      /**
+       * Unused Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      unused_cents: number;
+    };
     /** CategoryRead */
     CategoryRead: {
       /** Id */
@@ -1254,6 +1389,100 @@ export interface components {
       /** Total */
       total: number;
     };
+    /**
+     * PerkCadence
+     * @description How often a card perk resets.
+     *
+     *     Ships complete, like the rest of this module: adding a value to a Postgres enum is
+     *     a migration, and these four are what card issuers actually use.
+     *
+     *     Note there is no `calendar` / `anniversary` distinction here. A perk carries the
+     *     date its first period began, and every period is that date stepped by the cadence —
+     *     so a calendar-year credit anchored 1 January and a cardmember-year credit anchored
+     *     on the day the card was opened use the same arithmetic. See `services/perks.py`.
+     * @enum {string}
+     */
+    PerkCadence: "monthly" | "quarterly" | "semiannual" | "annual";
+    /** PerkCreate */
+    PerkCreate: {
+      /**
+       * Anchor On
+       * Format: date
+       * @description The date this perk's first period began. 1 January for a calendar-year credit; the day the card was opened for one that resets on the cardmember year.
+       */
+      anchor_on: string;
+      cadence: components["schemas"]["PerkCadence"];
+      /** Description */
+      description?: string | null;
+      /** Name */
+      name: string;
+      /**
+       * Value Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      value_cents: number;
+    };
+    /**
+     * PerkPeriodRead
+     * @description Which window a perk is currently in, and whether it has been spent.
+     */
+    PerkPeriodRead: {
+      /** Days Remaining */
+      days_remaining: number;
+      /**
+       * End
+       * Format: date
+       */
+      end: string;
+      /** Is Used */
+      is_used: boolean;
+      /**
+       * Start
+       * Format: date
+       */
+      start: string;
+      /** Used Note */
+      used_note?: string | null;
+    };
+    /** PerkRead */
+    PerkRead: {
+      /** Account Id */
+      account_id: number;
+      /**
+       * Anchor On
+       * Format: date
+       */
+      anchor_on: string;
+      cadence: components["schemas"]["PerkCadence"];
+      current_period?: components["schemas"]["PerkPeriodRead"] | null;
+      /** Description */
+      description?: string | null;
+      /** Id */
+      id: number;
+      /** Is Active */
+      is_active: boolean;
+      /** Name */
+      name: string;
+      /**
+       * Value Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      value_cents: number;
+    };
+    /** PerkUpdate */
+    PerkUpdate: {
+      /** Anchor On */
+      anchor_on?: string | null;
+      cadence?: components["schemas"]["PerkCadence"] | null;
+      /** Description */
+      description?: string | null;
+      /** Is Active */
+      is_active?: boolean | null;
+      /** Name */
+      name?: string | null;
+      /** Value Cents */
+      value_cents?: number | null;
+    };
     /** PreviewRow */
     PreviewRow: {
       /**
@@ -1285,6 +1514,13 @@ export interface components {
        * @enum {string}
        */
       status: "ok" | "unavailable";
+    };
+    /** RedemptionCreate */
+    RedemptionCreate: {
+      /** Note */
+      note?: string | null;
+      /** On */
+      on?: string | null;
     };
     /** RuleApplyRequest */
     RuleApplyRequest: {
@@ -1555,6 +1791,40 @@ export interface components {
     TransactionUpdate: {
       /** Category Id */
       category_id?: number | null;
+    };
+    /**
+     * UpcomingPerk
+     * @description An unused perk whose period is about to end.
+     */
+    UpcomingPerk: {
+      /** Account Id */
+      account_id: number;
+      /** Card Name */
+      card_name: string;
+      perk: components["schemas"]["PerkRead"];
+    };
+    /**
+     * UpcomingRead
+     * @description What the whole feature is for: what is about to be lost.
+     *
+     *     Sorted by how soon the period ends, because a list you have to scan to find the
+     *     urgent thing is a worse version of the spreadsheet this replaces.
+     */
+    UpcomingRead: {
+      /**
+       * As Of
+       * Format: date
+       */
+      as_of: string;
+      /** Perks */
+      perks: components["schemas"]["UpcomingPerk"][];
+      /**
+       * Total Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      total_cents: number;
+      /** Within Days */
+      within_days: number;
     };
     /** ValidationError */
     ValidationError: {
@@ -1914,6 +2184,91 @@ export interface operations {
       };
     };
   };
+  list_cards_cards_get: {
+    parameters: {
+      query?: {
+        /** @description Evaluate periods as of this date. */
+        on?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CardRead"][];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_perk_cards__account_id__perks_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PerkCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PerkRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_categories_categories_get: {
     parameters: {
       query?: never;
@@ -2235,6 +2590,177 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  upcoming_perks_upcoming_get: {
+    parameters: {
+      query?: {
+        within_days?: number;
+        on?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UpcomingRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_perk_perks__perk_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        perk_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PerkUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PerkRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  mark_used_perks__perk_id__redemptions_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        perk_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RedemptionCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PerkRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  mark_unused_perks__perk_id__redemptions_delete: {
+    parameters: {
+      query?: {
+        on?: string | null;
+      };
+      header?: never;
+      path: {
+        perk_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PerkRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

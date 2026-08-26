@@ -22,6 +22,7 @@ from app.observability import configure_sentry
 from app.routers import (
     accounts,
     auth,
+    cards,
     categories,
     export,
     import_csv,
@@ -80,6 +81,7 @@ app.add_middleware(DemoReadOnlyMiddleware)
 # generated types without waiting on each other.
 for _router in (
     net_worth.router,
+    cards.router,
     spend.router,
     runway.router,
     export.router,

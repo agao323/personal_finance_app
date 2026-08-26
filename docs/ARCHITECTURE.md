@@ -314,6 +314,11 @@ inventory is worse than none, because it is trusted.
 | POST | `/transactions/bulk-categorise` | 023 |
 | POST | `/transactions/bulk-transfer` | 030 |
 | GET | `/auth/session` | 034 |
+| GET | `/cards` | 050 |
+| POST | `/cards/{account_id}/perks` | 050 |
+| PATCH | `/perks/{perk_id}` | 050 |
+| POST DELETE | `/perks/{perk_id}/redemptions` | 050 |
+| GET | `/perks/upcoming` | 050 |
 | GET POST | `/members` | 043 |
 | PATCH | `/members/{member_id}` | 043 |
 

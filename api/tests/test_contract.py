@@ -56,6 +56,11 @@ LIVE_PATHS = {
     "/auth/session",  # 034, reduced to this one route by 047b
     "/members",  # 043
     "/members/{member_id}",  # 043
+    "/cards",  # 050
+    "/cards/{account_id}/perks",  # 050
+    "/perks/upcoming",  # 050
+    "/perks/{perk_id}",  # 050
+    "/perks/{perk_id}/redemptions",  # 050
 }
 
 
