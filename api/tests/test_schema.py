@@ -29,6 +29,8 @@ EXPECTED_TABLES = {
     "categorization_rules",
     "import_mappings",
     "data_marker",
+    "card_perks",
+    "perk_redemptions",
 }
 
 

@@ -12,6 +12,7 @@ from app.models.account import (
     Institution,
     OwnershipStake,
 )
+from app.models.card_perk import CardPerk, PerkRedemption
 from app.models.enums import (
     AccountKind,
     AccountSubtype,
@@ -19,6 +20,7 @@ from app.models.enums import (
     CategorySource,
     DataSource,
     MatchType,
+    PerkCadence,
 )
 from app.models.system import DataMarker, ImportMapping
 from app.models.transaction import CategorizationRule, Category, Transaction
@@ -30,6 +32,7 @@ __all__ = [
     "AccountKind",
     "AccountSubtype",
     "BalanceSnapshot",
+    "CardPerk",
     "CategorizationRule",
     "Category",
     "CategoryKind",
@@ -40,6 +43,8 @@ __all__ = [
     "Institution",
     "MatchType",
     "OwnershipStake",
+    "PerkCadence",
+    "PerkRedemption",
     "Transaction",
     "User",
 ]

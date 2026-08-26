@@ -101,6 +101,24 @@ class CategorySource(enum.StrEnum):
     MANUAL = "manual"
 
 
+class PerkCadence(enum.StrEnum):
+    """How often a card perk resets.
+
+    Ships complete, like the rest of this module: adding a value to a Postgres enum is
+    a migration, and these four are what card issuers actually use.
+
+    Note there is no `calendar` / `anniversary` distinction here. A perk carries the
+    date its first period began, and every period is that date stepped by the cadence —
+    so a calendar-year credit anchored 1 January and a cardmember-year credit anchored
+    on the day the card was opened use the same arithmetic. See `services/perks.py`.
+    """
+
+    MONTHLY = "monthly"
+    QUARTERLY = "quarterly"
+    SEMIANNUAL = "semiannual"
+    ANNUAL = "annual"
+
+
 class MatchType(enum.StrEnum):
     CONTAINS = "contains"
     EQUALS = "equals"

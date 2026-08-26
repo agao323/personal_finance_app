@@ -1,5 +1,5 @@
 # 049 — Card perks: schema and the period engine
-Status: todo
+Status: done
 Wave: 6   Lane: —
 Blocked by: none
 Read first: docs/ARCHITECTURE.md#accounts
@@ -44,27 +44,27 @@ are that date stepped by the cadence. One mechanism covers both clocks:
 No enum, no join, no `opened_at`. The anniversary *is* the anchor date.
 
 ## Acceptance criteria
-- [ ] `card_perks`: account, name, optional description, `value` money, `cadence`, and
+- [x] `card_perks`: account, name, optional description, `value` money, `cadence`, and
       `anchor_on`. Perks can be retired without deleting their redemption history
-- [ ] `perk_redemptions`: perk, `period_start`, when it was marked, optional note.
+- [x] `perk_redemptions`: perk, `period_start`, when it was marked, optional note.
       **Unique on (perk, period_start)** — a period is used or it is not
-- [ ] Cadence is a Postgres enum shipped complete: `monthly`, `quarterly`,
+- [x] Cadence is a Postgres enum shipped complete: `monthly`, `quarterly`,
       `semiannual`, `annual` — the four the request named, and adding a fifth later is a
       migration, so ship the set now
-- [ ] `services/perks.py` computes the half-open window `[start, end)` containing a given
+- [x] `services/perks.py` computes the half-open window `[start, end)` containing a given
       date, from cadence and anchor. Half-open for the same reason ownership stakes are:
       an inclusive end date makes "which period is 1 January in" ambiguous
-- [ ] **Month-end anchors are handled explicitly.** A monthly perk anchored 31 January
+- [x] **Month-end anchors are handled explicitly.** A monthly perk anchored 31 January
       has no 31st in February. Clamp to the last day of the month, and step from the
       anchor rather than from the previous period, or 31 Jan → 28 Feb → 28 Mar drifts
       permanently after one short month
-- [ ] A date **before** the anchor is not in any period, and says so rather than
+- [x] A date **before** the anchor is not in any period, and says so rather than
       returning a negative-index window
-- [ ] `value` is `Decimal` / `NUMERIC(19,2)`. Never float, per CLAUDE.md
-- [ ] **Nothing here touches net worth.** A perk is not an asset and an unused credit is
+- [x] `value` is `Decimal` / `NUMERIC(19,2)`. Never float, per CLAUDE.md
+- [x] **Nothing here touches net worth.** A perk is not an asset and an unused credit is
       not money you have. Stated in the model docstring so nobody wires it into
       `services/net_worth.py` later
-- [ ] Tests: hand-computed windows for each cadence; a month-end anchor across a short
+- [x] Tests: hand-computed windows for each cadence; a month-end anchor across a short
       month and back out again; a leap day; a date on the exact boundary going to the
       later period; a date before the anchor; and the unique constraint refusing a second
       redemption for one period
@@ -87,3 +87,30 @@ total what is unused.
 the fact being recorded — "this period was used" — and recomputing it later from a
 cadence that had since been edited would silently move history, which is the mistake
 effective-dated ownership exists to prevent.
+
+## Done — 2026-08-26
+
+**The anchor-date design held up under the tests, which is the point of writing them
+first.** `test_a_cardmember_year_is_the_same_arithmetic` is the one that matters: a card
+opened 14 July 2023 is, on 1 January 2026, still inside the period that began 14 July
+2025. A calendar reading would report a fresh credit. No enum, no join, no `opened_at`
+on `accounts` — the anniversary is the anchor.
+
+**Stepping from the anchor rather than from the previous period** is the whole of the
+month-end handling, and it is asserted directly: 31 January monthly gives 28 February
+and then **31 March**, not 28 March. Stepping from each previous result would clamp once
+and stay clamped for ever, and the drift would look plausible on every screen.
+
+**One real bug, caught by the migration round trip.** The first version created the
+`perk_cadence` type explicitly *and* declared it on the column, so `create_table` emitted
+a second `CREATE TYPE` and the upgrade failed with "type already exists". 0001 declares
+its six enums inline and drops them by name at the end of `downgrade`; 0005 now does the
+same. Worth noting that the pure-function tests were all green while this was broken —
+only the tests that touch a real migrated database found it, which is exactly why the
+repo forbids `metadata.create_all()`.
+
+`days_remaining` returns 0 on the last day of a period. Asserted on its own because
+off-by-one there is the difference between "expires today" and "already gone", and that
+number is going straight onto a screen.
+
+465 passed.
