@@ -33,11 +33,16 @@ primary_region = "iad"
 [http_service]
   internal_port = 3000
   force_https = true
-  # One household's traffic. The machine sleeps when idle and the Fly proxy wakes it
-  # on the next request, so idle cost is near zero.
+  # One machine stays up. Ticket 048: idle cost was near zero and it bought a
+  # **5.5 second wait on essentially every visit** — one household's traffic is far
+  # too sparse to keep a machine alive by itself, so almost every visit was a cold
+  # start. Fly's VM boots in 1.3s; the other 4.2s is Node starting the Next server.
+  #
+  # Roughly $2 a month for a shared-cpu-1x. This is a floor rather than a pin: the
+  # second machine still sleeps until it is needed.
   auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
 
 [[vm]]
   size = "shared-cpu-1x"
