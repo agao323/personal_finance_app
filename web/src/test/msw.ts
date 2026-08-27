@@ -762,3 +762,94 @@ export function mockMembers(rows: ResponseOf<"/members", "get"> = members) {
     }),
   );
 }
+
+// ── cards and perks (051) ────────────────────────────────────────────────────
+
+/** Two perks on one card: one used, one expiring in three days. */
+export const cards: ResponseOf<"/cards", "get"> = [
+  {
+    account_id: 1,
+    name: "Sapphire Reserve",
+    institution: "Chase",
+    is_closed: false,
+    unused_cents: 30_000,
+    perks: [
+      {
+        id: 1,
+        account_id: 1,
+        name: "Travel credit",
+        description: null,
+        value_cents: 30_000,
+        cadence: "annual",
+        anchor_on: "2026-01-01",
+        is_active: true,
+        current_period: {
+          start: "2026-01-01",
+          end: "2027-01-01",
+          days_remaining: 3,
+          is_used: false,
+          used_note: null,
+        },
+      },
+      {
+        id: 2,
+        account_id: 1,
+        name: "Dining credit",
+        description: null,
+        value_cents: 2_500,
+        cadence: "monthly",
+        anchor_on: "2026-01-01",
+        is_active: true,
+        current_period: {
+          start: "2026-06-01",
+          end: "2026-07-01",
+          days_remaining: 12,
+          is_used: true,
+          used_note: null,
+        },
+      },
+    ],
+  },
+];
+
+export const upcoming: ResponseOf<"/perks/upcoming", "get"> = {
+  within_days: 45,
+  as_of: "2026-06-18",
+  total_cents: 30_000,
+  perks: [{ perk: cards[0].perks[0], account_id: 1, card_name: "Sapphire Reserve" }],
+};
+
+/** Mutable, so marking a perk used is visible on the next read. */
+export function mockCards(
+  rows: ResponseOf<"/cards", "get"> = cards,
+  soon: ResponseOf<"/perks/upcoming", "get"> = upcoming,
+) {
+  const current = structuredClone(rows);
+  let soonest = structuredClone(soon);
+
+  const setUsed = (perkId: number, used: boolean) => {
+    for (const card of current) {
+      for (const perk of card.perks) {
+        if (perk.id === perkId && perk.current_period) perk.current_period.is_used = used;
+      }
+    }
+    soonest = { ...soonest, perks: soonest.perks.filter((p) => p.perk.id !== perkId || !used) };
+  };
+
+  server.use(
+    http.get("/api/cards", () => HttpResponse.json(current)),
+    http.get("/api/perks/upcoming", () => HttpResponse.json(soonest)),
+    http.post("/api/perks/:id/redemptions", ({ params }) => {
+      setUsed(Number(params.id), true);
+      return HttpResponse.json(current[0].perks[0]);
+    }),
+    http.delete("/api/perks/:id/redemptions", ({ params }) => {
+      setUsed(Number(params.id), false);
+      return HttpResponse.json(current[0].perks[0]);
+    }),
+    http.post("/api/cards/:id/perks", async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({ id: 99, account_id: 1, ...body }, { status: 201 });
+    }),
+  );
+}

@@ -11,6 +11,7 @@ export const NAV_ITEMS = [
   { href: "/spending", label: "Spending" },
   { href: "/accounts", label: "Accounts" },
   { href: "/transactions", label: "Transactions" },
+  { href: "/cards", label: "Cards" },
   { href: "/import", label: "Import" },
   { href: "/rules", label: "Rules" },
 ] as const;
