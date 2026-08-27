@@ -224,6 +224,16 @@ export function NetWorthChart({ view }: { view: ViewScope }) {
   const [range, setRange] = useState<RangeKey>(DEFAULT_RANGE);
   const [mode, setMode] = useState<ChartMode>("total");
   const [loaded, setLoaded] = useState<Loaded | null>(null);
+  // Ranges already fetched, so flipping 3M → 1Y → 3M does not go back to the network
+  // for something the client already holds. Written only from a settled response, so
+  // it never causes a cascading render — and read during render, where a ref would be
+  // rejected outright by `react-hooks`.
+  //
+  // Deliberately per-mount and never invalidated. It holds history, which changes only
+  // when a balance is recorded — and that happens on another page, so coming back here
+  // remounts and starts empty. A cache with invalidation would be a second source of
+  // truth for the numbers this app exists to get right.
+  const [cache, setCache] = useState<Map<string, Series>>(() => new Map());
   const [active, setActive] = useState<number | null>(null);
 
   // One state cell holding the request it answers, rather than a `loading` flag set
@@ -232,23 +242,30 @@ export function NetWorthChart({ view }: { view: ViewScope }) {
   // keys derives the same answer from state that is only ever written by a settled
   // response.
   const key = `${view}|${range}`;
-  const loading = loaded?.key !== key;
+
+  const cached = cache.get(key) ?? null;
+
+  const loading = cached === null && loaded?.key !== key;
   // An error is only worth showing for the request currently on screen; a failure
   // from an abandoned range is stale the moment the reader picks another one.
-  const error = loaded?.key === key ? loaded.error : null;
+  const error = cached === null && loaded?.key === key ? loaded.error : null;
   // A failed request drops the previous render rather than keeping it under a new
   // range's heading — a chart labelled with a range it is not showing is worse than
   // an error message.
-  const series = loaded?.error ? null : (loaded?.series ?? null);
+  const series = cached;
 
   useEffect(() => {
+    const requested = `${view}|${range}`;
+    // Already held. Nothing to fetch and nothing to set — the render above reads it.
+    if (cache.has(requested)) return;
+
     let live = true;
     const { from, interval } = rangeQuery(range);
-    const requested = `${view}|${range}`;
 
     apiFetch("/net-worth/series", { query: { view, interval, ...(from ? { from } : {}) } })
       .then((next) => {
         if (!live) return;
+        setCache((previous) => new Map(previous).set(requested, next));
         setLoaded({ key: requested, series: next, error: null });
         setActive(null);
       })
@@ -266,7 +283,7 @@ export function NetWorthChart({ view }: { view: ViewScope }) {
     return () => {
       live = false;
     };
-  }, [view, range]);
+  }, [view, range, cache]);
 
   const points = useMemo(
     () => [...(series?.points ?? [])].sort((a, b) => a.as_of.localeCompare(b.as_of)),

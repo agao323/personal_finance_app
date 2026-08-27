@@ -160,6 +160,52 @@ describe("range switching", () => {
     expect(params.get("from")).toBe(rangeQuery("3M").from);
   });
 
+  it("does not refetch a range it has already loaded", async () => {
+    // Ticket 052. Switching 1Y → 3M → 1Y used to be three round trips for two
+    // distinct answers, and the third had a loading state in front of data the
+    // client already held.
+    const urls: string[] = [];
+    server.use(
+      http.get("/api/net-worth/series", ({ request }) => {
+        urls.push(request.url);
+        return HttpResponse.json(netWorthSeries);
+      }),
+    );
+
+    render(<NetWorthChart view="mine" />);
+    await loaded();
+    expect(urls).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "3M" }));
+    await waitFor(() => expect(urls).toHaveLength(2));
+
+    await userEvent.click(screen.getByRole("button", { name: "1Y" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "1Y" })).toHaveAttribute("aria-pressed", "true"),
+    );
+
+    // Still two: the return trip to 1Y was served from the cache.
+    expect(urls).toHaveLength(2);
+  });
+
+  it("shows the cached data immediately, with no loading state", async () => {
+    // The point of the cache. If it re-rendered an empty chart first, the flicker
+    // would make it feel slower than the refetch it replaced.
+    mockNetWorthSeries();
+
+    render(<NetWorthChart view="mine" />);
+    await loaded();
+    const initialRows = tableRows();
+
+    await userEvent.click(screen.getByRole("button", { name: "3M" }));
+    await waitFor(() => expect(tableRows()).toBeGreaterThan(0));
+
+    await userEvent.click(screen.getByRole("button", { name: "1Y" }));
+
+    // Synchronously after the click, without awaiting anything.
+    expect(tableRows()).toBe(initialRows);
+  });
+
   it("marks the selected range", async () => {
     mockNetWorthSeries();
 

@@ -13,15 +13,16 @@ from __future__ import annotations
 
 import calendar
 import datetime as dt
+from bisect import bisect_right
 from dataclasses import dataclass, field
 from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.account import Account, BalanceSnapshot
+from app.models.account import Account, BalanceSnapshot, OwnershipStake
 from app.models.enums import AccountKind
-from app.services.balances import balance_in_force
+from app.services.balances import STALE_AFTER, BalanceAt, balance_in_force
 from app.services.ownership import adjust, effective_stake, household_stake
 
 ZERO = Decimal("0.00")
@@ -86,27 +87,9 @@ def net_worth(session: Session, as_of: dt.date, viewer_id: int | None = None) ->
         if contribution is not None:
             contributions.append(contribution)
 
-    assets = ZERO
-    liabilities = ZERO
-    by_kind: dict[AccountKind, Decimal] = {}
-
-    for item in contributions:
-        by_kind[item.kind] = by_kind.get(item.kind, ZERO) + item.adjusted_balance
-        if item.kind is AccountKind.LIABILITY:
-            liabilities += item.adjusted_balance
-        else:
-            assets += item.adjusted_balance
-
-    return NetWorth(
-        as_of=as_of,
-        viewer_id=viewer_id,
-        net_worth=assets - liabilities,
-        assets=assets,
-        liabilities=liabilities,
-        by_kind=by_kind,
-        contributions=contributions,
-        stale_account_ids=[c.account_id for c in contributions if c.is_stale],
-    )
+    # Totalled by the same helper the series uses, so the two paths cannot disagree
+    # about how contributions roll up even if they disagree about nothing else.
+    return _total(contributions, as_of, viewer_id)
 
 
 def _contribution(
@@ -181,6 +164,154 @@ def earliest_snapshot(session: Session) -> dt.date | None:
     return session.execute(select(func.min(BalanceSnapshot.as_of))).scalar_one_or_none()
 
 
+@dataclass(frozen=True)
+class _Ledger:
+    """Every row a series needs, loaded once.
+
+    The series used to call :func:`net_worth` per point, and each of those ran a query
+    for the account list plus two per account. A 3-month daily chart was ~1,548 round
+    trips to Neon; this is three, whatever the range.
+
+    **This is a second reading of the same rules** — carry-forward, the staleness cap,
+    closed accounts, half-open stake ranges — and that is the danger in it. The
+    protection is `test_the_series_agrees_with_the_single_date_calculation`, which
+    computes both ways over a fixture built to exercise each rule and asserts they
+    match point for point. Change either path without the other and it fails.
+    """
+
+    accounts: list[Account]
+    #: Per account, ascending by date. Searched for the latest at or before a date.
+    snapshots: dict[int, list[BalanceSnapshot]]
+    #: Per account, every stake row. Filtered by the half-open range per date.
+    stakes: dict[int, list[OwnershipStake]]
+
+
+def _load(session: Session) -> _Ledger:
+    """Three queries, regardless of how many points the caller wants."""
+    accounts = list(session.execute(select(Account).order_by(Account.id)).scalars())
+
+    snapshots: dict[int, list[BalanceSnapshot]] = {}
+    for snapshot in session.execute(
+        select(BalanceSnapshot).order_by(BalanceSnapshot.account_id, BalanceSnapshot.as_of)
+    ).scalars():
+        snapshots.setdefault(snapshot.account_id, []).append(snapshot)
+
+    stakes: dict[int, list[OwnershipStake]] = {}
+    for stake in session.execute(select(OwnershipStake)).scalars():
+        stakes.setdefault(stake.account_id, []).append(stake)
+
+    return _Ledger(accounts=accounts, snapshots=snapshots, stakes=stakes)
+
+
+def _ledger_balance(ledger: _Ledger, account: Account, as_of: dt.date) -> BalanceAt | None:
+    """Mirrors :func:`balances.balance_in_force`, reading from memory.
+
+    Closed accounts leave net worth on the day they close, and an account with no
+    snapshot by ``as_of`` is excluded rather than counted as zero.
+    """
+    if account.closed_at is not None and account.closed_at <= as_of:
+        return None
+
+    rows = ledger.snapshots.get(account.id)
+    if not rows:
+        return None
+
+    # The rows are sorted ascending, so the latest at or before `as_of` is the one
+    # before the insertion point. `bisect_right` on the key puts a snapshot dated
+    # exactly `as_of` on the left of the split, which is what "at or before" means.
+    index = bisect_right(rows, as_of, key=lambda row: row.as_of)
+    if index == 0:
+        return None
+    snapshot = rows[index - 1]
+
+    return BalanceAt(
+        balance=snapshot.balance,
+        as_of=snapshot.as_of,
+        source=snapshot.source,
+        is_stale=(as_of - snapshot.as_of) > STALE_AFTER,
+    )
+
+
+def _ledger_percentage(
+    ledger: _Ledger, account_id: int, as_of: dt.date, viewer_id: int | None
+) -> Decimal | None:
+    """Mirrors `ownership.effective_stake` / `household_stake`, reading from memory.
+
+    Ranges are half-open — ``[effective_from, effective_to)`` — so the day a stake
+    changes belongs to the new row, exactly as `ownership._in_force_on` decides it in
+    SQL. `None` for the viewer means they held no stake that day, which excludes the
+    account rather than zeroing it.
+    """
+    rows = ledger.stakes.get(account_id, ())
+    in_force = [
+        row
+        for row in rows
+        if row.effective_from <= as_of and (row.effective_to is None or row.effective_to > as_of)
+    ]
+
+    if viewer_id is None:
+        total = ZERO
+        for row in in_force:
+            total += row.percentage
+        return total
+
+    for row in in_force:
+        if row.owner_user_id == viewer_id:
+            return row.percentage
+    return None
+
+
+def _ledger_contribution(
+    ledger: _Ledger, account: Account, as_of: dt.date, viewer_id: int | None
+) -> AccountContribution | None:
+    """One account's share on a date. The in-memory twin of :func:`_contribution`."""
+    balance = _ledger_balance(ledger, account, as_of)
+    if balance is None:
+        return None
+
+    percentage = _ledger_percentage(ledger, account.id, as_of, viewer_id)
+    if percentage is None or percentage == ZERO:
+        return None
+
+    return AccountContribution(
+        account_id=account.id,
+        kind=account.kind,
+        raw_balance=balance.balance,
+        # Still `adjust`, still per account, still the only rounding site.
+        adjusted_balance=adjust(balance.balance, percentage),
+        percentage=percentage,
+        balance_as_of=balance.as_of,
+        is_stale=balance.is_stale,
+    )
+
+
+def _total(
+    contributions: list[AccountContribution], as_of: dt.date, viewer_id: int | None
+) -> NetWorth:
+    """Roll contributions into a NetWorth. Shared so both paths total identically."""
+    assets = ZERO
+    liabilities = ZERO
+    by_kind: dict[AccountKind, Decimal] = {}
+
+    for item in contributions:
+        by_kind[item.kind] = by_kind.get(item.kind, ZERO) + item.adjusted_balance
+        if item.kind is AccountKind.LIABILITY:
+            liabilities += item.adjusted_balance
+        else:
+            assets += item.adjusted_balance
+
+    return NetWorth(
+        as_of=as_of,
+        viewer_id=viewer_id,
+        net_worth=assets - liabilities,
+        assets=assets,
+        liabilities=liabilities,
+        by_kind=by_kind,
+        contributions=contributions,
+        stale_account_ids=[c.account_id for c in contributions if c.is_stale],
+    )
+
+
 def net_worth_series(
     session: Session,
     start: dt.date,
@@ -198,6 +329,10 @@ def net_worth_series(
     before any balance exists are omitted rather than reported as zero: a chart
     starting at zero would show a fortune appearing overnight on the day the first
     account was added.
+
+    **Three queries, whatever the range.** Everything is loaded once and the dates are
+    walked in memory; see :class:`_Ledger` for why that is a risk and what pins it to
+    :func:`net_worth`.
     """
     first = earliest_snapshot(session)
     if first is None:
@@ -207,4 +342,13 @@ def net_worth_series(
     if effective_start > end:
         return []
 
-    return [net_worth(session, day, viewer_id) for day in _walk(effective_start, end, interval)]
+    ledger = _load(session)
+    series: list[NetWorth] = []
+    for day in _walk(effective_start, end, interval):
+        contributions = [
+            contribution
+            for account in ledger.accounts
+            if (contribution := _ledger_contribution(ledger, account, day, viewer_id)) is not None
+        ]
+        series.append(_total(contributions, day, viewer_id))
+    return series
