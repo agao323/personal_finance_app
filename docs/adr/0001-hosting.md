@@ -126,5 +126,6 @@ guard in `scripts/check_fly_api_private.sh`. Not a concern at one household, and
 guard is the thing that would force the conversation rather than letting it happen
 silently.
 
-**Cost.** Roughly $2–5/month: one always-on shared-cpu-1x machine for the API, a
-sleeping one for the web app, Neon and Cloudflare free, plus ~$12/year for the domain.
+**Cost.** Roughly $4–7/month: one always-on shared-cpu-1x machine for the API and,
+since ticket 048, one for the web app too — it slept, and the 5.5-second cold start
+landed on essentially every visit, Neon and Cloudflare free, plus ~$12/year for the domain.

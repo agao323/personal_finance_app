@@ -12,7 +12,7 @@
    (one origin, ever)        │  Next.js  (web/)             │
                              │  pages  +  /api/* BFF proxy  │
                              └───────────────┬──────────────┘
-                                             │  Fly private network (.flycast)
+                                             │  Fly private network (.internal)
                                              ▼
                              ┌──────────────────────────────┐
                              │  FastAPI  (api/)             │  ← no public address
@@ -61,7 +61,9 @@ This is a deliberate choice with four consequences, all of them the reason for i
 
 What it costs: a thin proxy route handler, and server-side code has to know the internal API
 URL while the browser knows no API URL at all. That split has to be right from ticket 002 —
-locally the API is `http://api:8000`, in production it's the `.flycast` address.
+locally the API is `http://api:8000`, in production `http://pfa-api.internal:8000`.
+Not `.flycast`: that needs an `[http_service]` block, and the moment one exists public
+exposure is one allocated IP away. See [ADR 0001](adr/0001-hosting.md).
 
 The two-service split itself is unchanged: two Dockerfiles, two deploys, two ecosystems.
 
@@ -272,8 +274,12 @@ history is idempotent.
 Per-account CSV column mapping and sign convention, persisted so a recurring import from the
 same institution is one click.
 
-### `credentials`
-WebAuthn public keys and sign counts, FK to `users`.
+### `card_perks` + `perk_redemptions`
+A recurring benefit on a credit card, and one row per period it was used in. A perk stores
+`anchor_on` — the date its first period began — and every period is that date stepped by its
+cadence, so a calendar-year credit and one that resets on the cardmember anniversary are the
+same arithmetic. `period_start` is stored on the redemption rather than recomputed, because it
+is the fact being recorded. Ticket 049.
 
 ### `data_marker`
 A single row recording whether this database holds real or synthetic data. The synthetic seed
