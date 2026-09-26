@@ -1,5 +1,5 @@
 # 053 — Schema and services for partial use, fees, and cadence urgency
-Status: todo
+Status: done
 Wave: 7   Lane: —
 Blocked by: none
 Read first: tickets/049-card-perks-schema-and-period-engine.md
@@ -17,21 +17,21 @@ migrations for four columns. They land together; the *features* built on them st
 separate tickets.
 
 ## Acceptance criteria
-- [ ] `perk_redemptions.amount` — nullable money. `NULL` means "used, full face value",
+- [x] `perk_redemptions.amount` — nullable money. `NULL` means "used, full face value",
       which is what a one-tap mark records. A value means partial. Never zero: a zero
       redemption is an unused period, and there is already a way to express that — no row
-- [ ] `accounts.annual_fee` and `accounts.fee_renews_on`, both nullable. Credit-card only
+- [x] `accounts.annual_fee` and `accounts.fee_renews_on`, both nullable. Credit-card only
       in practice; documented as such rather than constrained, because Postgres cannot
       cheaply enforce "only when subtype = credit_card" and a side table for two columns
       buys a join and nothing else
-- [ ] `services/perks.py` gains `URGENT_WITHIN`: monthly 7 days, quarterly 14,
+- [x] `services/perks.py` gains `URGENT_WITHIN`: monthly 7 days, quarterly 14,
       semiannual 21, annual 30 — and an `is_urgent(cadence, days_remaining)` helper.
       **One table, no configuration.** 30 days is noise on a monthly credit and too late
       on an annual one, which is the whole reason the threshold varies
-- [ ] `Period.days_remaining` is unchanged and still 0 on the last day. Urgency reads it
-- [ ] Money stays `Decimal` / `NUMERIC(19,2)`, integer cents on the wire
-- [ ] Hand-written migration, human-reviewed, with a downgrade that recreates indexes
-- [ ] Tests: the amount constraint refuses zero and negative; `is_urgent` at each
+- [x] `Period.days_remaining` is unchanged and still 0 on the last day. Urgency reads it
+- [x] Money stays `Decimal` / `NUMERIC(19,2)`, integer cents on the wire
+- [x] Hand-written migration, human-reviewed, with a downgrade that recreates indexes
+- [x] Tests: the amount constraint refuses zero and negative; `is_urgent` at each
       cadence's boundary, the day either side of it, and on the final day
 
 ## Files
@@ -47,3 +47,27 @@ face value into every redemption — would freeze a number that the perk can leg
 change later, and then history would disagree with the perk it belongs to.
 
 Nothing here touches net worth. An unused credit is still not an asset (049).
+
+## Done — 2026-09-26
+
+`URGENT_WITHIN` has a test asserting **every cadence has an entry**, because a fifth
+cadence added later without one would raise `KeyError` on a live request rather than
+failing a build. And `test_a_monthly_credit_is_not_urgent_for_most_of_its_life` pins the
+actual complaint: at 20 days left a monthly credit is calm and an annual one is urgent.
+The old fixed 45-day window got both backwards.
+
+**`amount` is nullable and null means full value.** The alternative — writing the perk's
+face value into every redemption — looked tidier and was wrong: a perk's value can change,
+and history would then disagree with the perk it belongs to. The CHECK refuses zero, since
+an unused period is already expressed by having no row.
+
+`annual_fee` and `fee_renews_on` sit on `accounts` unconstrained by subtype. Postgres
+cannot cheaply express "only when subtype is credit_card", and a side table for two columns
+buys a join and nothing else. Documented in the model instead, including that net worth
+must never read them — what a card costs to hold is not a balance.
+
+The downgrade drops the columns and says outright that recorded partial amounts are lost.
+A downgrade cannot preserve a value in a column it removes, and every affected redemption
+reverts to meaning full face value.
+
+494 passed.

@@ -72,6 +72,16 @@ class Account(Base):
     #: last snapshot forward, so without this a sold car stays in net worth for ever.
     closed_at: Mapped[dt.date | None] = mapped_column(Date)
 
+    #: Annual fee, and the date it renews. **Credit cards only in practice** — nothing
+    #: constrains that, because Postgres cannot cheaply express "only when subtype is
+    #: credit_card" and a side table for two columns buys a join and nothing else.
+    #:
+    #: Both nullable, and absent is not zero: a card with no fee recorded shows nothing
+    #: rather than claiming its fee is $0. Read only by the card screen (ticket 059) —
+    #: **never by net worth**, which is about balances, not what a card costs to hold.
+    annual_fee: Mapped[Decimal | None] = mapped_column(MONEY)
+    fee_renews_on: Mapped[dt.date | None] = mapped_column(Date)
+
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

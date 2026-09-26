@@ -17,6 +17,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -89,6 +90,7 @@ class PerkRedemption(Base):
     __tablename__ = "perk_redemptions"
     __table_args__ = (
         UniqueConstraint("perk_id", "period_start", name="uq_perk_redemptions_period"),
+        CheckConstraint("amount IS NULL OR amount > 0", name="ck_perk_redemptions_amount_positive"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -96,6 +98,16 @@ class PerkRedemption(Base):
         ForeignKey("card_perks.id", ondelete="CASCADE"), nullable=False, index=True
     )
     period_start: Mapped[dt.date] = mapped_column(Date, nullable=False)
+
+    #: How much of the credit was actually used. **NULL means the full face value**,
+    #: which is what a one-tap mark records; a value means a partial redemption.
+    #:
+    #: Null rather than copying the perk's value in, because a perk's value can
+    #: legitimately change later and a copied number would leave history disagreeing
+    #: with the perk it belongs to. Never zero — a zero redemption is an unused period,
+    #: and the absence of a row already says that.
+    amount: Mapped[Decimal | None] = mapped_column(MONEY)
+
     note: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

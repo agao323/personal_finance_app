@@ -29,6 +29,36 @@ MONTHS: dict[PerkCadence, int] = {
 }
 
 
+#: When a credit's period is short enough that it should start shouting.
+#:
+#: **Fixed per cadence, and deliberately not configurable.** A single global threshold is
+#: the thing that made the old page unhelpful: 30 days is noise on a monthly credit — it is
+#: urgent for most of its life — and far too late on an annual one, where a month is barely
+#: time to book the flight the credit pays for. Roughly "the last quarter of a month, the
+#: last fortnight of a quarter".
+#:
+#: One table anyone can read beats a setting nobody revisits.
+URGENT_WITHIN: dict[PerkCadence, int] = {
+    PerkCadence.MONTHLY: 7,
+    PerkCadence.QUARTERLY: 14,
+    PerkCadence.SEMIANNUAL: 21,
+    PerkCadence.ANNUAL: 30,
+}
+
+
+def is_urgent(cadence: PerkCadence, days_remaining: int) -> bool:
+    """Whether this many days left is urgent for this cadence.
+
+    Computed here and only here. The browser reads the answer off the API rather than
+    recomputing it — a second implementation would drift, and the symptom would be a page
+    calling a credit safe while the API called it urgent.
+
+    `days_remaining` is 0 on the final day of a period (see `Period.days_remaining`), so
+    a perk on its last day is urgent at every cadence.
+    """
+    return days_remaining <= URGENT_WITHIN[cadence]
+
+
 @dataclass(frozen=True)
 class Period:
     """A half-open window, `start <= day < end`.
