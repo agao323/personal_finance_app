@@ -161,6 +161,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/cards/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Wallet History
+     * @description Every redemption across every card, newest first.
+     *
+     *     **No default window.** The request this answers is "show me everything I have ever
+     *     marked", and a silent cut-off would hide exactly the old entries being asked for.
+     */
+    get: operations["wallet_history_cards_history_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/cards/{account_id}/perks": {
     parameters: {
       query?: never;
@@ -445,7 +468,16 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    delete?: never;
+    /**
+     * Delete Perk
+     * @description Remove a perk entirely — refused with 409 once it has any history.
+     *
+     *     Two different actions that look alike. **Delete** is for the perk you added by
+     *     mistake. **Retire** (`PATCH` with `is_active: false`) is for one the card stopped
+     *     offering, and it keeps the redemptions that record what you actually used. Deleting a
+     *     used perk would erase that, so it is refused rather than cascading.
+     */
+    delete: operations["delete_perk_perks__perk_id__delete"];
     options?: never;
     head?: never;
     /**
@@ -456,6 +488,26 @@ export interface paths {
      *     redemption history, and removing it would rewrite what you did last year.
      */
     patch: operations["update_perk_perks__perk_id__patch"];
+    trace?: never;
+  };
+  "/perks/{perk_id}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Perk History
+     * @description One perk's history, first recorded use to most recent.
+     */
+    get: operations["perk_history_perks__perk_id__history_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/perks/{perk_id}/redemptions": {
@@ -1053,6 +1105,14 @@ export interface components {
     CardRead: {
       /** Account Id */
       account_id: number;
+      /** Active Perk Count */
+      active_perk_count: number;
+      /** Annual Fee Cents */
+      annual_fee_cents?: number | null;
+      /** Fee Renews On */
+      fee_renews_on?: string | null;
+      /** Fee Year Start */
+      fee_year_start?: string | null;
       /** Institution */
       institution?: string | null;
       /** Is Closed */
@@ -1061,6 +1121,8 @@ export interface components {
       name: string;
       /** Perks */
       perks: components["schemas"]["PerkRead"][];
+      /** Realised This Fee Year Cents */
+      realised_this_fee_year_cents?: number | null;
       /**
        * Unused Cents
        * @description Amount in integer cents. 1234 means $12.34.
@@ -1196,6 +1258,29 @@ export interface components {
        * @constant
        */
       status: "ok";
+    };
+    /**
+     * HistoryRead
+     * @description Everything recorded, oldest boundary to newest.
+     *
+     *     No default cut-off: "show me everything" is the request this answers. `from_date` and
+     *     `to_date` report the window actually applied, which is the full span when none was
+     *     asked for.
+     */
+    HistoryRead: {
+      /** From Date */
+      from_date?: string | null;
+      /** Missed Periods */
+      missed_periods: number;
+      /**
+       * Realised Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      realised_cents: number;
+      /** Redemptions */
+      redemptions: components["schemas"]["RedemptionRead"][];
+      /** To Date */
+      to_date?: string | null;
     };
     /** ImportCommitRequest */
     ImportCommitRequest: {
@@ -1434,6 +1519,11 @@ export interface components {
        * Format: date
        */
       end: string;
+      /**
+       * Is Urgent
+       * @default false
+       */
+      is_urgent: boolean;
       /** Is Used */
       is_used: boolean;
       /**
@@ -1441,6 +1531,8 @@ export interface components {
        * Format: date
        */
       start: string;
+      /** Used Amount Cents */
+      used_amount_cents?: number | null;
       /** Used Note */
       used_note?: string | null;
     };
@@ -1517,10 +1609,51 @@ export interface components {
     };
     /** RedemptionCreate */
     RedemptionCreate: {
+      /** Amount Cents */
+      amount_cents?: number | null;
       /** Note */
       note?: string | null;
       /** On */
       on?: string | null;
+    };
+    /**
+     * RedemptionRead
+     * @description One recorded redemption, for the history view.
+     */
+    RedemptionRead: {
+      /** Account Id */
+      account_id: number;
+      cadence: components["schemas"]["PerkCadence"];
+      /** Card Name */
+      card_name: string;
+      /** Is Face Value */
+      is_face_value: boolean;
+      /** Note */
+      note?: string | null;
+      /**
+       * Period End
+       * Format: date
+       */
+      period_end: string;
+      /**
+       * Period Start
+       * Format: date
+       */
+      period_start: string;
+      /** Perk Id */
+      perk_id: number;
+      /** Perk Name */
+      perk_name: string;
+      /**
+       * Realised Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      realised_cents: number;
+      /**
+       * Recorded At
+       * Format: date-time
+       */
+      recorded_at: string;
     };
     /** RuleApplyRequest */
     RuleApplyRequest: {
@@ -1823,6 +1956,11 @@ export interface components {
        * @description Amount in integer cents. 1234 means $12.34.
        */
       total_cents: number;
+      /**
+       * Urgent Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      urgent_cents: number;
       /** Within Days */
       within_days: number;
     };
@@ -2203,6 +2341,48 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["CardRead"][];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  wallet_history_cards_history_get: {
+    parameters: {
+      query?: {
+        from?: string | null;
+        to?: string | null;
+        on?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HistoryRead"];
         };
       };
       /** @description Not Found */
@@ -2635,6 +2815,44 @@ export interface operations {
       };
     };
   };
+  delete_perk_perks__perk_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        perk_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   update_perk_perks__perk_id__patch: {
     parameters: {
       query?: never;
@@ -2657,6 +2875,50 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PerkRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  perk_history_perks__perk_id__history_get: {
+    parameters: {
+      query?: {
+        from?: string | null;
+        to?: string | null;
+        on?: string | null;
+      };
+      header?: never;
+      path: {
+        perk_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HistoryRead"];
         };
       };
       /** @description Not Found */

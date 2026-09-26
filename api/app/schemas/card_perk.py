@@ -26,6 +26,13 @@ class PerkPeriodRead(Schema):
     days_remaining: int
     is_used: bool
     used_note: str | None = None
+    #: Amount actually used, when a partial redemption was recorded. `None` with
+    #: `is_used` true means the full face value.
+    used_amount_cents: Cents | None = None
+    #: Whether `days_remaining` is short enough to matter *for this cadence* — 7 days on
+    #: a monthly credit, 30 on an annual one. Computed by `services/perks.is_urgent` and
+    #: never recomputed in the browser, so the two cannot disagree.
+    is_urgent: bool = False
 
 
 class PerkRead(Schema):
@@ -66,8 +73,11 @@ class PerkUpdate(Schema):
 
 
 class RedemptionCreate(Schema):
-    #: Which period to mark, named by any date inside it. Defaults to today.
+    #: Which period to mark, named by any date inside it. Defaults to today. Any past
+    #: date backfills that period.
     on: dt.date | None = None
+    #: How much was used. Omit for the full face value, which is what one tap means.
+    amount_cents: Cents | None = Field(default=None, gt=0)
     note: str | None = Field(default=None, max_length=500)
 
 
@@ -79,8 +89,56 @@ class CardRead(Schema):
     institution: str | None = None
     is_closed: bool
     perks: list[PerkRead]
-    #: Unused value in the current period, across this card's active perks.
+    #: Value still available in the current period, across this card's active perks.
+    #: Named `unused_cents` on the wire for continuity; the UI says "available".
     unused_cents: Cents
+    #: Active perks on this card. Retired ones are still in `perks`, flagged.
+    active_perk_count: int
+    #: The annual fee, when one is recorded. Absent is not zero.
+    annual_fee_cents: Cents | None = None
+    fee_renews_on: dt.date | None = None
+    #: Value realised in the current fee year — redemption amounts, falling back to face
+    #: value. `None` when no fee is recorded, because the figure has nothing to be
+    #: measured against.
+    realised_this_fee_year_cents: Cents | None = None
+    fee_year_start: dt.date | None = None
+
+
+class RedemptionRead(Schema):
+    """One recorded redemption, for the history view."""
+
+    perk_id: int
+    perk_name: str
+    account_id: int
+    card_name: str
+    period_start: dt.date
+    period_end: dt.date
+    cadence: PerkCadence
+    #: What the redemption is worth: the recorded amount, or the perk's face value when
+    #: no amount was recorded.
+    realised_cents: Cents
+    #: True when `realised_cents` came from the perk's value rather than a recorded
+    #: amount, so the UI can distinguish "used it all" from "used exactly this much".
+    is_face_value: bool
+    note: str | None = None
+    recorded_at: dt.datetime
+
+
+class HistoryRead(Schema):
+    """Everything recorded, oldest boundary to newest.
+
+    No default cut-off: "show me everything" is the request this answers. `from_date` and
+    `to_date` report the window actually applied, which is the full span when none was
+    asked for.
+    """
+
+    from_date: dt.date | None = None
+    to_date: dt.date | None = None
+    realised_cents: Cents
+    #: Periods that ended inside the window with nothing recorded against them. The
+    #: number that changes behaviour.
+    missed_periods: int
+    redemptions: list[RedemptionRead]
 
 
 class UpcomingPerk(Schema):
@@ -101,4 +159,6 @@ class UpcomingRead(Schema):
     within_days: int
     as_of: dt.date
     total_cents: Cents
+    #: Of that total, the part whose period is urgent for its own cadence.
+    urgent_cents: Cents
     perks: list[UpcomingPerk]

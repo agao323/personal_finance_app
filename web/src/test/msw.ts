@@ -773,6 +773,11 @@ export const cards: ResponseOf<"/cards", "get"> = [
     institution: "Chase",
     is_closed: false,
     unused_cents: 30_000,
+    active_perk_count: 2,
+    annual_fee_cents: 69_500,
+    fee_renews_on: "2026-03-01",
+    fee_year_start: "2026-03-01",
+    realised_this_fee_year_cents: 2_500,
     perks: [
       {
         id: 1,
@@ -789,6 +794,9 @@ export const cards: ResponseOf<"/cards", "get"> = [
           days_remaining: 3,
           is_used: false,
           used_note: null,
+          used_amount_cents: null,
+          // 3 days left on an annual credit — inside its 30-day threshold.
+          is_urgent: true,
         },
       },
       {
@@ -806,6 +814,9 @@ export const cards: ResponseOf<"/cards", "get"> = [
           days_remaining: 12,
           is_used: true,
           used_note: null,
+          used_amount_cents: null,
+          // 12 days left on a monthly credit is past its 7-day threshold.
+          is_urgent: false,
         },
       },
     ],
@@ -813,9 +824,10 @@ export const cards: ResponseOf<"/cards", "get"> = [
 ];
 
 export const upcoming: ResponseOf<"/perks/upcoming", "get"> = {
-  within_days: 45,
+  within_days: 90,
   as_of: "2026-06-18",
   total_cents: 30_000,
+  urgent_cents: 30_000,
   perks: [{ perk: cards[0].perks[0], account_id: 1, card_name: "Sapphire Reserve" }],
 };
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Callable
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -276,3 +277,247 @@ def test_retiring_a_perk_keeps_its_history(
         text("SELECT count(*) FROM perk_redemptions WHERE perk_id = :i"), {"i": perk["id"]}
     ).scalar_one()
     assert remaining == 1
+
+
+# ── deleting versus retiring (054) ────────────────────────────────────────────
+
+
+def test_an_unused_perk_can_be_deleted(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    """The perk you added by mistake."""
+    perk = add_perk(card_id)
+
+    assert client.delete(f"/perks/{perk['id']}").status_code == 204
+    assert client.get("/cards", params={"on": "2026-06-15"}).json()[0]["perks"] == []
+
+
+def test_a_used_perk_is_refused_and_told_to_retire(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    """Deleting it would erase what you actually used.
+
+    Two actions that look alike: delete is for a mistake, retire is for a perk the card
+    stopped offering. The refusal names the alternative rather than just saying no.
+    """
+    perk = add_perk(card_id)
+    client.post(f"/perks/{perk['id']}/redemptions", json={"on": "2026-06-15"})
+
+    response = client.delete(f"/perks/{perk['id']}")
+
+    assert response.status_code == 409
+    assert "retire" in response.json()["detail"].lower()
+
+    # And retiring works, keeping the redemption.
+    assert client.patch(f"/perks/{perk['id']}", json={"is_active": False}).status_code == 200
+    assert client.get(f"/perks/{perk['id']}/history").json()["redemptions"] != []
+
+
+# ── partial amounts (054) ─────────────────────────────────────────────────────
+
+
+def test_a_partial_amount_round_trips_as_cents(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    perk = add_perk(card_id, value_cents=20_000)
+
+    body = client.post(
+        f"/perks/{perk['id']}/redemptions", json={"on": "2026-06-15", "amount_cents": 5_000}
+    ).json()
+
+    assert body["current_period"]["is_used"] is True
+    assert body["current_period"]["used_amount_cents"] == 5_000
+
+
+def test_omitting_the_amount_means_full_face_value(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    """What one tap records. `None`, not the perk's value copied in."""
+    perk = add_perk(card_id, value_cents=20_000)
+
+    body = client.post(f"/perks/{perk['id']}/redemptions", json={"on": "2026-06-15"}).json()
+
+    assert body["current_period"]["is_used"] is True
+    assert body["current_period"]["used_amount_cents"] is None
+    # History resolves it to the face value and says where the number came from.
+    entry = client.get(f"/perks/{perk['id']}/history").json()["redemptions"][0]
+    assert (entry["realised_cents"], entry["is_face_value"]) == (20_000, True)
+
+
+def test_re_marking_updates_the_amount_rather_than_erroring(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    """Correcting "I used all of it" to "I used $50 of it" is a re-mark, not a conflict."""
+    perk = add_perk(card_id, value_cents=20_000)
+
+    client.post(f"/perks/{perk['id']}/redemptions", json={"on": "2026-06-15"})
+    second = client.post(
+        f"/perks/{perk['id']}/redemptions", json={"on": "2026-06-15", "amount_cents": 5_000}
+    )
+
+    assert second.status_code == 200
+    assert second.json()["current_period"]["used_amount_cents"] == 5_000
+
+
+# ── urgency, reported not recomputed (054) ────────────────────────────────────
+
+
+def test_urgency_comes_from_the_service_and_varies_by_cadence(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    """The same days-remaining means different things at different cadences.
+
+    The browser reads this flag rather than computing a threshold, so the rule lives in
+    exactly one place.
+    """
+    add_perk(card_id, name="Monthly", cadence="monthly", anchor_on="2026-01-01")
+    add_perk(card_id, name="Annual", cadence="annual", anchor_on="2026-01-01")
+
+    def perks_on(day: str) -> dict[str, Any]:
+        return {p["name"]: p for p in client.get("/cards", params={"on": day}).json()[0]["perks"]}
+
+    # 28 June: the monthly period ends 1 July, so 2 days left — inside monthly's 7-day
+    # threshold. The annual period ends 1 Jan 2027, far outside its 30.
+    late = perks_on("2026-06-28")
+    assert late["Monthly"]["current_period"]["is_urgent"] is True
+    assert late["Annual"]["current_period"]["is_urgent"] is False
+
+    # 10 June: 20 days left on the monthly one, and it is calm. A single 30-day window
+    # would have called this urgent, which is the complaint the cadence table answers.
+    mid = perks_on("2026-06-10")
+    assert mid["Monthly"]["current_period"]["is_urgent"] is False
+
+    # 20 December: 11 days left on the annual one, now urgent.
+    assert perks_on("2026-12-20")["Annual"]["current_period"]["is_urgent"] is True
+
+
+def test_upcoming_reports_an_urgent_subtotal(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    add_perk(card_id, name="Monthly", value_cents=2_500, cadence="monthly")
+    add_perk(card_id, name="Annual", value_cents=20_000, cadence="annual")
+
+    body = client.get("/perks/upcoming", params={"on": "2026-06-28", "within_days": 366}).json()
+
+    assert body["total_cents"] == 22_500
+    # Only the monthly one is close to its own boundary.
+    assert body["urgent_cents"] == 2_500
+
+
+def test_upcoming_defaults_to_ninety_days(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    """45 hid annual credits entirely, which was the original complaint."""
+    body = client.get("/perks/upcoming", params={"on": "2026-06-15"}).json()
+
+    assert body["within_days"] == 90
+
+
+# ── history (054) ─────────────────────────────────────────────────────────────
+
+
+def test_wallet_history_spans_every_card_newest_first(
+    client: TestClient,
+    make_account: Callable[..., int],
+    add_perk: Callable[..., dict[str, object]],
+) -> None:
+    one = make_account(name="Card one", kind="liability", subtype="credit_card")
+    two = make_account(name="Card two", kind="liability", subtype="credit_card")
+    first = add_perk(one, name="Monthly one", cadence="monthly")
+    second = add_perk(two, name="Monthly two", cadence="monthly")
+
+    client.post(f"/perks/{first['id']}/redemptions", json={"on": "2026-03-10"})
+    client.post(f"/perks/{second['id']}/redemptions", json={"on": "2026-06-10"})
+
+    body = client.get("/cards/history", params={"on": "2026-06-15"}).json()
+
+    assert [r["card_name"] for r in body["redemptions"]] == ["Card two", "Card one"]
+    assert body["from_date"] is None, "no default cut-off — everything is the request"
+
+
+def test_history_windowing(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    perk = add_perk(card_id, cadence="monthly")
+    for day in ("2026-02-10", "2026-04-10", "2026-06-10"):
+        client.post(f"/perks/{perk['id']}/redemptions", json={"on": day})
+
+    body = client.get(
+        "/cards/history", params={"from": "2026-04-01", "to": "2026-06-30", "on": "2026-06-15"}
+    ).json()
+
+    assert [r["period_start"] for r in body["redemptions"]] == ["2026-06-01", "2026-04-01"]
+
+
+def test_history_counts_periods_that_closed_unused(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    """The number that changes behaviour.
+
+    A monthly perk anchored 1 January, one use in March, evaluated mid-June: January,
+    February, April and May closed with nothing against them. June has not closed and is
+    still spendable, so it is not missed.
+    """
+    perk = add_perk(card_id, cadence="monthly", anchor_on="2026-01-01")
+    client.post(f"/perks/{perk['id']}/redemptions", json={"on": "2026-03-10"})
+
+    body = client.get("/cards/history", params={"on": "2026-06-15"}).json()
+
+    assert body["missed_periods"] == 4
+
+
+def test_a_perks_own_history_is_scoped_to_it(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    one = add_perk(card_id, name="One", cadence="monthly")
+    two = add_perk(card_id, name="Two", cadence="monthly")
+    client.post(f"/perks/{one['id']}/redemptions", json={"on": "2026-06-10"})
+    client.post(f"/perks/{two['id']}/redemptions", json={"on": "2026-06-10"})
+
+    body = client.get(f"/perks/{one['id']}/history", params={"on": "2026-06-15"}).json()
+
+    assert [r["perk_name"] for r in body["redemptions"]] == ["One"]
+
+
+# ── the card row's figures (054) ──────────────────────────────────────────────
+
+
+def test_a_card_reports_its_fee_and_what_it_realised(
+    client: TestClient,
+    db_session: Session,
+    card_id: int,
+    add_perk: Callable[..., dict[str, object]],
+) -> None:
+    """Net card value. Realised counts redemptions, never what was merely available."""
+    db_session.execute(
+        text("UPDATE accounts SET annual_fee = 695.00, fee_renews_on = '2026-03-01' WHERE id = :i"),
+        {"i": card_id},
+    )
+    perk = add_perk(card_id, value_cents=20_000, anchor_on="2026-01-01")
+    client.post(
+        f"/perks/{perk['id']}/redemptions", json={"on": "2026-06-15", "amount_cents": 7_500}
+    )
+
+    card = client.get("/cards", params={"on": "2026-06-15"}).json()[0]
+
+    assert card["annual_fee_cents"] == 69_500
+    assert card["fee_year_start"] == "2026-03-01"
+    assert card["realised_this_fee_year_cents"] == 7_500
+
+
+def test_a_card_with_no_fee_reports_none_not_zero(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    """Absent is not zero — a card with no fee recorded must not claim its fee is $0."""
+    add_perk(card_id)
+
+    card = client.get("/cards", params={"on": "2026-06-15"}).json()[0]
+
+    assert card["annual_fee_cents"] is None
+    assert card["realised_this_fee_year_cents"] is None
+
+
+def test_renaming_a_card_works(client: TestClient, card_id: int) -> None:
+    """Asserted here so the page rebuild does not discover it missing."""
+    assert client.patch(f"/accounts/{card_id}", json={"name": "Platinum"}).status_code == 200
+    assert client.get("/cards", params={"on": "2026-06-15"}).json()[0]["name"] == "Platinum"

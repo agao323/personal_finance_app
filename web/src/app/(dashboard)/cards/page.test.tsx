@@ -38,7 +38,7 @@ describe("cards page", () => {
   it("leads with what is expiring, not with the card list", async () => {
     render(<CardsPage />);
 
-    const heading = await screen.findByText(/expiring in the next 45 days/);
+    const heading = await screen.findByText(/expiring in the next 90 days/);
     expect(heading).toHaveTextContent("$300.00");
   });
 
@@ -68,10 +68,10 @@ describe("cards page", () => {
     await userEvent.click(markButton);
 
     // Asserting the empty-state message rather than the absence of the banner: the
-    // two strings overlap ("Nothing expiring in the next 45 days" contains the
+    // two strings overlap ("Nothing expiring in the next 90 days" contains the
     // banner's wording), so a `not.toBeInTheDocument` on the shorter one can never
     // pass. It failed for exactly that reason first time round.
-    expect(await screen.findByText(/Nothing expiring in the next 45 days/)).toBeInTheDocument();
+    expect(await screen.findByText(/Nothing expiring in the next 90 days/)).toBeInTheDocument();
   });
 
   it("reverts and says so when marking fails", async () => {
@@ -130,12 +130,12 @@ describe("cards page", () => {
   it("says so when there is nothing expiring", async () => {
     server.use(
       http.get("/api/perks/upcoming", () =>
-        HttpResponse.json({ within_days: 45, as_of: "2026-06-18", total_cents: 0, perks: [] }),
+        HttpResponse.json({ within_days: 90, as_of: "2026-06-18", total_cents: 0, urgent_cents: 0, perks: [] }),
       ),
     );
     render(<CardsPage />);
 
-    expect(await screen.findByText(/Nothing expiring in the next 45 days/)).toBeInTheDocument();
+    expect(await screen.findByText(/Nothing expiring in the next 90 days/)).toBeInTheDocument();
   });
 
   it("reports a failed load rather than rendering an empty page", async () => {
