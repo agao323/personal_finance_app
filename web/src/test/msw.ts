@@ -836,7 +836,7 @@ export function mockCards(
   rows: ResponseOf<"/cards", "get"> = cards,
   soon: ResponseOf<"/perks/upcoming", "get"> = upcoming,
 ) {
-  const current = structuredClone(rows);
+  let current = structuredClone(rows);
   let soonest = structuredClone(soon);
 
   const setUsed = (perkId: number, used: boolean) => {
@@ -863,5 +863,89 @@ export function mockCards(
       const body = (await request.json()) as Record<string, unknown>;
       return HttpResponse.json({ id: 99, account_id: 1, ...body }, { status: 201 });
     }),
+    http.patch("/api/perks/:id", async ({ params, request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      const id = Number(params.id);
+      for (const card of current) {
+        for (const perk of card.perks) {
+          if (perk.id === id) Object.assign(perk, body);
+        }
+      }
+      return HttpResponse.json(current[0].perks[0]);
+    }),
+    // Deleting perk 2 succeeds; perk 1 has history and is refused, so a test can exercise
+    // both halves of the delete-versus-retire rule without reconfiguring handlers.
+    http.delete("/api/perks/:id", ({ params }) => {
+      if (Number(params.id) === 1) {
+        return HttpResponse.json(
+          { detail: "That perk has 3 recorded uses. Retire it instead, which keeps the history." },
+          { status: 409 },
+        );
+      }
+      current = current.map((card) => ({
+        ...card,
+        perks: card.perks.filter((perk) => perk.id !== Number(params.id)),
+      }));
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.patch("/api/accounts/:id", async ({ params, request }) => {
+      const body = (await request.json()) as { name?: string };
+      const id = Number(params.id);
+      current = current.map((card) =>
+        card.account_id === id && body.name ? { ...card, name: body.name } : card,
+      );
+      return HttpResponse.json({ id, name: body.name });
+    }),
+    http.get("/api/cards/history", ({ request }) => {
+      const from = new URL(request.url).searchParams.get("from");
+      const all = walletHistory.redemptions;
+      const rows = from ? all.filter((r) => r.period_start >= from) : all;
+      return HttpResponse.json({
+        ...walletHistory,
+        from_date: from,
+        redemptions: rows,
+        realised_cents: rows.reduce((sum, r) => sum + r.realised_cents, 0),
+      });
+    }),
+    http.get("/api/perks/:id/history", ({ params }) => {
+      const rows = walletHistory.redemptions.filter((r) => r.perk_id === Number(params.id));
+      return HttpResponse.json({ ...walletHistory, redemptions: rows });
+    }),
   );
 }
+
+/** Two recorded uses across two cards, newest first, one partial and one full. */
+export const walletHistory: ResponseOf<"/cards/history", "get"> = {
+  from_date: null,
+  to_date: null,
+  realised_cents: 32_500,
+  missed_periods: 4,
+  redemptions: [
+    {
+      perk_id: 2,
+      perk_name: "Dining credit",
+      account_id: 1,
+      card_name: "Sapphire Reserve",
+      period_start: "2026-06-01",
+      period_end: "2026-07-01",
+      cadence: "monthly",
+      realised_cents: 2_500,
+      is_face_value: true,
+      note: null,
+      recorded_at: "2026-06-12T10:00:00Z",
+    },
+    {
+      perk_id: 1,
+      perk_name: "Travel credit",
+      account_id: 1,
+      card_name: "Sapphire Reserve",
+      period_start: "2026-01-01",
+      period_end: "2027-01-01",
+      cadence: "annual",
+      realised_cents: 30_000,
+      is_face_value: false,
+      note: "Flights to Lisbon",
+      recorded_at: "2026-02-03T10:00:00Z",
+    },
+  ],
+};
