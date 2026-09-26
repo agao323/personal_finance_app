@@ -34,14 +34,20 @@ test.describe("dashboard", () => {
     const figure = async () =>
       Number((await page.locator("p.text-3xl").first().innerText()).replace(/[$,]/g, ""));
 
-    // Exact matches: the tile label and the chart heading both start with the same
-    // words, and a loose locator resolves to both.
+    // Scoped to the tile, not matched across the page. An exact "Net worth" is *not*
+    // unique on this dashboard: the tile label and the chart's plot label are both
+    // exactly that string, so `getByText(..., { exact: true })` resolves to two elements
+    // the moment the chart has data — and before ticket 052 made the series fast, it
+    // usually did not, so this passed on a race rather than on being correct.
+    const tileLabel = (text: string) =>
+      page.locator("p.text-sm", { hasText: new RegExp(`^${text}$`) }).first();
+
     await page.getByRole("button", { name: "Mine" }).click();
-    await expect(page.getByText("Net worth", { exact: true })).toBeVisible();
+    await expect(tileLabel("Net worth")).toBeVisible();
     const mine = await figure();
 
     await page.getByRole("button", { name: "Household" }).click();
-    await expect(page.getByText("Household net worth", { exact: true })).toBeVisible();
+    await expect(tileLabel("Household net worth")).toBeVisible();
     const household = await figure();
 
     expect(household).toBeGreaterThanOrEqual(mine);
