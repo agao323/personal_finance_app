@@ -259,7 +259,11 @@ export function PerkRemoveButton({ perk, onDone }: { perk: Perk; onDone: () => v
   }
 
   return (
-    <IconButton label={`Remove ${perk.name}`} tone="critical" onClick={() => setConfirming(true)}>
+    <IconButton
+      label={`Remove ${perk.name} — only possible while it has no recorded uses`}
+      tone="critical"
+      onClick={() => setConfirming(true)}
+    >
       <TrashIcon />
     </IconButton>
   );

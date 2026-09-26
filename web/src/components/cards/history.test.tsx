@@ -104,7 +104,7 @@ describe("BackfillForm", () => {
     const onDone = vi.fn();
     render(<BackfillForm perkId={1} onDone={onDone} onCancel={() => {}} />);
 
-    await userEvent.type(screen.getByLabelText("Record a past use"), "2026-03-15");
+    await userEvent.type(screen.getByLabelText("Record a credit you already used"), "2026-03-15");
     await userEvent.click(screen.getByRole("button", { name: "Record" }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalled());
@@ -131,16 +131,20 @@ describe("BackfillForm", () => {
     );
     render(<BackfillForm perkId={1} onDone={() => {}} onCancel={() => {}} />);
 
-    await userEvent.type(screen.getByLabelText("Record a past use"), "2020-01-01");
+    await userEvent.type(screen.getByLabelText("Record a credit you already used"), "2020-01-01");
     await userEvent.click(screen.getByRole("button", { name: "Record" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/before this perk's first period/);
   });
 
-  it("explains that the period is worked out from the credit's schedule", () => {
-    // "2 March" landing in the February period of a month-end anchor is surprising.
+  it("explains what backfilling is for, and which date to enter", () => {
+    // Two different confusions: what the control does at all, and that the date wanted is
+    // when you *spent* it rather than today. The month-end example is there because that
+    // case genuinely surprises people.
     render(<BackfillForm perkId={1} onDone={() => {}} onCancel={() => {}} />);
 
-    expect(screen.getByText(/worked out from the credit/)).toBeInTheDocument();
+    expect(screen.getByText(/spent months ago and never marked/)).toBeInTheDocument();
+    expect(screen.getByText(/not today/)).toBeInTheDocument();
+    expect(screen.getByText(/28 February/)).toBeInTheDocument();
   });
 });

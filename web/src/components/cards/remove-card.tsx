@@ -3,6 +3,10 @@
 /**
  * Delete a card, and everything hanging off it. (Ticket 063)
  *
+ * **No ticket numbers and no project state in the copy.** An earlier version told the
+ * reader that backups were unfinished. Whether our own backlog is caught up is not
+ * something a person deleting a card can act on, and it dates the moment it changes.
+ *
  * **The most destructive action in the product.** Every child of `accounts` cascades:
  * ownership stakes, balance snapshots, transactions, import mappings, credits, and every
  * recorded use. Balance snapshots are the one thing here no bank can reproduce.
@@ -129,11 +133,6 @@ export function RemoveCard({
       ) : (
         <p className="text-ink-muted mt-2 text-sm">Working out what this would delete…</p>
       )}
-
-      {/* Stated because it is true right now and changes the stakes. */}
-      <p className="border-warning/40 bg-warning-bg text-warning-text mt-3 rounded-md border px-3 py-2 text-sm">
-        There is no backup to restore from — ticket 017 is not finished.
-      </p>
 
       <div className="border-hairline mt-3 rounded-md border p-3">
         <p className="text-sm font-medium">Close it instead?</p>

@@ -96,3 +96,31 @@ export function ExpiryChip({ label, urgent }: { label: string; urgent: boolean }
     </span>
   );
 }
+
+/** A clock turning back — recording something that already happened. */
+export function HistoryIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none">
+      <path
+        d="M8 4.5V8l2.2 1.6"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2.6 6.4A5.6 5.6 0 113 10.2"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+      <path
+        d="M1.6 3.2v3.3h3.3"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

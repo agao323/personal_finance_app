@@ -87,8 +87,8 @@ export function FeeForm({
           )}
         </Field>
         <Field
-          label="Charged on"
-          hint="The anniversary the fee hits. It sets the fee year the realised figure is measured against."
+          label="Fee charged on"
+          hint="The date the fee hits each year — normally your card's anniversary, not 1 January. It sets the fee year the realised figure is measured against, which is why a calendar-year credit and an anniversary fee year can happily disagree."
         >
           {({ id, describedBy }) => (
             <input

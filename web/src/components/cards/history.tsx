@@ -192,11 +192,16 @@ export function BackfillForm({
   return (
     <div className="border-hairline mt-2 rounded-lg border p-3">
       <label htmlFor={`backfill-${perkId}`} className="text-sm font-medium">
-        Record a past use
+        Record a credit you already used
       </label>
       <p className="text-ink-muted mt-1 text-xs">
-        Any date inside the period you used it. The period it lands in is worked out from the
-        credit&rsquo;s own schedule.
+        For a credit you spent months ago and never marked here — so your history and totals are
+        right even for periods that closed before you started tracking.
+      </p>
+      <p className="text-ink-muted mt-1 text-xs">
+        Enter <strong>any date inside the period you spent it</strong>, not today&rsquo;s date.
+        Which period that lands in comes from this credit&rsquo;s own schedule, so a monthly credit
+        anchored on the 31st will put 2 March in the period beginning 28 February.
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <input

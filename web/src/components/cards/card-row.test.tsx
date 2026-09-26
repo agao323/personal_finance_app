@@ -107,8 +107,8 @@ describe("actions as icons (064)", () => {
     render(<CardRow card={cards[0]} onChange={() => {}} />);
 
     expect(screen.getByRole("button", { name: "Rename Sapphire Reserve" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Remove Sapphire Reserve" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit Travel credit" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Edit Travel credit/ })).toBeInTheDocument();
   });
 
   it("keeps the glyph and the words on an urgent countdown", () => {
@@ -118,6 +118,21 @@ describe("actions as icons (064)", () => {
 
     const rows = screen.getAllByRole("listitem");
     const travel = rows.find((row) => within(row).queryByText("Travel credit"));
+    expect(within(travel!).getByText("3 days")).toBeInTheDocument();
+  });
+});
+
+describe("a used credit (065)", () => {
+  it("shows no countdown once it has been used", () => {
+    // Nothing is running out if it is already spent. The dining credit is marked used in
+    // the fixture; the travel credit is not.
+    render(<CardRow card={cards[0]} onChange={() => {}} />);
+
+    const rows = screen.getAllByRole("listitem");
+    const dining = rows.find((row) => within(row).queryByText("Dining credit"));
+    const travel = rows.find((row) => within(row).queryByText("Travel credit"));
+
+    expect(within(dining!).queryByText(/days|Today|Tomorrow|week/)).toBeNull();
     expect(within(travel!).getByText("3 days")).toBeInTheDocument();
   });
 });
@@ -146,7 +161,7 @@ describe("removing a card (063)", () => {
     // "All data" is a phrase people click past. Counts are read.
     render(<CardRow card={cards[0]} onChange={() => {}} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Remove Sapphire Reserve" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ }));
 
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText(/balance snapshots?/)).toBeInTheDocument();
@@ -156,24 +171,28 @@ describe("removing a card (063)", () => {
   it("offers closing first, because that is usually what is wanted", async () => {
     render(<CardRow card={cards[0]} onChange={() => {}} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Remove Sapphire Reserve" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ }));
 
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByRole("button", { name: "Close this card" })).toBeInTheDocument();
   });
 
-  it("says there is no backup, because that is true right now", async () => {
+  it("carries no ticket numbers or project state in its copy", async () => {
+    // An earlier version told the reader backups were unfinished. Whether our backlog is
+    // caught up is not something a person deleting a card can act on, and it dates the
+    // moment it changes.
     render(<CardRow card={cards[0]} onChange={() => {}} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Remove Sapphire Reserve" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ }));
+    const dialog = await screen.findByRole("alertdialog");
 
-    expect(await screen.findByText(/no backup to restore from/)).toBeInTheDocument();
+    expect(dialog.textContent).not.toMatch(/ticket|backup|017/i);
   });
 
   it("keeps delete disabled until the name is typed exactly", async () => {
     render(<CardRow card={cards[0]} onChange={() => {}} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Remove Sapphire Reserve" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ }));
     const dialog = await screen.findByRole("alertdialog");
     const confirm = within(dialog).getByRole("button", { name: "Delete permanently" });
 

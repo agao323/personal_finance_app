@@ -16,7 +16,7 @@ import { apiFetch } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { FeeForm } from "./fee-form";
 import { BackfillForm } from "./history";
-import { ExpiryChip, IconButton, PencilIcon, TrashIcon } from "./icons";
+import { ExpiryChip, HistoryIcon, IconButton, PencilIcon, TrashIcon } from "./icons";
 import { MarkButton } from "./mark-button";
 import { NetValue } from "./net-value";
 import { PerkForm, PerkRemoveButton } from "./perk-form";
@@ -122,7 +122,7 @@ export function CardRow({ card, onChange }: { card: Card; onChange: () => void }
                 <PencilIcon />
               </IconButton>
               <IconButton
-                label={`Remove ${card.name}`}
+                label={`Delete ${card.name} and all of its history — balances, transactions and credits`}
                 tone="critical"
                 onClick={() => setRemoving(true)}
               >
@@ -288,22 +288,24 @@ function PerkRowItem({
           </span>
         </span>
         <span className="flex flex-wrap items-center gap-2 text-sm">
-          {period ? (
+          {/* Nothing is running out if it has already been used. A countdown on a spent
+              credit is noise at best and a contradiction at worst. */}
+          {period && !period.is_used ? (
             <ExpiryChip label={expiryLabel(period.days_remaining)} urgent={period.is_urgent} />
           ) : null}
           {period && perk.is_active ? <MarkButton perk={perk} onChange={onChange} /> : null}
-          <IconButton label={`Edit ${perk.name}`} onClick={() => setEditing(true)}>
+          <IconButton
+            label={`Edit ${perk.name} — its value, how often it resets, or when its first period began`}
+            onClick={() => setEditing(true)}
+          >
             <PencilIcon />
           </IconButton>
-          {/* Still a word. "Past use" was called confusing, and an icon would make a
-              confusing thing harder to find rather than easier. */}
-          <button
-            type="button"
+          <IconButton
+            label={`Record a past use of ${perk.name} — for a credit you spent earlier and never marked`}
             onClick={() => setBackfilling((current) => !current)}
-            className="text-ink-secondary hover:text-ink text-xs underline underline-offset-4"
           >
-            Past use
-          </button>
+            <HistoryIcon />
+          </IconButton>
           <PerkRemoveButton perk={perk} onDone={onChange} />
         </span>
       </div>
