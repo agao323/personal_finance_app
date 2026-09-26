@@ -1,10 +1,30 @@
 name: Nightly backup
 
-# 03:00 UTC. GitHub delays scheduled runs under load, which is fine for a backup and
-# is exactly why the dead-man's-switch has a grace period rather than a deadline.
+# ── The schedule is OFF, deliberately. Re-enable it as part of ticket 017. ──
+#
+# It ran nightly from the day this workflow landed and failed every single time, because
+# none of its seven secrets were ever set. That is the script behaving correctly — it
+# refuses and names what is missing rather than uploading an empty archive — but a job
+# that fails every night is a job you learn to ignore, which is the exact habit the
+# dead-man's-switch exists to break. Leaving it on was training us to disregard the one
+# alarm that matters.
+#
+# Nothing is being protected in the meantime: the Google Sheet is still the system of
+# record and still maintained. That stops being true at ticket 024, which imports the
+# sheet's history and makes this database the only copy of balance history that cannot
+# be reconstructed from any bank. Neon's instant restore is **6 hours** on the free
+# plan, which is not a recovery story for data like that.
+#
+# So: 017's secrets and a proven restore drill go in, then this schedule comes back, and
+# only then does 024 run. `workflow_dispatch` stays so the job can be run by hand at any
+# point — including to verify 017 before the cron is trusted again.
+#
+# When re-enabling, restore exactly this:
+#     schedule:
+#       - cron: "0 3 * * *"
+# 03:00 UTC. GitHub delays scheduled runs under load, which is fine for a backup and is
+# exactly why the dead-man's-switch has a grace period rather than a deadline.
 on:
-  schedule:
-    - cron: "0 3 * * *"
   workflow_dispatch: {}
 
 jobs:

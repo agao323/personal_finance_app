@@ -12,6 +12,10 @@ full data export endpoint. **This ticket gates real data entering production.**
 - [ ] Nightly `pg_dump` to Cloudflare R2, encrypted, 30-day retention
 - [ ] Encryption key stored outside Neon and outside the repo
 - [ ] **A dead-man's-switch** (healthchecks.io or equivalent) that alerts when the job fails to check in
+- [ ] **Re-enable the nightly schedule in `.github/workflows/backup.yml`.** It was turned off on
+      2026-09-26 after failing every night for five weeks on unset secrets — a job that always
+      fails teaches you to ignore the alarm this ticket is built around. `workflow_dispatch` was
+      kept, so verify by hand first, then restore the cron. **024 must not run until this is back on.**
 - [ ] **A restore performed into a scratch database and verified** — row counts and a spot-checked aggregate. Use a **Neon branch of the real project** as the scratch target; that is what branches are for and it costs nothing.
 - [x] Restore procedure documented step by step, runnable by someone who didn't write it
 - [x] `GET /export` returning the full dataset as JSON
