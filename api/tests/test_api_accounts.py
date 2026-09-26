@@ -343,3 +343,147 @@ def test_rejects_a_bps_value_over_10000(
     )
 
     assert response.status_code == 422
+
+
+# ── the annual fee (062) ──────────────────────────────────────────────────────
+
+
+def test_setting_and_clearing_an_annual_fee(
+    client: TestClient, db_session: Session, make_account: Callable[..., int]
+) -> None:
+    """Clearing means null, not zero.
+
+    A card with no fee recorded shows no net-value panel; a card whose fee is $0 is a
+    different and rarer claim. Conflating them makes "not filled in" indistinguishable
+    from "free".
+    """
+    card = make_account(name="Platinum", kind="liability", subtype="credit_card")
+
+    client.patch(
+        f"/accounts/{card}", json={"annual_fee_cents": 69_500, "fee_renews_on": "2026-03-01"}
+    )
+    stored = db_session.execute(
+        text("SELECT annual_fee, fee_renews_on FROM accounts WHERE id = :i"), {"i": card}
+    ).one()
+    assert str(stored[0]) == "695.00"
+    assert stored[1] == dt.date(2026, 3, 1)
+
+    client.patch(f"/accounts/{card}", json={"annual_fee_cents": None, "fee_renews_on": None})
+    cleared = db_session.execute(
+        text("SELECT annual_fee FROM accounts WHERE id = :i"), {"i": card}
+    ).scalar_one()
+    assert cleared is None
+
+
+def test_a_fee_reaches_the_card_screen_as_cents(
+    client: TestClient, make_account: Callable[..., int]
+) -> None:
+    card = make_account(name="Platinum", kind="liability", subtype="credit_card")
+    client.patch(
+        f"/accounts/{card}", json={"annual_fee_cents": 69_500, "fee_renews_on": "2026-03-01"}
+    )
+
+    body = client.get("/cards", params={"on": "2026-06-15"}).json()
+
+    assert next(c for c in body if c["account_id"] == card)["annual_fee_cents"] == 69_500
+
+
+# ── removing an account (063) ─────────────────────────────────────────────────
+
+
+def test_the_deletion_preview_counts_what_would_be_destroyed(
+    client: TestClient,
+    db_session: Session,
+    make_account: Callable[..., int],
+    make_transaction: Callable[..., int],
+    owner_id: int,
+) -> None:
+    """Counted from the database, not estimated.
+
+    A warning with a wrong number is worse than a vague one — it teaches you the numbers
+    are decorative.
+    """
+    card = make_account(name="Platinum", kind="liability", subtype="credit_card")
+    create_initial_stake(db_session, card, owner_id, dt.date(2026, 1, 1))
+    record_balance(db_session, card, dt.date(2026, 1, 1), Decimal("1200.00"))
+    record_balance(db_session, card, dt.date(2026, 2, 1), Decimal("900.00"))
+    make_transaction(card, dt.date(2026, 1, 15), "-50.00")
+    perk = db_session.execute(
+        text(
+            "INSERT INTO card_perks (account_id, name, value, cadence, anchor_on) "
+            "VALUES (:a, 'Travel', 200.00, 'annual', '2026-01-01') RETURNING id"
+        ),
+        {"a": card},
+    ).scalar_one()
+    db_session.execute(
+        text("INSERT INTO perk_redemptions (perk_id, period_start) VALUES (:p, '2026-01-01')"),
+        {"p": perk},
+    )
+    db_session.flush()
+
+    body = client.get(f"/accounts/{card}/deletion-preview").json()
+
+    assert body["balance_snapshots"] == 2
+    assert body["transactions"] == 1
+    assert body["ownership_stakes"] == 1
+    assert body["card_perks"] == 1
+    assert body["perk_redemptions"] == 1
+    assert body["earliest_snapshot"] == "2026-01-01"
+
+
+def test_deleting_requires_naming_the_account(
+    client: TestClient, make_account: Callable[..., int]
+) -> None:
+    """A destructive action reachable by one mis-click happens by mis-click.
+
+    Checked server-side, not only in a dialog — a guard living in one component is a guard
+    a second caller does not have.
+    """
+    card = make_account(name="Platinum", kind="liability", subtype="credit_card")
+
+    wrong = client.request("DELETE", f"/accounts/{card}", json={"confirm_name": "platinum"})
+
+    assert wrong.status_code == 400
+    assert "Platinum" in wrong.json()["detail"]
+    assert client.get(f"/accounts/{card}").status_code == 200, "still there"
+
+
+def test_deleting_cascades_to_every_child(
+    client: TestClient,
+    db_session: Session,
+    make_account: Callable[..., int],
+    make_transaction: Callable[..., int],
+    owner_id: int,
+) -> None:
+    """The cascade is the whole risk, so it is asserted rather than assumed."""
+    card = make_account(name="Platinum", kind="liability", subtype="credit_card")
+    create_initial_stake(db_session, card, owner_id, dt.date(2026, 1, 1))
+    record_balance(db_session, card, dt.date(2026, 1, 1), Decimal("1200.00"))
+    make_transaction(card, dt.date(2026, 1, 15), "-50.00")
+    db_session.flush()
+
+    response = client.request("DELETE", f"/accounts/{card}", json={"confirm_name": "Platinum"})
+
+    assert response.status_code == 204
+    for table in ("balance_snapshots", "transactions", "ownership_stakes"):
+        remaining = db_session.execute(
+            text(f"SELECT count(*) FROM {table} WHERE account_id = :a"), {"a": card}
+        ).scalar_one()
+        assert remaining == 0, table
+
+
+def test_closing_an_account_keeps_everything(
+    client: TestClient, db_session: Session, make_account: Callable[..., int], owner_id: int
+) -> None:
+    """The alternative the dialog offers first, and what most people actually want."""
+    card = make_account(name="Platinum", kind="liability", subtype="credit_card")
+    create_initial_stake(db_session, card, owner_id, dt.date(2026, 1, 1))
+    record_balance(db_session, card, dt.date(2026, 1, 1), Decimal("1200.00"))
+    db_session.flush()
+
+    client.patch(f"/accounts/{card}", json={"closed_at": "2026-06-01"})
+
+    kept = db_session.execute(
+        text("SELECT count(*) FROM balance_snapshots WHERE account_id = :a"), {"a": card}
+    ).scalar_one()
+    assert kept == 1

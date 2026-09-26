@@ -18,6 +18,7 @@ import { useState } from "react";
 import { Field, FormActions, MoneyInput, inputClass } from "@/components/forms/fields";
 import { apiFetch } from "@/lib/api";
 import { centsToInputValue } from "@/lib/format";
+import { IconButton, TrashIcon } from "./icons";
 import { CADENCE_LABELS, CADENCE_ORDER, type Cadence, type Perk } from "./types";
 
 export function PerkForm({
@@ -258,12 +259,8 @@ export function PerkRemoveButton({ perk, onDone }: { perk: Perk; onDone: () => v
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => setConfirming(true)}
-      className="text-ink-secondary hover:text-ink text-sm underline underline-offset-4"
-    >
-      Remove
-    </button>
+    <IconButton label={`Remove ${perk.name}`} tone="critical" onClick={() => setConfirming(true)}>
+      <TrashIcon />
+    </IconButton>
   );
 }

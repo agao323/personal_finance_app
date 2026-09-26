@@ -14,16 +14,21 @@ import { useState } from "react";
 
 import { apiFetch } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { FeeForm } from "./fee-form";
 import { BackfillForm } from "./history";
+import { ExpiryChip, IconButton, PencilIcon, TrashIcon } from "./icons";
 import { MarkButton } from "./mark-button";
 import { NetValue } from "./net-value";
 import { PerkForm, PerkRemoveButton } from "./perk-form";
+import { RemoveCard } from "./remove-card";
 import { CADENCE_LABELS, CADENCE_ORDER, expiryLabel, type Card, type Perk } from "./types";
 
 export function CardRow({ card, onChange }: { card: Card; onChange: () => void }) {
   const [open, setOpen] = useState(true);
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [editingFee, setEditingFee] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [name, setName] = useState(card.name);
 
   async function rename() {
@@ -103,23 +108,63 @@ export function CardRow({ card, onChange }: { card: Card; onChange: () => void }
                 closed
               </span>
             ) : null}
-            <button
-              type="button"
-              onClick={() => setRenaming(true)}
-              className="text-ink-muted hover:text-ink text-xs font-normal underline underline-offset-4"
-            >
-              Rename
-            </button>
           </h2>
         )}
 
-        <span className="text-ink-secondary text-xs tabular-nums">
-          {formatCurrency(card.unused_cents)} available ·{" "}
-          {card.active_perk_count === 1 ? "1 credit" : `${card.active_perk_count} credits`}
+        <span className="flex items-center gap-2">
+          <span className="text-ink-secondary text-xs tabular-nums">
+            {formatCurrency(card.unused_cents)} available ·{" "}
+            {card.active_perk_count === 1 ? "1 credit" : `${card.active_perk_count} credits`}
+          </span>
+          {!renaming ? (
+            <>
+              <IconButton label={`Rename ${card.name}`} onClick={() => setRenaming(true)}>
+                <PencilIcon />
+              </IconButton>
+              <IconButton
+                label={`Remove ${card.name}`}
+                tone="critical"
+                onClick={() => setRemoving(true)}
+              >
+                <TrashIcon />
+              </IconButton>
+            </>
+          ) : null}
         </span>
       </div>
 
-      <NetValue card={card} />
+      {editingFee ? (
+        <FeeForm
+          card={card}
+          onDone={() => {
+            setEditingFee(false);
+            onChange();
+          }}
+          onCancel={() => setEditingFee(false)}
+        />
+      ) : (
+        <>
+          <NetValue card={card} />
+          <button
+            type="button"
+            onClick={() => setEditingFee(true)}
+            className="text-ink-secondary hover:text-ink mt-2 text-xs underline underline-offset-4"
+          >
+            {card.annual_fee_cents != null ? "Edit annual fee" : "Add an annual fee"}
+          </button>
+        </>
+      )}
+
+      {removing ? (
+        <RemoveCard
+          card={card}
+          onDone={() => {
+            setRemoving(false);
+            onChange();
+          }}
+          onCancel={() => setRemoving(false)}
+        />
+      ) : null}
 
       {open ? (
         <>
@@ -232,12 +277,7 @@ function PerkRowItem({
               <>
                 {" · resets "}
                 {formatDate(period.end)}
-                {period.is_urgent ? (
-                  <span className="text-warning-text ml-1 font-medium">
-                    <span aria-hidden="true">⚠ </span>
-                    {expiryLabel(period.days_remaining)}
-                  </span>
-                ) : null}
+
                 {period.is_used && period.used_amount_cents != null ? (
                   <> · used {formatCurrency(period.used_amount_cents)}</>
                 ) : null}
@@ -247,19 +287,20 @@ function PerkRowItem({
             )}
           </span>
         </span>
-        <span className="flex flex-wrap items-center gap-3 text-sm">
+        <span className="flex flex-wrap items-center gap-2 text-sm">
+          {period ? (
+            <ExpiryChip label={expiryLabel(period.days_remaining)} urgent={period.is_urgent} />
+          ) : null}
           {period && perk.is_active ? <MarkButton perk={perk} onChange={onChange} /> : null}
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="text-ink-secondary hover:text-ink text-sm underline underline-offset-4"
-          >
-            Edit
-          </button>
+          <IconButton label={`Edit ${perk.name}`} onClick={() => setEditing(true)}>
+            <PencilIcon />
+          </IconButton>
+          {/* Still a word. "Past use" was called confusing, and an icon would make a
+              confusing thing harder to find rather than easier. */}
           <button
             type="button"
             onClick={() => setBackfilling((current) => !current)}
-            className="text-ink-secondary hover:text-ink text-sm underline underline-offset-4"
+            className="text-ink-secondary hover:text-ink text-xs underline underline-offset-4"
           >
             Past use
           </button>

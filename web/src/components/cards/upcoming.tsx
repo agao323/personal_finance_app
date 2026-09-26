@@ -53,14 +53,25 @@ interface Loaded {
   error: string | null;
 }
 
-export function UpcomingPanel({ onChange }: { onChange: () => void }) {
+export function UpcomingPanel({
+  onChange,
+  revision,
+}: {
+  onChange: () => void;
+  /**
+   * The screen's refresh counter. Ticket 061: this panel used to fetch on a counter only
+   * its own button bumped, so marking a credit from a card row left the total and the list
+   * stale until a reload. One signal for the screen — "which panels does this affect" is
+   * not a question every caller should have to answer correctly.
+   */
+  revision: number;
+}) {
   // Lazily, from the store. Reading it in an effect and calling setState would be a
   // synchronous setState inside an effect — a cascading render, and what the
   // `react-hooks` rule forbids. `storedHorizon` returns the default whenever the store
   // is unreadable, which includes a server render.
   const [horizon, setHorizon] = useState<number>(storedHorizon);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [revision, setRevision] = useState(0);
 
   // Derived from state only ever written by a settled response, rather than a `loading`
   // flag set at the top of the effect. Same pattern as the net worth chart.
@@ -98,10 +109,9 @@ export function UpcomingPanel({ onChange }: { onChange: () => void }) {
     };
   }, [horizon, revision]);
 
-  const reload = () => {
-    setRevision((n) => n + 1);
-    onChange();
-  };
+  // Marking from here bumps the same counter everything else reads, so the card rows
+  // and the history below update too.
+  const reload = onChange;
 
   const urgent = (data?.perks ?? []).filter((row) => row.perk.current_period?.is_urgent);
   const rest = (data?.perks ?? []).filter((row) => !row.perk.current_period?.is_urgent);

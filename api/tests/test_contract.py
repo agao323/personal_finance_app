@@ -40,6 +40,7 @@ LIVE_PATHS = {
     "/accounts",  # 019
     "/accounts/{account_id}",  # 019
     "/accounts/{account_id}/history",  # 019
+    "/accounts/{account_id}/deletion-preview",  # 063
     "/accounts/{account_id}/balances",  # 019
     "/accounts/{account_id}/stakes",  # 019
     "/rules",  # 022

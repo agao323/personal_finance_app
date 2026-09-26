@@ -907,6 +907,19 @@ export function mockCards(
         realised_cents: rows.reduce((sum, r) => sum + r.realised_cents, 0),
       });
     }),
+    http.get("/api/accounts/:id/deletion-preview", ({ params }) =>
+      HttpResponse.json({
+        account_id: Number(params.id),
+        name: "Sapphire Reserve",
+        balance_snapshots: 312,
+        transactions: 1_204,
+        ownership_stakes: 1,
+        card_perks: 2,
+        perk_redemptions: 9,
+        earliest_snapshot: "2024-03-01",
+      }),
+    ),
+    http.delete("/api/accounts/:id", () => new HttpResponse(null, { status: 204 })),
     http.get("/api/perks/:id/history", ({ params }) => {
       const rows = walletHistory.redemptions.filter((r) => r.perk_id === Number(params.id));
       return HttpResponse.json({ ...walletHistory, redemptions: rows });

@@ -106,6 +106,38 @@ class AccountUpdate(Schema):
     institution_id: int | None = None
     subtype: AccountSubtype | None = None
     closed_at: dt.date | None = None
+    #: Credit cards only in practice. Explicit `null` clears it — absent is not zero, so a
+    #: card with no fee recorded is a different state from one whose fee is $0.
+    annual_fee_cents: Cents | None = Field(default=None, ge=0)
+    fee_renews_on: dt.date | None = None
+
+
+class DeletionPreview(Schema):
+    """What removing an account would destroy.
+
+    Counted rather than described. "All data" is a phrase people click past; "312 balance
+    snapshots going back to March 2024" is one they read.
+    """
+
+    account_id: int
+    name: str
+    balance_snapshots: int
+    transactions: int
+    ownership_stakes: int
+    card_perks: int
+    perk_redemptions: int
+    earliest_snapshot: dt.date | None = None
+
+
+class AccountDelete(Schema):
+    """Deleting requires naming the account.
+
+    A destructive action reachable by one mis-click is a destructive action that happens by
+    mis-click. Typing the name is the confirmation, and it is checked server-side so the
+    guard does not live only in a component.
+    """
+
+    confirm_name: str
 
 
 class AccountGroup(Schema):

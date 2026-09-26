@@ -30,7 +30,7 @@ describe("UpcomingPanel", () => {
       }),
     );
 
-    render(<UpcomingPanel onChange={() => {}} />);
+    render(<UpcomingPanel onChange={() => {}} revision={0} />);
 
     await waitFor(() => expect(urls).toHaveLength(1));
     expect(new URL(urls[0]).searchParams.get("within_days")).toBe("90");
@@ -45,7 +45,7 @@ describe("UpcomingPanel", () => {
       }),
     );
 
-    render(<UpcomingPanel onChange={() => {}} />);
+    render(<UpcomingPanel onChange={() => {}} revision={0} />);
     await waitFor(() => expect(urls).toHaveLength(1));
 
     await userEvent.click(screen.getByRole("button", { name: "30 days" }));
@@ -56,7 +56,7 @@ describe("UpcomingPanel", () => {
 
   it("separates what is running out from what has plenty of time", async () => {
     // Grouping comes from the API's own is_urgent flag, which is per cadence.
-    render(<UpcomingPanel onChange={() => {}} />);
+    render(<UpcomingPanel onChange={() => {}} revision={0} />);
 
     expect(await screen.findByRole("heading", { name: "Running out" })).toBeInTheDocument();
   });
@@ -83,14 +83,14 @@ describe("UpcomingPanel", () => {
       ),
     );
 
-    render(<UpcomingPanel onChange={() => {}} />);
+    render(<UpcomingPanel onChange={() => {}} revision={0} />);
 
     expect(await screen.findByRole("heading", { name: "Plenty of time" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Running out" })).toBeNull();
   });
 
   it("reports the urgent subtotal separately from the total", async () => {
-    render(<UpcomingPanel onChange={() => {}} />);
+    render(<UpcomingPanel onChange={() => {}} revision={0} />);
 
     expect(await screen.findByText(/running out/)).toBeInTheDocument();
     expect(screen.getByText(/available/)).toBeInTheDocument();
@@ -98,7 +98,7 @@ describe("UpcomingPanel", () => {
 
   it("names the card each credit belongs to", async () => {
     // A credit without its card is not actionable.
-    render(<UpcomingPanel onChange={() => {}} />);
+    render(<UpcomingPanel onChange={() => {}} revision={0} />);
 
     expect(await screen.findByText(/Sapphire Reserve/)).toBeInTheDocument();
   });
@@ -110,7 +110,7 @@ describe("UpcomingPanel", () => {
       ),
     );
 
-    render(<UpcomingPanel onChange={() => {}} />);
+    render(<UpcomingPanel onChange={() => {}} revision={0} />);
 
     expect(await screen.findByText(/Nothing left to use in this window/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -121,14 +121,14 @@ describe("UpcomingPanel", () => {
       http.get("/api/perks/upcoming", () => HttpResponse.json({ detail: "no" }, { status: 500 })),
     );
 
-    render(<UpcomingPanel onChange={() => {}} />);
+    render(<UpcomingPanel onChange={() => {}} revision={0} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load this");
   });
 
   it("marks a credit used from the panel", async () => {
     const onChange = vi.fn();
-    render(<UpcomingPanel onChange={onChange} />);
+    render(<UpcomingPanel onChange={onChange} revision={0} />);
     await screen.findByText("Travel credit");
 
     const rows = screen.getAllByRole("listitem");

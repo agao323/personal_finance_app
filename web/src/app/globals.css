@@ -65,6 +65,11 @@
      4.37:1 on the page plane — above the 3:1 mark threshold, below the 4.5:1 one
      for the 14px text that error titles actually are. Text gets a darker step. */
   --critical-text: #a12626;
+  /* Same treatment for warning, which never got it. --status-warning is #fab219 — a fine
+     mark and unreadable as 14px text on the page plane. A darker step of the same hue
+     clears the 4.5:1 body threshold without changing the colour's identity. */
+  --warning-text: #825200;
+  --warning-bg: #fdf1d8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -101,6 +106,8 @@
     --accent-bg: #14243a;
     --accent-strong: #9ec5f4;
     --critical-text: #f09595;
+    --warning-text: #f0c46a;
+    --warning-bg: #302512;
   }
 }
 
@@ -135,6 +142,8 @@
   --accent-bg: #14243a;
   --accent-strong: #9ec5f4;
   --critical-text: #f09595;
+  --warning-text: #f0c46a;
+  --warning-bg: #302512;
 }
 
 @theme inline {
@@ -170,6 +179,8 @@
   --color-accent-bg: var(--accent-bg);
   --color-accent-strong: var(--accent-strong);
   --color-critical-text: var(--critical-text);
+  --color-warning-text: var(--warning-text);
+  --color-warning-bg: var(--warning-bg);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

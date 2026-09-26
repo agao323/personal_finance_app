@@ -6,7 +6,8 @@ import datetime as dt
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.deps import CurrentUser, DbSession
@@ -15,6 +16,7 @@ from app.models.enums import AccountKind, DataSource
 from app.models.user import User
 from app.schemas.account import (
     AccountCreate,
+    AccountDelete,
     AccountDetail,
     AccountGroup,
     AccountHistory,
@@ -23,11 +25,12 @@ from app.schemas.account import (
     AccountUpdate,
     BalanceCreate,
     BalanceRead,
+    DeletionPreview,
     InstitutionRead,
     StakeCreate,
     StakeRead,
 )
-from app.schemas.common import ErrorResponse, ViewScope, from_bps, to_bps, to_cents
+from app.schemas.common import ErrorResponse, ViewScope, from_bps, from_cents, to_bps, to_cents
 from app.services.accounts import (
     AccountView,
     create_account,
@@ -194,11 +197,79 @@ def update(
     """
     account = _get(session, account_id)
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    # `annual_fee_cents` is the wire name; the column is `annual_fee` and holds a Decimal.
+    # Popped rather than special-cased in the loop, so no path assigns an integer number of
+    # cents to a money column.
+    if "annual_fee_cents" in changes:
+        cents = changes.pop("annual_fee_cents")
+        account.annual_fee = None if cents is None else from_cents(cents)
+    for field, value in changes.items():
         setattr(account, field, value)
     session.flush()
 
     return _to_read(view_for(session, account, dt.date.today(), user.id))
+
+
+@router.get("/{account_id}/deletion-preview", response_model=DeletionPreview)
+def deletion_preview(session: DbSession, user: CurrentUser, account_id: int) -> DeletionPreview:
+    """Exactly what deleting this account would destroy.
+
+    Every child of `accounts` is `ON DELETE CASCADE`, so this is not a list of things to
+    tidy afterwards — it is what disappears in the same statement. Counted from the
+    database rather than estimated, because a warning with a wrong number is worse than a
+    vague one: it teaches you the numbers are decorative.
+    """
+    account = _get(session, account_id)
+
+    def count(sql: str) -> int:
+        return int(session.execute(text(sql), {"a": account_id}).scalar_one())
+
+    return DeletionPreview(
+        account_id=account.id,
+        name=account.name,
+        balance_snapshots=count("SELECT count(*) FROM balance_snapshots WHERE account_id = :a"),
+        transactions=count("SELECT count(*) FROM transactions WHERE account_id = :a"),
+        ownership_stakes=count("SELECT count(*) FROM ownership_stakes WHERE account_id = :a"),
+        card_perks=count("SELECT count(*) FROM card_perks WHERE account_id = :a"),
+        perk_redemptions=count(
+            "SELECT count(*) FROM perk_redemptions r JOIN card_perks p ON p.id = r.perk_id "
+            "WHERE p.account_id = :a"
+        ),
+        earliest_snapshot=session.execute(
+            text("SELECT min(as_of) FROM balance_snapshots WHERE account_id = :a"),
+            {"a": account_id},
+        ).scalar_one_or_none(),
+    )
+
+
+@router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_account(
+    session: DbSession, user: CurrentUser, account_id: int, payload: AccountDelete
+) -> Response:
+    """Delete an account and everything hanging off it.
+
+    **This is the most destructive action in the product.** The cascade takes ownership
+    stakes, balance snapshots, transactions, import mappings, card perks and every
+    redemption recorded against them. Balance snapshots are the one class of data here that
+    cannot be reconstructed from a bank, and ticket 017 is not done — there is no backup to
+    restore from.
+
+    Closing an account (`PATCH` with `closed_at`) is what most people actually want: net
+    worth stops counting it from that date and the history survives.
+
+    Naming the account is required, and checked here rather than only in a dialog — a guard
+    that lives in one component is a guard that a second caller does not have.
+    """
+    account = _get(session, account_id)
+    if payload.confirm_name.strip() != account.name:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f'To delete this account, confirm its name exactly: "{account.name}"',
+        )
+    session.delete(account)
+    session.flush()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{account_id}/history", response_model=AccountHistory)

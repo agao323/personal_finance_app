@@ -47,7 +47,23 @@ export interface paths {
     get: operations["detail_accounts__account_id__get"];
     put?: never;
     post?: never;
-    delete?: never;
+    /**
+     * Delete Account
+     * @description Delete an account and everything hanging off it.
+     *
+     *     **This is the most destructive action in the product.** The cascade takes ownership
+     *     stakes, balance snapshots, transactions, import mappings, card perks and every
+     *     redemption recorded against them. Balance snapshots are the one class of data here that
+     *     cannot be reconstructed from a bank, and ticket 017 is not done — there is no backup to
+     *     restore from.
+     *
+     *     Closing an account (`PATCH` with `closed_at`) is what most people actually want: net
+     *     worth stops counting it from that date and the history survives.
+     *
+     *     Naming the account is required, and checked here rather than only in a dialog — a guard
+     *     that lives in one component is a guard that a second caller does not have.
+     */
+    delete: operations["delete_account_accounts__account_id__delete"];
     options?: never;
     head?: never;
     /**
@@ -74,6 +90,31 @@ export interface paths {
      * @description Record a snapshot. Re-recording the same date replaces the value.
      */
     post: operations["add_balance_accounts__account_id__balances_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/deletion-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Deletion Preview
+     * @description Exactly what deleting this account would destroy.
+     *
+     *     Every child of `accounts` is `ON DELETE CASCADE`, so this is not a list of things to
+     *     tidy afterwards — it is what disappears in the same statement. Counted from the
+     *     database rather than estimated, because a warning with a wrong number is worse than a
+     *     vague one: it teaches you the numbers are decorative.
+     */
+    get: operations["deletion_preview_accounts__account_id__deletion_preview_get"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -838,6 +879,18 @@ export interface components {
       source?: components["schemas"]["DataSource"] | null;
       subtype: components["schemas"]["AccountSubtype"];
     };
+    /**
+     * AccountDelete
+     * @description Deleting requires naming the account.
+     *
+     *     A destructive action reachable by one mis-click is a destructive action that happens by
+     *     mis-click. Typing the name is the confirmation, and it is checked server-side so the
+     *     guard does not live only in a component.
+     */
+    AccountDelete: {
+      /** Confirm Name */
+      confirm_name: string;
+    };
     /** AccountDetail */
     AccountDetail: {
       /**
@@ -992,8 +1045,12 @@ export interface components {
       | "other_liability";
     /** AccountUpdate */
     AccountUpdate: {
+      /** Annual Fee Cents */
+      annual_fee_cents?: number | null;
       /** Closed At */
       closed_at?: string | null;
+      /** Fee Renews On */
+      fee_renews_on?: string | null;
       /** Institution Id */
       institution_id?: number | null;
       /** Name */
@@ -1176,6 +1233,31 @@ export interface components {
      * @enum {string}
      */
     DataSource: "manual" | "csv" | "teller" | "plaid" | "simplefin";
+    /**
+     * DeletionPreview
+     * @description What removing an account would destroy.
+     *
+     *     Counted rather than described. "All data" is a phrase people click past; "312 balance
+     *     snapshots going back to March 2024" is one they read.
+     */
+    DeletionPreview: {
+      /** Account Id */
+      account_id: number;
+      /** Balance Snapshots */
+      balance_snapshots: number;
+      /** Card Perks */
+      card_perks: number;
+      /** Earliest Snapshot */
+      earliest_snapshot?: string | null;
+      /** Name */
+      name: string;
+      /** Ownership Stakes */
+      ownership_stakes: number;
+      /** Perk Redemptions */
+      perk_redemptions: number;
+      /** Transactions */
+      transactions: number;
+    };
     /**
      * ErrorDetail
      * @description One field-level problem.
@@ -2121,6 +2203,48 @@ export interface operations {
       };
     };
   };
+  delete_account_accounts__account_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountDelete"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
   update_accounts__account_id__patch: {
     parameters: {
       query?: never;
@@ -2187,6 +2311,46 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["BalanceRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  deletion_preview_accounts__account_id__deletion_preview_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeletionPreview"];
         };
       };
       /** @description Not Found */

@@ -84,7 +84,7 @@ describe("PerkRemoveButton", () => {
   it("confirms before removing", async () => {
     render(<PerkRemoveButton perk={cards[0].perks[1]} onDone={() => {}} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Remove / }));
 
     expect(screen.getByText("Remove permanently?")).toBeInTheDocument();
   });
@@ -93,7 +93,7 @@ describe("PerkRemoveButton", () => {
     const onDone = vi.fn();
     render(<PerkRemoveButton perk={cards[0].perks[1]} onDone={onDone} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Remove / }));
     await userEvent.click(screen.getByRole("button", { name: "Remove" }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalled());
@@ -104,7 +104,7 @@ describe("PerkRemoveButton", () => {
     // API's own message rather than a local paraphrase that could drift from the rule.
     render(<PerkRemoveButton perk={cards[0].perks[0]} onDone={() => {}} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Remove / }));
     await userEvent.click(screen.getByRole("button", { name: "Remove" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/3 recorded uses/);

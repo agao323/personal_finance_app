@@ -66,7 +66,7 @@ export default function CardsPage() {
       {error ? <ErrorState detail={error} onRetry={reload} /> : null}
 
       <div className="mt-4">
-        <UpcomingPanel onChange={reload} />
+        <UpcomingPanel onChange={reload} revision={revision} />
       </div>
 
       {pending && !error ? (

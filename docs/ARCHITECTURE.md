@@ -306,6 +306,8 @@ inventory is worse than none, because it is trusted.
 | GET POST | `/accounts` | 019 |
 | GET PATCH | `/accounts/{account_id}` | 019 |
 | GET | `/accounts/{account_id}/history` | 019 |
+| GET | `/accounts/{account_id}/deletion-preview` | 063 |
+| DELETE | `/accounts/{account_id}` | 063 |
 | POST | `/accounts/{account_id}/balances` | 019 |
 | POST | `/accounts/{account_id}/stakes` | 019 |
 | POST | `/import/csv/preview` | 020 |

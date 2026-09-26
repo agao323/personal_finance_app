@@ -70,7 +70,9 @@ describe("CardRow", () => {
     const onChange = vi.fn();
     render(<CardRow card={cards[0]} onChange={onChange} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Rename" }));
+    // An icon button now — reachable by its accessible name, which is the point of
+    // requiring one on every IconButton.
+    await userEvent.click(screen.getByRole("button", { name: "Rename Sapphire Reserve" }));
     const field = screen.getByLabelText("Card name");
     await userEvent.clear(field);
     await userEvent.type(field, "Platinum");
@@ -95,5 +97,93 @@ describe("CardRow", () => {
 
     expect(screen.getByText(/No credits tracked on this card yet/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add a credit" })).toBeInTheDocument();
+  });
+});
+
+describe("actions as icons (064)", () => {
+  it("exposes edit and remove by accessible name, not by icon alone", () => {
+    // An icon with no accessible name is unusable with a screen reader and ambiguous
+    // with a mouse. Every IconButton requires a label for exactly this.
+    render(<CardRow card={cards[0]} onChange={() => {}} />);
+
+    expect(screen.getByRole("button", { name: "Rename Sapphire Reserve" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Sapphire Reserve" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit Travel credit" })).toBeInTheDocument();
+  });
+
+  it("keeps the glyph and the words on an urgent countdown", () => {
+    // Colour amplifies; it never carries the meaning alone. This survives a colourblind
+    // reader and a monochrome print.
+    render(<CardRow card={cards[0]} onChange={() => {}} />);
+
+    const rows = screen.getAllByRole("listitem");
+    const travel = rows.find((row) => within(row).queryByText("Travel credit"));
+    expect(within(travel!).getByText("3 days")).toBeInTheDocument();
+  });
+});
+
+describe("the annual fee (062)", () => {
+  it("offers to add a fee when none is recorded", () => {
+    render(
+      <CardRow
+        card={{ ...cards[0], annual_fee_cents: null, realised_this_fee_year_cents: null }}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Add an annual fee" })).toBeInTheDocument();
+  });
+
+  it("offers to edit one that exists", () => {
+    render(<CardRow card={cards[0]} onChange={() => {}} />);
+
+    expect(screen.getByRole("button", { name: "Edit annual fee" })).toBeInTheDocument();
+  });
+});
+
+describe("removing a card (063)", () => {
+  it("names what would be destroyed, by count", async () => {
+    // "All data" is a phrase people click past. Counts are read.
+    render(<CardRow card={cards[0]} onChange={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove Sapphire Reserve" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText(/balance snapshots?/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/cannot be undone/)).toBeInTheDocument();
+  });
+
+  it("offers closing first, because that is usually what is wanted", async () => {
+    render(<CardRow card={cards[0]} onChange={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove Sapphire Reserve" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("button", { name: "Close this card" })).toBeInTheDocument();
+  });
+
+  it("says there is no backup, because that is true right now", async () => {
+    render(<CardRow card={cards[0]} onChange={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove Sapphire Reserve" }));
+
+    expect(await screen.findByText(/no backup to restore from/)).toBeInTheDocument();
+  });
+
+  it("keeps delete disabled until the name is typed exactly", async () => {
+    render(<CardRow card={cards[0]} onChange={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove Sapphire Reserve" }));
+    const dialog = await screen.findByRole("alertdialog");
+    const confirm = within(dialog).getByRole("button", { name: "Delete permanently" });
+
+    expect(confirm).toBeDisabled();
+
+    await userEvent.type(within(dialog).getByRole("textbox"), "sapphire reserve");
+    expect(confirm).toBeDisabled();
+
+    await userEvent.clear(within(dialog).getByRole("textbox"));
+    await userEvent.type(within(dialog).getByRole("textbox"), "Sapphire Reserve");
+    expect(confirm).toBeEnabled();
   });
 });
