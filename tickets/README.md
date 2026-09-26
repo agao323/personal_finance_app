@@ -29,6 +29,19 @@ runs out of budget mid-change and leaves the repo broken.
 | 4 — Close | 038–039 | serial | E2E green, README and ADRs |
 | 5 — Account | 041–044 | serial | Sign out, manage passkeys, add a partner, recover a lockout |
 | 6 — Simplify | 045–047 | serial | **Remove the passkey layer**; Access is the authentication |
+| 7 — Cards | 053–059 | **053 → 054 → 5 lanes** | Multiple cards, editing, cadence-aware urgency, history, net value |
+
+Wave 7 rebuilds the cards page. Two serial tickets then a five-way fan-out: **053** carries
+the single migration the wave needs (partial redemption amounts, annual fee) plus the urgency
+rule, **054** lands every endpoint, and then **055–059 are frontend-only and parallel** — each
+owns one component file under `web/src/components/cards/`, with 055 landing `page.tsx` and the
+slots the others fill.
+
+Three decisions were taken up front rather than discovered: a redemption carries an **optional**
+amount so one tap still means "fully used"; urgency thresholds are **fixed per cadence** (7 / 14 /
+21 / 30 days) rather than configurable, because 30 days is noise on a monthly credit and too late
+on an annual one; and a card's annual fee is stored so the page can answer the question perk
+tracking actually serves — keep this card or cancel it.
 
 Wave 6 undoes a decision rather than adding a feature. Ticket 044 made a Cloudflare
 Access assertion sufficient to register a passkey on any device, which left the passkey
