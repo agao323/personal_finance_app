@@ -105,13 +105,9 @@ are — it is ignored on any https origin. See [ADR 0007](docs/adr/0007-drop-pas
 | `make smoke` | Builds the deploy images and asserts the whole request path works |
 | `make types` | Regenerate `api-types.ts` from the Pydantic models |
 
-Two things that will otherwise cost you twenty minutes:
-
-- **Adding a dependency needs a container rebuild.** `docker compose restart` reuses the
-  old image and the new import fails at runtime. `make dev` rebuilds, as does
-  `docker compose up -d --build <service>`.
-- **A brand new route directory** under `web/src/app` is often missed by the dev server's
-  file watcher through the bind mount, and 404s until `docker compose restart web`.
+Adding a dependency, creating a new route directory, and running two checkouts at once
+each have a trap that costs twenty minutes the first time —
+[docs/RELIABILITY.md#pitfalls](docs/RELIABILITY.md#pitfalls) lists them.
 
 ## Trade-offs
 

@@ -132,60 +132,13 @@ API paths are under `api/app/`, tests under `api/tests/`, web under `web/src/`. 
 The full list of golden principles, with what enforces each, is
 [design-docs/core-beliefs.md](design-docs/core-beliefs.md).
 
-## Data model
+## Everything else
 
-Twelve tables; liabilities positive; current balance derived from the latest snapshot. The
-v1 eleven came from one hand-reviewed migration so Wave 2's lanes could not collide.
-[design-docs/data-model.md](design-docs/data-model.md) · columns in
-[generated/db-schema.md](generated/db-schema.md).
-
-## Endpoints
-
-The route inventory, with the ticket that landed each route, is the table in
-[design-docs/api-contract.md#endpoints](design-docs/api-contract.md#endpoints), checked
-against the running app by `test_contract.py`. Parameters and shapes:
-[generated/api-endpoints.md](generated/api-endpoints.md).
-
-## Account sources
-
-v1 is `manual` and `csv` only, deliberately: aggregation is the least controllable part of
-the project. [design-docs/account-sources.md](design-docs/account-sources.md).
-
-## Hosting
-
-Neon (pooled endpoint; separate projects for real and demo), Fly.io (API on `.internal`
-only, migrations as a release command), Cloudflare (DNS, TLS, Access, demo edge cache).
-[design-docs/hosting.md](design-docs/hosting.md).
-
-## Operations
-
-- **Logs:** structlog, JSON, with request id, method, path, status, duration. **Financial
-  values are never logged** — there is a redaction filter and a test asserting it works.
-  Structured logs are useless if reading them means reading your own balances out of a log
-  aggregator.
-- **Errors:** Sentry on both services, DSN from env, disabled when unset.
-- **Liveness vs readiness:** `/health` reports process liveness and touches no database.
-  `/ready` reports database reachability. Fly probes `/health` only — probing `/ready` would
-  let a transient database blip restart otherwise-healthy instances.
-- **Backups:** Neon's own point-in-time recovery, plus `make backup` writing a full JSON
-  export to the owner's machine. Nothing we operate holds an offsite copy — see
-  [ADR 0008](adr/0008-local-backups.md). A silently-failing scheduled backup is worse than
-  no backup because it is trusted, which is why there is no schedule.
-
-## Testing
-
-Every ticket ships both unit and functional tests. See [PLANS.md](PLANS.md#tests).
-
-- **Backend unit:** pure service functions. Every aggregate (net worth, runway, spend
-  rollups) gets a test with hand-computed expected values. Ownership math gets property
-  tests — stakes summing over 100%, stakes changing mid-history, rounding at the half-cent.
-- **Backend functional:** httpx against the app with a real test database, migrated with
-  `alembic upgrade head`. Tests never use `metadata.create_all()` — if they did, tests and
-  production would drift and broken migrations would ship green.
-- **Frontend unit:** vitest for formatters, hooks, and query builders.
-- **Frontend functional:** Testing Library against MSW mocks typed from `api-types.ts`.
-- **E2E:** two Playwright smoke tests — the dashboard against the synthetic seed, and the
-  CSV import wizard end to end.
-- **Coverage is reported in CI but not gated on a percentage.** Coverage gates get satisfied
-  by tests that assert nothing.
-- **Fixtures are always synthetic.** No test ever contains a real balance.
+| Topic | In one line | Where |
+|---|---|---|
+| <a id="data-model"></a>Data model | Twelve tables; the v1 eleven came from one reviewed migration so Wave 2's lanes could not collide | [data-model](design-docs/data-model.md), [db-schema](generated/db-schema.md) |
+| <a id="endpoints"></a>Endpoints | Every route with the ticket that landed it, checked against the app by `test_contract.py` | [api-contract#endpoints](design-docs/api-contract.md#endpoints), [api-endpoints](generated/api-endpoints.md) |
+| <a id="account-sources"></a>Account sources | `manual` and `csv` only, deliberately; SimpleFIN is planned | [account-sources](design-docs/account-sources.md) |
+| <a id="hosting"></a>Hosting | Neon (pooled; separate projects for real and demo), Fly (API on `.internal` only), Cloudflare | [hosting](design-docs/hosting.md) |
+| <a id="operations"></a>Operations | `/health` vs `/ready`, logs without values, Sentry, backups, booting the app | [RELIABILITY.md](RELIABILITY.md) |
+| <a id="testing"></a>Testing | Unit + functional per plan, real migrated Postgres, coverage reported not gated | [PLANS.md#tests](PLANS.md#tests), [QUALITY_SCORE.md](QUALITY_SCORE.md) |
