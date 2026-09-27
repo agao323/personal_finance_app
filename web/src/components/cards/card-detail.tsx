@@ -29,7 +29,15 @@ import { MarkButton } from "./mark-button";
 import { PeriodGrid } from "./period-grid";
 import { PerkForm, PerkRemoveButton } from "./perk-form";
 import { RemoveCard } from "./remove-card";
-import { CADENCE_LABELS, CADENCE_ORDER, expiryLabel, type Card, type Perk } from "./types";
+import {
+  CADENCE_LABELS,
+  CADENCE_ORDER,
+  PERIOD_NOUN,
+  expiryLabel,
+  type Cadence,
+  type Card,
+  type Perk,
+} from "./types";
 
 export function CardDetail({
   card,
@@ -342,6 +350,7 @@ function PerkRowItem({
   const [editing, setEditing] = useState(false);
   const [showingPeriods, setShowingPeriods] = useState(false);
   const period = perk.current_period;
+  const noun = PERIOD_NOUN[perk.cadence as Cadence];
 
   if (editing) {
     return (
@@ -392,7 +401,7 @@ function PerkRowItem({
             <PencilIcon />
           </IconButton>
           <IconButton
-            label={`Which periods you used ${perk.name} in — tap a month to record one you forgot`}
+            label={`Which ${noun.many} you used ${perk.name} in — tap a ${noun.one} to record one you forgot`}
             onClick={() => setShowingPeriods((current) => !current)}
           >
             <HistoryIcon />

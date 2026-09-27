@@ -214,3 +214,37 @@ describe("PeriodGrid", () => {
     expect(await screen.findByText("$12.00")).toBeInTheDocument();
   });
 });
+
+describe("naming the period", () => {
+  it("calls a quarterly credit's periods quarters, not months", async () => {
+    // "Tap a month" is wrong on a quarterly credit, and "tap a period" is a word nobody
+    // uses about their own credit card.
+    server.use(
+      http.get("/api/perks/:id/periods", () =>
+        HttpResponse.json({
+          perk_id: perk.id,
+          cadence: "quarterly",
+          anchor_on: "2026-01-01",
+          has_earlier: false,
+          periods: [
+            {
+              start: "2026-07-01",
+              end: "2026-10-01",
+              index: 2,
+              is_used: false,
+              used_amount_cents: null,
+              note: null,
+              is_current: true,
+            },
+          ],
+        }),
+      ),
+    );
+    render(
+      <PeriodGrid perk={{ ...perk, cadence: "quarterly" }} revision={0} onChange={() => {}} />,
+    );
+
+    expect(await screen.findByText(/Which quarters did you use this in\?/)).toBeInTheDocument();
+    expect(screen.getByText(/for that quarter/)).toBeInTheDocument();
+  });
+});

@@ -22,6 +22,7 @@ import { apiFetch } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
   PERIODS_BACK,
+  PERIOD_NOUN,
   periodLabel,
   type Cadence,
   type Perk,
@@ -136,12 +137,14 @@ export function PeriodGrid({
   return (
     <div className="border-hairline mt-2 rounded-lg border p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-medium">Which periods did you use this in?</p>
+        <p className="text-sm font-medium">
+          Which {PERIOD_NOUN[cadence].many} did you use this in?
+        </p>
         {refreshing ? <Refreshing /> : null}
       </div>
       <p className="text-ink-muted mt-1 text-xs">
-        One tap records the full {formatCurrency(perk.value_cents)} for that period. Tap again to
-        undo it.
+        One tap records the full {formatCurrency(perk.value_cents)} for that{" "}
+        {PERIOD_NOUN[cadence].one}. Tap again to undo it.
       </p>
 
       {error && data === null ? <ErrorState detail={error} /> : null}

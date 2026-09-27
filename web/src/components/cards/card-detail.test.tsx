@@ -93,7 +93,7 @@ describe("actions as icons (064)", () => {
 
     expect(screen.getByRole("button", { name: /^Edit Travel credit/ })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /^Which periods you used Travel credit in/ }),
+      screen.getByRole("button", { name: /^Which years you used Travel credit in/ }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Remove Travel credit/ })).toBeInTheDocument();
   });

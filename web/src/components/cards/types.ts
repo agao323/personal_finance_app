@@ -61,6 +61,19 @@ export const PERIODS_BACK: Record<Cadence, number> = {
   annual: 3,
 };
 
+/**
+ * What one period of each cadence is called, for copy that has to name it.
+ *
+ * "Tap a month" is wrong on a quarterly credit, and "tap a period" is a word nobody uses
+ * about their own credit card.
+ */
+export const PERIOD_NOUN: Record<Cadence, { one: string; many: string }> = {
+  monthly: { one: "month", many: "months" },
+  quarterly: { one: "quarter", many: "quarters" },
+  semiannual: { one: "half year", many: "half years" },
+  annual: { one: "year", many: "years" },
+};
+
 const MONTHS = [
   "Jan",
   "Feb",
