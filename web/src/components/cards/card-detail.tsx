@@ -1,28 +1,34 @@
 "use client";
 
 /**
- * One card, in full. (Tickets 066, 067)
+ * One card, in full. (Tickets 066, 067, 072)
  *
- * **Managing the card itself — renaming, deleting, adding another — lives in the list**,
- * not here. Those act on a card as one item among several, and keeping them in the list
- * means they do not vanish the moment a card is open. Editing the fee stays, because it
- * sits beside the figure it explains.
+ * **Acting on this card happens on this card.** Renaming and deleting sit in the summary
+ * panel's header; the fee control sits inside the fee figure it edits. 066 had the first two
+ * in the list so they would not disappear when a card was open, and the fee button in the
+ * header rather than next to the number — both put a control somewhere other than the thing
+ * it acts on, which is the only reason you have to look for it.
+ *
+ * Adding a card stays in the list, because it acts on the list.
  *
  * Opens with the compact summary — credits, available, fee, realised — then the credits
  * themselves, then this card's history. No collapsing: this *is* the page, so there is
  * nothing to collapse it out of the way of.
  */
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
+import { apiFetch } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { FeeForm } from "./fee-form";
 import { HistoryPanel } from "./history";
-import { ExpiryChip, HistoryIcon, IconButton, PencilIcon } from "./icons";
+import { ExpiryChip, HistoryIcon, IconButton, PencilIcon, TrashIcon } from "./icons";
 import { MarkButton } from "./mark-button";
 import { PeriodGrid } from "./period-grid";
 import { PerkForm, PerkRemoveButton } from "./perk-form";
+import { RemoveCard } from "./remove-card";
 import { CADENCE_LABELS, CADENCE_ORDER, expiryLabel, type Card, type Perk } from "./types";
 
 export function CardDetail({
@@ -34,8 +40,11 @@ export function CardDetail({
   revision: number;
   onChange: () => void;
 }) {
+  const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [editingFee, setEditingFee] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const grouped = CADENCE_ORDER.map((cadence) => ({
     cadence,
@@ -53,61 +62,108 @@ export function CardDetail({
         ← All cards
       </Link>
 
-      {/* One panel: the card's name, its figures, and the control for the only figure
-          that is editable. Previously the name floated above a bare grid with the fee
-          link stranded underneath it, which read as three unrelated things. Its top edge
-          lines up with the list beside it because both are the first element in their
-          column. */}
+      {/* One panel: the card's name, the controls that act on the card, and its figures.
+          Its top edge lines up with the list beside it because both are the first element
+          in their column. */}
       <section className="border-hairline bg-surface-1 overflow-hidden rounded-xl border">
         <header className="border-hairline/60 flex flex-wrap items-baseline justify-between gap-2 border-b px-4 py-3">
-          <h2 className="flex flex-wrap items-baseline gap-2 text-base font-medium tracking-tight">
-            {card.name}
-            {card.institution ? (
-              <span className="text-ink-muted text-sm font-normal">{card.institution}</span>
-            ) : null}
-            {card.is_closed ? (
-              <span className="border-hairline text-ink-muted rounded border px-1.5 py-px text-[10px] tracking-wide uppercase">
-                closed
+          {renaming ? (
+            <CardNameForm
+              card={card}
+              onDone={() => {
+                setRenaming(false);
+                onChange();
+              }}
+              onCancel={() => setRenaming(false)}
+            />
+          ) : (
+            <>
+              <h2 className="flex flex-wrap items-baseline gap-2 text-base font-medium tracking-tight">
+                {card.name}
+                {card.institution ? (
+                  <span className="text-ink-muted text-sm font-normal">{card.institution}</span>
+                ) : null}
+                {card.is_closed ? (
+                  <span className="border-hairline text-ink-muted rounded border px-1.5 py-px text-[10px] tracking-wide uppercase">
+                    closed
+                  </span>
+                ) : null}
+              </h2>
+              <span className="flex shrink-0 items-center gap-1">
+                <IconButton label={`Rename ${card.name}`} onClick={() => setRenaming(true)}>
+                  <PencilIcon />
+                </IconButton>
+                <IconButton
+                  label={`Delete ${card.name} and all of its history — balances, transactions and credits`}
+                  tone="critical"
+                  onClick={() => setRemoving(true)}
+                >
+                  <TrashIcon />
+                </IconButton>
               </span>
-            ) : null}
-          </h2>
-          <button
-            type="button"
-            onClick={() => setEditingFee(true)}
-            className="border-hairline hover:bg-surface-2 rounded-lg border px-2.5 py-1 text-xs transition-colors"
-          >
-            {card.annual_fee_cents != null ? "Edit annual fee" : "Add an annual fee"}
-          </button>
+            </>
+          )}
         </header>
 
-        {editingFee ? (
-          <FeeForm
-            card={card}
-            onDone={() => {
-              setEditingFee(false);
-              onChange();
-            }}
-            onCancel={() => setEditingFee(false)}
+        {removing ? (
+          <div className="border-hairline/60 border-b p-4">
+            <RemoveCard
+              card={card}
+              onDone={() => {
+                setRemoving(false);
+                onChange();
+                // This card no longer exists, and staying here would render "No such
+                // card" — a dead end where the reader's own action put them.
+                router.push("/cards");
+              }}
+              onCancel={() => setRemoving(false)}
+            />
+          </div>
+        ) : null}
+
+        <dl className="grid grid-cols-2 gap-px sm:grid-cols-4">
+          <Figure label="Credits" value={String(card.active_perk_count)} />
+          <Figure label="Available now" value={formatCurrency(card.unused_cents)} />
+          <Figure
+            label="Annual fee"
+            value={card.annual_fee_cents != null ? formatCurrency(card.annual_fee_cents) : "—"}
+            // Beside the number it edits, rather than in the panel header. A control
+            // somewhere other than the thing it acts on is a control you have to look for.
+            action={
+              <button
+                type="button"
+                onClick={() => setEditingFee((current) => !current)}
+                className="text-accent text-[11px] underline underline-offset-4"
+              >
+                {card.annual_fee_cents != null ? "Edit" : "Add"}
+              </button>
+            }
           />
-        ) : (
-          <dl className="grid grid-cols-2 gap-px sm:grid-cols-4">
-            <Figure label="Credits" value={String(card.active_perk_count)} />
-            <Figure label="Available now" value={formatCurrency(card.unused_cents)} />
-            <Figure
-              label="Annual fee"
-              value={card.annual_fee_cents != null ? formatCurrency(card.annual_fee_cents) : "—"}
+          <Figure
+            label="Realised this fee year"
+            value={
+              card.realised_this_fee_year_cents != null
+                ? formatCurrency(card.realised_this_fee_year_cents)
+                : "—"
+            }
+            detail={card.fee_year_start ? `since ${formatDate(card.fee_year_start)}` : undefined}
+          />
+        </dl>
+
+        {/* Below the figures, not instead of them: the fee year and the realised figure are
+            what you are editing against. */}
+        {editingFee ? (
+          <div className="border-hairline/60 border-t px-4 pb-4">
+            <FeeForm
+              card={card}
+              onDone={() => {
+                setEditingFee(false);
+                onChange();
+              }}
+              onCancel={() => setEditingFee(false)}
             />
-            <Figure
-              label="Realised this fee year"
-              value={
-                card.realised_this_fee_year_cents != null
-                  ? formatCurrency(card.realised_this_fee_year_cents)
-                  : "—"
-              }
-              detail={card.fee_year_start ? `since ${formatDate(card.fee_year_start)}` : undefined}
-            />
-          </dl>
-        )}
+          </div>
+        ) : null}
       </section>
 
       <section className="border-hairline bg-surface-1 mt-4 rounded-xl border p-4">
@@ -184,12 +240,90 @@ export function CardDetail({
   );
 }
 
-function Figure({ label, value, detail }: { label: string; value: string; detail?: string }) {
+function Figure({
+  label,
+  value,
+  detail,
+  action,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  /** A control for this figure, sitting with it rather than in the panel header. */
+  action?: ReactNode;
+}) {
   return (
     <div className="border-hairline/60 bg-surface-1 border-t px-4 py-2.5 first:border-t-0 sm:border-t-0">
       <dt className="text-ink-muted text-[11px] tracking-wide uppercase">{label}</dt>
-      <dd className="mt-0.5 text-sm font-medium tabular-nums">{value}</dd>
+      <dd className="mt-0.5 flex items-baseline gap-2 text-sm font-medium tabular-nums">
+        {value}
+        {action}
+      </dd>
       {detail ? <dd className="text-ink-muted mt-0.5 text-[11px]">{detail}</dd> : null}
+    </div>
+  );
+}
+
+/** Rename the card, in place in the header where its name is. */
+function CardNameForm({
+  card,
+  onDone,
+  onCancel,
+}: {
+  card: Card;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(card.name);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    if (!name.trim() || name === card.name) {
+      onCancel();
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiFetch("/accounts/{account_id}", {
+        method: "patch",
+        params: { account_id: card.account_id },
+        body: { name },
+      });
+      onDone();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="w-full">
+      <label className="sr-only" htmlFor={`rename-${card.account_id}`}>
+        Card name
+      </label>
+      <input
+        id={`rename-${card.account_id}`}
+        type="text"
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        className="border-hairline bg-surface-1 w-full rounded-md border px-2 py-1 text-sm"
+      />
+      <span className="mt-2 flex gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void save()}
+          className="bg-accent-bg text-accent-strong rounded-lg px-2.5 py-1 text-sm font-medium disabled:opacity-50"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-ink-secondary hover:text-ink text-sm underline underline-offset-4"
+        >
+          Cancel
+        </button>
+      </span>
     </div>
   );
 }

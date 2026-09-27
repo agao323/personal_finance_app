@@ -1,5 +1,5 @@
 # 072 — Card controls belong with the card
-Status: todo
+Status: done
 Wave: 7   Lane: —
 Blocked by: none
 Read first: none

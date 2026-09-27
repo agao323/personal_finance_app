@@ -98,60 +98,24 @@ describe("CardList", () => {
   });
 });
 
-describe("managing a card from the list", () => {
-  it("renames in place", async () => {
-    const onChange = vi.fn();
-    render(<CardList cards={two} onChange={onChange} />);
+describe("the list is a list (072)", () => {
+  it("carries no per-card action buttons", () => {
+    // 066 put rename and delete in every row. Two icon buttons crowded out the name and
+    // the figure the row exists to show, and with a card open its own panel is where you
+    // are looking anyway. Adding stays: it acts on the list, not on a card.
+    render(<CardList cards={two} onChange={() => {}} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Rename Sapphire Reserve" }));
-    const field = screen.getByLabelText("Card name");
-    await userEvent.clear(field);
-    await userEvent.type(field, "Platinum");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const buttons = screen.getAllByRole("button").map((button) => button.textContent);
+    expect(buttons).toEqual(["Add a card"]);
   });
 
-  it("puts a button inside the row rather than inside the link", () => {
+  it("makes the whole row the link, with nothing nested inside it", () => {
     // A button nested in an anchor is invalid HTML and behaves unpredictably for keyboard
-    // and screen-reader users. The row is a flex container; the link and the buttons are
-    // siblings.
+    // and screen-reader users. With no buttons left, the row is simply the link.
     render(<CardList cards={two} onChange={() => {}} />);
 
     const link = screen.getByRole("link", { name: /Sapphire Reserve/ });
     expect(link.querySelector("button")).toBeNull();
-  });
-
-  it("opens the deletion dialog from the list", async () => {
-    render(<CardList cards={two} onChange={() => {}} />);
-
-    await userEvent.click(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ }));
-
-    const dialog = await screen.findByRole("alertdialog");
-    expect(within(dialog).getByText(/cannot be undone/)).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Close this card" })).toBeInTheDocument();
-  });
-
-  it("carries no ticket numbers or project state in the deletion copy", async () => {
-    // An earlier version told the reader backups were unfinished. Whether our backlog is
-    // caught up is not something a person deleting a card can act on.
-    render(<CardList cards={two} onChange={() => {}} />);
-
-    await userEvent.click(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ }));
-    const dialog = await screen.findByRole("alertdialog");
-
-    expect(dialog.textContent).not.toMatch(/ticket|backup|017/i);
-  });
-
-  it("keeps delete disabled until the name is typed exactly", async () => {
-    render(<CardList cards={two} onChange={() => {}} />);
-
-    await userEvent.click(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ }));
-    const dialog = await screen.findByRole("alertdialog");
-    const confirm = within(dialog).getByRole("button", { name: "Delete permanently" });
-
-    expect(confirm).toBeDisabled();
-    await userEvent.type(within(dialog).getByRole("textbox"), "Sapphire Reserve");
-    expect(confirm).toBeEnabled();
+    expect(within(link).getByText("Chase")).toBeInTheDocument();
   });
 });

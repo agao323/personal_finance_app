@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import CardsIndexPage from "./page";
 import { CardsContext } from "@/components/cards/context";
-import { cards, mockCards, server, upcoming } from "@/test/msw";
+import { cards, mockCards, server } from "@/test/msw";
 
 function renderIndex(
   state: Partial<React.ComponentProps<typeof CardsContext.Provider>["value"]> = {},

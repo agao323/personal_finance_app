@@ -6,7 +6,11 @@ import { CardDetail } from "@/components/cards/card-detail";
 import { cards, mockCards } from "@/test/msw";
 import { expiryLabel } from "@/components/cards/types";
 
+const pushed = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushed }) }));
+
 beforeEach(() => {
+  pushed.mockClear();
   mockCards();
   vi.stubGlobal("location", {
     origin: "https://allofmymoney.com",
@@ -87,7 +91,6 @@ describe("actions as icons (064)", () => {
     // with a mouse. Every IconButton requires a label for exactly this.
     render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
 
-    // Card-level actions live in the list now; these are the per-credit ones.
     expect(screen.getByRole("button", { name: /^Edit Travel credit/ })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /^Which periods you used Travel credit in/ }),
@@ -121,7 +124,7 @@ describe("a used credit (065)", () => {
   });
 });
 
-describe("the annual fee (062)", () => {
+describe("the annual fee (062, 072)", () => {
   it("offers to add a fee when none is recorded", () => {
     render(
       <CardDetail
@@ -131,12 +134,94 @@ describe("the annual fee (062)", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Add an annual fee" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add" })).toBeInTheDocument();
   });
 
-  it("offers to edit one that exists", () => {
+  it("puts the control with the figure it edits, not in the panel header", async () => {
+    // A control somewhere other than the thing it acts on is a control you have to look
+    // for. Asserted structurally, because "next to" is the whole point.
     render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
 
-    expect(screen.getByRole("button", { name: "Edit annual fee" })).toBeInTheDocument();
+    const figure = screen.getByText("Annual fee").parentElement;
+    expect(within(figure!).getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(within(figure!).getByText("$695.00")).toBeInTheDocument();
+  });
+
+  it("keeps the figures visible while the fee is being edited", async () => {
+    // Ticket 070's rule: nothing that is still true gets unmounted.
+    render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    expect(screen.getByText("Realised this fee year")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save fee" })).toBeInTheDocument();
+  });
+});
+
+describe("acting on the card (072)", () => {
+  it("renames the card from its own header", async () => {
+    const onChange = vi.fn();
+    render(<CardDetail card={cards[0]} revision={0} onChange={onChange} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Rename Sapphire Reserve" }));
+    const field = screen.getByLabelText("Card name");
+    await userEvent.clear(field);
+    await userEvent.type(field, "Sapphire");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+  });
+
+  it("warns what deleting takes with it, in the card's own panel", async () => {
+    render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ }));
+
+    expect(await screen.findByText(/312/)).toBeInTheDocument();
+  });
+
+  it("carries no ticket numbers or project state in the deletion copy", async () => {
+    // An earlier version told the reader backups were unfinished. Whether our backlog is
+    // caught up is not something a person deleting a card can act on.
+    render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    expect(dialog.textContent).not.toMatch(/ticket|backup|017/i);
+  });
+
+  it("offers closing the card before deleting it", async () => {
+    render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    expect(within(dialog).getByText(/cannot be undone/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Close this card" })).toBeInTheDocument();
+  });
+
+  it("keeps delete disabled until the name is typed exactly", async () => {
+    render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ }));
+    const dialog = await screen.findByRole("alertdialog");
+    const confirm = within(dialog).getByRole("button", { name: "Delete permanently" });
+
+    expect(confirm).toBeDisabled();
+    await userEvent.type(within(dialog).getByRole("textbox"), "Sapphire Reserve");
+    expect(confirm).toBeEnabled();
+  });
+
+  it("leaves the card's page once the card is gone", async () => {
+    // Staying would render "No such card" — a dead end the reader's own action put them in.
+    render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /^Delete Sapphire Reserve/ }));
+    await screen.findByText(/312/);
+    await userEvent.type(screen.getByLabelText(/To delete it anyway/i), "Sapphire Reserve");
+    await userEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+
+    await waitFor(() => expect(pushed).toHaveBeenCalledWith("/cards"));
   });
 });
