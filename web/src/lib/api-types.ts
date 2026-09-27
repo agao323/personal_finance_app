@@ -211,10 +211,14 @@ export interface paths {
     };
     /**
      * Wallet History
-     * @description Every redemption across every card, newest first.
+     * @description Every redemption, newest first — across the wallet, or for one card.
      *
      *     **No default window.** The request this answers is "show me everything I have ever
      *     marked", and a silent cut-off would hide exactly the old entries being asked for.
+     *
+     *     `account_id` scopes it to one card. Filtering in the browser would work today and grow
+     *     without bound, and `missed_periods` could not be filtered that way at all — it is
+     *     counted by walking each perk's periods, not derived from the rows returned.
      */
     get: operations["wallet_history_cards_history_get"];
     put?: never;
@@ -2532,6 +2536,7 @@ export interface operations {
       query?: {
         from?: string | null;
         to?: string | null;
+        account_id?: number | null;
         on?: string | null;
       };
       header?: never;
