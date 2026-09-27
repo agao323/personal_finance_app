@@ -2,7 +2,7 @@
 Status: todo — needs a decision, see below
 Wave: 7   Lane: —
 Blocked by: 057
-Read first: tickets/053-card-perks-schema-for-partial-use-and-fees.md
+Read first: docs/exec-plans/completed/053-card-perks-schema-for-partial-use-and-fees.md
 
 ## The question
 Can we learn that an Amex Platinum carries a $200 airline credit, a $200 hotel credit and

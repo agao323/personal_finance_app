@@ -2,7 +2,7 @@
 Status: done
 Wave: 7   Lane: W1
 Blocked by: 054
-Read first: tickets/051-card-perks-screen.md
+Read first: docs/exec-plans/completed/051-card-perks-screen.md
 
 ## Goal
 The page structure, and a card row that shows a whole card's state without expanding it.

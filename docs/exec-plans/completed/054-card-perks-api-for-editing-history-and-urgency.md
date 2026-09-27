@@ -2,7 +2,7 @@
 Status: done
 Wave: 7   Lane: —
 Blocked by: 053
-Read first: tickets/050-card-perks-api.md
+Read first: docs/exec-plans/completed/050-card-perks-api.md
 
 ## Goal
 Every endpoint the rebuilt page needs. After this, tickets 055–059 are frontend-only and

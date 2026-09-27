@@ -16,7 +16,7 @@ Nothing here is built yet.
 
 ## Why SimpleFIN
 
-[ARCHITECTURE.md#account-sources](../docs/ARCHITECTURE.md#account-sources) already decided
+[ARCHITECTURE.md#account-sources](../../ARCHITECTURE.md#account-sources) already decided
 the shape: every account carries a `source`, connectors are strictly additive behind a
 `SourceAdapter` interface, and `DataSource.SIMPLEFIN` has been in the enum since the first
 migration. This is the anticipated path, not a reversal — but it is the first real
@@ -135,7 +135,7 @@ Two rules that are not negotiable:
    in a database whose backups are still off. See the blocker.
 
 ## Blocked by 017, and this is not a formality
-[SECURITY.md](../docs/SECURITY.md) argues that moving a financial picture out of Google Sheets
+[SECURITY.md](../../SECURITY.md) argues that moving a financial picture out of Google Sheets
 into a self-run database is a durability downgrade until backups are proven. Nightly
 connectors are the point at which this database becomes the only copy of something — a
 transaction history no CSV on disk reproduces. Ticket 024 is already held for this reason and

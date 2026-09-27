@@ -2,7 +2,7 @@
 Status: done
 Wave: 6   Lane: —
 Blocked by: 049
-Read first: tickets/049-card-perks-schema-and-period-engine.md
+Read first: docs/exec-plans/completed/049-card-perks-schema-and-period-engine.md
 
 ## Goal
 Endpoints to manage perks and mark them used, plus the one read that answers the actual

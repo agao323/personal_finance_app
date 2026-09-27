@@ -2,7 +2,7 @@
 Status: done
 Wave: 2   Lane: B
 Blocked by: —
-Read first: tickets/018-synthetic-data-generator.md
+Read first: docs/exec-plans/completed/018-synthetic-data-generator.md
 
 ## Goal
 Make the seeded stake structure read as a plausible household, so the Mine / Household toggle

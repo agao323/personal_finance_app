@@ -2,7 +2,7 @@
 Status: done
 Wave: 7   Lane: W4
 Blocked by: 054
-Read first: tickets/054-card-perks-api-for-editing-history-and-urgency.md
+Read first: docs/exec-plans/completed/054-card-perks-api-for-editing-history-and-urgency.md
 
 ## Goal
 Everything you have ever marked, and a way to record something you forgot to mark at the

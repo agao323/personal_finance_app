@@ -2,7 +2,7 @@
 Status: done
 Wave: 7   Lane: —
 Blocked by: none
-Read first: tickets/049-card-perks-schema-and-period-engine.md
+Read first: docs/exec-plans/completed/049-card-perks-schema-and-period-engine.md
 
 ## Goal
 One migration carrying every schema change the card-page rebuild needs, plus the urgency

@@ -69,7 +69,7 @@ there is no Access application, which is why 024 stays blocked.
 ## Done — 2026-08-19
 
 All five verification steps pass and the results are recorded in
-[ADR 0002](../docs/adr/0002-auth.md).
+[ADR 0002](../../adr/0002-auth.md).
 
 The first attempt locked everyone out, including the owner. `fly.web.toml` shipped with
 a `CF_ACCESS_TEAM_DOMAIN` guessed from the application's domain name; Cloudflare assigns

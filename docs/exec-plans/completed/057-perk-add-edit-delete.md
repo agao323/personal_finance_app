@@ -2,7 +2,7 @@
 Status: done
 Wave: 7   Lane: W3
 Blocked by: 054
-Read first: tickets/054-card-perks-api-for-editing-history-and-urgency.md
+Read first: docs/exec-plans/completed/054-card-perks-api-for-editing-history-and-urgency.md
 
 ## Goal
 The form for a credit, working in all three directions. Editing and deleting are the two

@@ -2,7 +2,7 @@
 Status: done
 Wave: 7   Lane: W2
 Blocked by: 054
-Read first: tickets/053-card-perks-schema-for-partial-use-and-fees.md
+Read first: docs/exec-plans/completed/053-card-perks-schema-for-partial-use-and-fees.md
 
 ## Goal
 Replace the fixed 45-day band with a list you can scope, where "urgent" means something

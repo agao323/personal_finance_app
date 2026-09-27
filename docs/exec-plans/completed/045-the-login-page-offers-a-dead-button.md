@@ -4,7 +4,7 @@ Wave: 5   Lane: —
 Blocked by: none
 Read first: docs/SECURITY.md#auth
 
-> **Do not implement.** Superseded by [ADR 0007](../docs/adr/0007-drop-passkeys.md):
+> **Do not implement.** Superseded by [ADR 0007](../../adr/0007-drop-passkeys.md):
 > the passkey layer is being removed and `/login` ceases to exist, so this defect is
 > deleted rather than fixed. Ticket 047b closes it. Kept in the tree because what a
 > removed subsystem was costing is worth being able to read later.

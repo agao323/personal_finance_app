@@ -2,7 +2,7 @@
 Status: in-progress
 Wave: 9   Lane: —
 Blocked by: none
-Read first: CLAUDE.md, tickets/README.md
+Read first: CLAUDE.md, docs/PLANS.md
 
 ## Goal
 Any future agent can start from one short map, reach every doc in at most two hops, and

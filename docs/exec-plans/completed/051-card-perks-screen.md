@@ -2,7 +2,7 @@
 Status: done
 Wave: 6   Lane: —
 Blocked by: 050
-Read first: tickets/050-card-perks-api.md
+Read first: docs/exec-plans/completed/050-card-perks-api.md
 
 ## Goal
 A page that opens with what is about to expire, and lets a perk be marked used in one

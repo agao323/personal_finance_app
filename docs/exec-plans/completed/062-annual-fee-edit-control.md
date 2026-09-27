@@ -2,7 +2,7 @@
 Status: done
 Wave: 7   Lane: —
 Blocked by: none
-Read first: tickets/059-net-card-value.md
+Read first: docs/exec-plans/completed/059-net-card-value.md
 
 ## Goal
 The column exists and 059 renders the figures; nothing can populate it.

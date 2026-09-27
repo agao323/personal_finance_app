@@ -36,7 +36,7 @@ The reconciliation report is what proves the import is correct — do not skip i
 where the schema gets reconciled against the real sheet; if a structural gap appears, add a
 migration ticket rather than bending the import.
 
-**Runs against a local database until ticket 017's drill has been run against production.** 017 itself is done — `make backup` and a proven restore, see [ADR 0008](../docs/adr/0008-local-backups.md) — but its drill ran against synthetic data. No real data goes to production
+**Runs against a local database until ticket 017's drill has been run against production.** 017 itself is done — `make backup` and a proven restore, see [ADR 0008](../../adr/0008-local-backups.md) — but its drill ran against synthetic data. No real data goes to production
 before the restore has been tested.
 
 This ticket depends only on snapshots and the accounts API — deliberately not on CSV import or

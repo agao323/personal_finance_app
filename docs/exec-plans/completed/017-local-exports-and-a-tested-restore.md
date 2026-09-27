@@ -45,7 +45,7 @@ entering production** — that part has not changed.
   `.github/workflows/backup.yml`
 
 ## Notes
-This replaces the R2 design wholesale. [ADR 0008](../docs/adr/0008-local-backups.md) has
+This replaces the R2 design wholesale. [ADR 0008](../../adr/0008-local-backups.md) has
 the reasoning; the short version is that the old design put the encryption key in GitHub
 Actions secrets next to the R2 credentials and the database URL, which concentrates
 precisely what it claimed to separate, and that the data being protected is mostly
@@ -85,5 +85,5 @@ The full round-trip is the documented drill rather than a unit test: `restore()`
 connection, so running it inside the suite's per-test transaction would either break isolation
 or test something other than what runs. The ordering — where both bugs were — is unit-tested.
 
-Recorded in the drills table in [ADR 0008](../docs/adr/0008-local-backups.md). Counts matched
+Recorded in the drills table in [ADR 0008](../../adr/0008-local-backups.md). Counts matched
 across all twelve tables and the Decimal sums matched exactly.

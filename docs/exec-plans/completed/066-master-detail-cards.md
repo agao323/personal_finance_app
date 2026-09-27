@@ -2,7 +2,7 @@
 Status: done
 Wave: 7   Lane: —
 Blocked by: none
-Read first: tickets/055-cards-page-shell-and-wallet-rows.md
+Read first: docs/exec-plans/completed/055-cards-page-shell-and-wallet-rows.md
 
 ## Goal
 A card list on the left, one card's detail on the right, each card at its own URL.

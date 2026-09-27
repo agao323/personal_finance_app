@@ -224,7 +224,7 @@ each one worked.
 | `docs/DECISIONS.md` | Project-level decisions, newest first |
 | `docs/adr/` | Implementation decisions, written as they were made |
 | `docs/runbooks/` | Procedures with steps someone has actually run |
-| `tickets/` | The build plan — 40 tickets, each with its outcome recorded |
+| `docs/exec-plans/` | The build plan — every plan, active and completed, each with its outcome recorded |
 | `data/` | Real financial exports. Gitignored. Never leaves this directory |
 
 ## Testing
