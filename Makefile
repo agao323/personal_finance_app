@@ -77,12 +77,14 @@ smoke: .env ## Bring up the deploy-shaped stack and assert it actually works
 # ── Test ──────────────────────────────────────────────────────────────────────
 test: guards test-api test-web ## Run both test suites and the guard self-tests
 
-guards: ## Run the architectural guards and their self-tests
+guards: ## Run the architectural guards, the doc checks, and their self-tests
 	@./scripts/test_guards.sh
 	@./scripts/check_no_float.sh
 	@./scripts/check_no_public_api_url.sh
 	@./scripts/check_fly_api_private.sh
 	@./scripts/check_fly_api_private.sh fly.demo-api.toml
+	@./scripts/test_check_docs.sh
+	@uv run --project api --quiet python scripts/check_docs.py
 
 test-api: .env
 	@# The suite runs against real Postgres, not SQLite — see api/tests/conftest.py.
@@ -150,11 +152,13 @@ types-check: types ## Fail if the committed types drift from the Pydantic models
 # ── Docs ──────────────────────────────────────────────────────────────────────
 # docs/generated/ is derived from the code, the same way api-types.ts is: `docs` writes it,
 # `docs-check` fails on drift. Neither needs a database.
-docs: ## Regenerate docs/generated/ (schema, endpoints) from the code
+docs: ## Regenerate docs/generated/ (schema, endpoints, plan index) from the code
 	@cd api && uv run python scripts/generate_docs.py
+	@uv run --project api --quiet python scripts/check_docs.py --write-plan-index
 
 docs-check: ## Fail if docs/generated/ drifts from what the code would generate
 	@cd api && uv run python scripts/generate_docs.py --check
+	@uv run --project api --quiet python scripts/check_docs.py plan-index
 
 # ── Deploy ────────────────────────────────────────────────────────────────────
 # The directory argument sets the Docker build context. Without it flyctl looks for

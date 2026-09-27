@@ -239,7 +239,7 @@ each one worked.
 | Web | vitest + Testing Library + MSW, with fixtures typed from the generated contract |
 | Integration | The pipeline through HTTP: import, categorise, read the figure back |
 | E2E | Playwright against the compose stack, signed in as `DEV_IDENTITY_EMAIL` |
-| Guards | Shell checks with their own self-tests: no float in a money column, no public API URL in the browser bundle, no public Fly service on the API |
+| Guards | Checks with their own self-tests: no float in a money column, no public API URL in the browser bundle, no public Fly service on the API, the layer rules (`test_architecture.py`, ESLint), and docs that are true, reachable from `AGENTS.md` and indexed (`scripts/check_docs.py`) |
 
 Coverage is reported in CI and deliberately not gated on a percentage — a coverage gate
 is satisfied by tests that execute code without asserting anything.

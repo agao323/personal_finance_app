@@ -102,6 +102,16 @@ jobs:
       - name: API declares no public Fly service
         run: ./scripts/check_fly_api_private.sh
 
+      # ── the docs ───────────────────────────────────────────────────────────
+      # The docs are the system of record for every agent working here, so a doc that
+      # lies fails the build: broken links and anchors, docs unreachable from AGENTS.md,
+      # stale indexes, malformed plans. Self-tests first, for the same reason as above.
+      - name: Doc check self-tests
+        run: ./scripts/test_check_docs.sh
+
+      - name: Docs are true
+        run: uv run --project api python scripts/check_docs.py
+
       # ── secrets ────────────────────────────────────────────────────────────
       # --redact so a finding never prints the secret into a build log, which would
       # turn a near-miss into an actual disclosure.

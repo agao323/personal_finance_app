@@ -210,7 +210,8 @@ A percentage gate is satisfied by tests that execute code without asserting anyt
 
 A guard that never fires looks exactly like one that is broken, so every guard runs against
 a violating fixture and a clean one.
-**Enforced by:** `scripts/test_guards.sh` (shell guards and the doc checks);
+**Enforced by:** `scripts/test_guards.sh` (the shell guards), `scripts/test_check_docs.sh`
+(the doc checks);
 self-tests in `test_architecture.py` and `test_generate_docs.py`; `web/src/lint-rules.test.ts`.
 
 ### 28. Stub targets fail loudly
