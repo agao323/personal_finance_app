@@ -30,6 +30,7 @@ runs out of budget mid-change and leaves the repo broken.
 | 5 — Account | 041–044 | serial | Sign out, manage passkeys, add a partner, recover a lockout |
 | 6 — Simplify | 045–047 | serial | **Remove the passkey layer**; Access is the authentication |
 | 7 — Cards | 053–059 | **053 → 054 → 5 lanes** | Multiple cards, editing, cadence-aware urgency, history, net value |
+| 8 — Connectors | 075 | planning | SimpleFIN: transactions nightly, credits marked from them. **Blocked by 017.** |
 
 Wave 7 rebuilds the cards page. Two serial tickets then a five-way fan-out: **053** carries
 the single migration the wave needs (partial redemption amounts, annual fee) plus the urgency
