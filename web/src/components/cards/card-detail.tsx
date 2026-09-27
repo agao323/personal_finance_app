@@ -16,12 +16,12 @@
 import { useState } from "react";
 import Link from "next/link";
 
-import { apiFetch } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { FeeForm } from "./fee-form";
-import { BackfillForm, HistoryPanel } from "./history";
+import { HistoryPanel } from "./history";
 import { ExpiryChip, HistoryIcon, IconButton, PencilIcon } from "./icons";
 import { MarkButton } from "./mark-button";
+import { PeriodGrid } from "./period-grid";
 import { PerkForm, PerkRemoveButton } from "./perk-form";
 import { CADENCE_LABELS, CADENCE_ORDER, expiryLabel, type Card, type Perk } from "./types";
 
@@ -131,6 +131,7 @@ export function CardDetail({
                   key={perk.id}
                   accountId={card.account_id}
                   perk={perk}
+                  revision={revision}
                   onChange={onChange}
                 />
               ))}
@@ -150,6 +151,7 @@ export function CardDetail({
                   key={perk.id}
                   accountId={card.account_id}
                   perk={perk}
+                  revision={revision}
                   onChange={onChange}
                 />
               ))}
@@ -195,14 +197,16 @@ function Figure({ label, value, detail }: { label: string; value: string; detail
 function PerkRowItem({
   accountId,
   perk,
+  revision,
   onChange,
 }: {
   accountId: number;
   perk: Perk;
+  revision: number;
   onChange: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [backfilling, setBackfilling] = useState(false);
+  const [showingPeriods, setShowingPeriods] = useState(false);
   const period = perk.current_period;
 
   if (editing) {
@@ -254,24 +258,17 @@ function PerkRowItem({
             <PencilIcon />
           </IconButton>
           <IconButton
-            label={`Record a past use of ${perk.name} — for a credit you spent earlier and never marked`}
-            onClick={() => setBackfilling((current) => !current)}
+            label={`Which periods you used ${perk.name} in — tap a month to record one you forgot`}
+            onClick={() => setShowingPeriods((current) => !current)}
           >
             <HistoryIcon />
           </IconButton>
           <PerkRemoveButton perk={perk} onDone={onChange} />
         </span>
       </div>
-      {backfilling ? (
-        <BackfillForm
-          perkId={perk.id}
-          onDone={() => {
-            setBackfilling(false);
-            onChange();
-          }}
-          onCancel={() => setBackfilling(false)}
-        />
-      ) : null}
+      {/* Stays open while you fill in a year: each tap saves on its own, so closing after
+          one would be closing after every one. */}
+      {showingPeriods ? <PeriodGrid perk={perk} revision={revision} onChange={onChange} /> : null}
     </li>
   );
 }

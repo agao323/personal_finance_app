@@ -90,7 +90,7 @@ describe("actions as icons (064)", () => {
     // Card-level actions live in the list now; these are the per-credit ones.
     expect(screen.getByRole("button", { name: /^Edit Travel credit/ })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /^Record a past use of Travel credit/ }),
+      screen.getByRole("button", { name: /^Which periods you used Travel credit in/ }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Remove Travel credit/ })).toBeInTheDocument();
   });

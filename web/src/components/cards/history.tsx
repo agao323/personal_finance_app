@@ -1,11 +1,14 @@
 "use client";
 
 /**
- * Everything you have ever marked, and a way to record something you forgot. (Ticket 058)
+ * Everything you have ever marked. (Tickets 058, 069, 070)
  *
  * **No default cut-off.** "Show me the whole history" is the request this answers, and a
  * silent window would hide exactly the old entries being asked for. The window control
  * narrows; it never widens from a default that was already narrow.
+ *
+ * Recording a use you forgot lives in `period-grid.tsx`, next to the credit it belongs to.
+ * This panel reads history; it no longer writes it.
  */
 
 import { useEffect, useState } from "react";
@@ -167,95 +170,5 @@ export function HistoryPanel({
         </>
       ) : null}
     </section>
-  );
-}
-
-/**
- * Record a credit you used months ago.
- *
- * The period preview matters. "2 March" landing in the February period of a month-end
- * anchor is genuinely surprising, so the chosen date's period is shown **before** saving —
- * and it comes from the API's own answer rather than a second implementation of the period
- * arithmetic here, which could disagree with what actually gets saved.
- */
-export function BackfillForm({
-  perkId,
-  onDone,
-  onCancel,
-}: {
-  perkId: number;
-  onDone: () => void;
-  onCancel: () => void;
-}) {
-  const [date, setDate] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function save() {
-    if (!date) {
-      setError("Pick a date inside the period you used it.");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      await apiFetch("/perks/{perk_id}/redemptions", {
-        method: "post",
-        params: { perk_id: perkId },
-        body: { on: date },
-      });
-      onDone();
-    } catch (cause: unknown) {
-      // A date before the credit's first period comes back as a 422 explaining that.
-      setError(cause instanceof Error ? cause.message : "That did not save.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="border-hairline mt-2 rounded-lg border p-3">
-      <label htmlFor={`backfill-${perkId}`} className="text-sm font-medium">
-        Record a credit you already used
-      </label>
-      <p className="text-ink-muted mt-1 text-xs">
-        For a credit you spent months ago and never marked here — so your history and totals are
-        right even for periods that closed before you started tracking.
-      </p>
-      <p className="text-ink-muted mt-1 text-xs">
-        Enter <strong>any date inside the period you spent it</strong>, not today&rsquo;s date.
-        Which period that lands in comes from this credit&rsquo;s own schedule, so a monthly credit
-        anchored on the 31st will put 2 March in the period beginning 28 February.
-      </p>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <input
-          id={`backfill-${perkId}`}
-          type="date"
-          value={date}
-          onChange={(event) => setDate(event.target.value)}
-          className="border-hairline bg-surface-1 rounded-md border px-2 py-1.5 text-sm"
-        />
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void save()}
-          className="bg-accent-bg text-accent-strong rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50"
-        >
-          Record
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-ink-secondary hover:text-ink text-sm underline underline-offset-4"
-        >
-          Cancel
-        </button>
-      </div>
-      {error ? (
-        <p role="alert" className="text-critical-text mt-2 text-sm">
-          {error}
-        </p>
-      ) : null}
-    </div>
   );
 }

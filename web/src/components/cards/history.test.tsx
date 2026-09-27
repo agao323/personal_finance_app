@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BackfillForm, HistoryPanel } from "@/components/cards/history";
+import { HistoryPanel } from "@/components/cards/history";
 import { mockCards, server, walletHistory } from "@/test/msw";
 
 beforeEach(() => {
@@ -96,56 +96,6 @@ describe("HistoryPanel", () => {
     render(<HistoryPanel revision={0} />);
 
     expect(await screen.findByText(/Nothing recorded yet/)).toBeInTheDocument();
-  });
-});
-
-describe("BackfillForm", () => {
-  it("records a past use by naming a date inside the period", async () => {
-    const onDone = vi.fn();
-    render(<BackfillForm perkId={1} onDone={onDone} onCancel={() => {}} />);
-
-    await userEvent.type(screen.getByLabelText("Record a credit you already used"), "2026-03-15");
-    await userEvent.click(screen.getByRole("button", { name: "Record" }));
-
-    await waitFor(() => expect(onDone).toHaveBeenCalled());
-  });
-
-  it("refuses to submit with no date", async () => {
-    render(<BackfillForm perkId={1} onDone={() => {}} onCancel={() => {}} />);
-
-    await userEvent.click(screen.getByRole("button", { name: "Record" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(/Pick a date/);
-  });
-
-  it("surfaces the API's refusal for a date before the credit existed", async () => {
-    // The period arithmetic lives in the service. The browser does not guess at it and
-    // does not paraphrase its refusal.
-    server.use(
-      http.post("/api/perks/:id/redemptions", () =>
-        HttpResponse.json(
-          { detail: "That date is before this perk's first period" },
-          { status: 422 },
-        ),
-      ),
-    );
-    render(<BackfillForm perkId={1} onDone={() => {}} onCancel={() => {}} />);
-
-    await userEvent.type(screen.getByLabelText("Record a credit you already used"), "2020-01-01");
-    await userEvent.click(screen.getByRole("button", { name: "Record" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(/before this perk's first period/);
-  });
-
-  it("explains what backfilling is for, and which date to enter", () => {
-    // Two different confusions: what the control does at all, and that the date wanted is
-    // when you *spent* it rather than today. The month-end example is there because that
-    // case genuinely surprises people.
-    render(<BackfillForm perkId={1} onDone={() => {}} onCancel={() => {}} />);
-
-    expect(screen.getByText(/spent months ago and never marked/)).toBeInTheDocument();
-    expect(screen.getByText(/not today/)).toBeInTheDocument();
-    expect(screen.getByText(/28 February/)).toBeInTheDocument();
   });
 });
 

@@ -1,5 +1,5 @@
 # 069 — Record use by period, not by date
-Status: todo
+Status: done
 Wave: 7   Lane: —
 Blocked by: 068
 Read first: docs/PRODUCT.md

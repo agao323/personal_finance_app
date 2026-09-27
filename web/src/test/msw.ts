@@ -838,6 +838,7 @@ export function mockCards(
 ) {
   let current = structuredClone(rows);
   let soonest = structuredClone(soon);
+  markedPeriods.clear();
 
   const setUsed = (perkId: number, used: boolean) => {
     for (const card of current) {
@@ -851,14 +852,6 @@ export function mockCards(
   server.use(
     http.get("/api/cards", () => HttpResponse.json(current)),
     http.get("/api/perks/upcoming", () => HttpResponse.json(soonest)),
-    http.post("/api/perks/:id/redemptions", ({ params }) => {
-      setUsed(Number(params.id), true);
-      return HttpResponse.json(current[0].perks[0]);
-    }),
-    http.delete("/api/perks/:id/redemptions", ({ params }) => {
-      setUsed(Number(params.id), false);
-      return HttpResponse.json(current[0].perks[0]);
-    }),
     http.post("/api/cards/:id/perks", async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>;
       return HttpResponse.json({ id: 99, account_id: 1, ...body }, { status: 201 });
@@ -928,7 +921,62 @@ export function mockCards(
       const rows = walletHistory.redemptions.filter((r) => r.perk_id === Number(params.id));
       return HttpResponse.json({ ...walletHistory, redemptions: rows });
     }),
+    // Six calendar months, honouring `back` so "show earlier" is actually exercised rather
+    // than asserted against a handler that ignores the query it was sent. `used` tracks the
+    // same writes as `setUsed`, so a toggle is visible on the next read.
+    http.get("/api/perks/:id/periods", ({ params, request }) => {
+      const back = Number(new URL(request.url).searchParams.get("back") ?? 12);
+      const all = monthlyPeriods(Number(params.id));
+      const shown = all.slice(Math.max(0, all.length - back));
+      return HttpResponse.json({
+        perk_id: Number(params.id),
+        cadence: "monthly",
+        anchor_on: all[0].start,
+        has_earlier: shown.length < all.length,
+        periods: shown,
+      });
+    }),
+    http.post("/api/perks/:id/redemptions", async ({ params, request }) => {
+      const body = (await request.json().catch(() => ({}))) as { on?: string };
+      setUsed(Number(params.id), true);
+      if (body.on) markedPeriods.add(`${params.id}|${body.on}`);
+      return HttpResponse.json(current[0].perks[0]);
+    }),
+    http.delete("/api/perks/:id/redemptions", ({ params, request }) => {
+      const on = new URL(request.url).searchParams.get("on");
+      setUsed(Number(params.id), false);
+      if (on) markedPeriods.delete(`${params.id}|${on}`);
+      return HttpResponse.json(current[0].perks[0]);
+    }),
   );
+}
+
+/**
+ * Periods a perk has been marked in, keyed `perkId|periodStart`.
+ *
+ * Module-level and reset by `mockCards`, so a test that toggles a chip sees the result on
+ * the next read rather than a fixture that never changed.
+ */
+const markedPeriods = new Set<string>();
+
+/** Six consecutive calendar months ending at the current one, oldest first. */
+function monthlyPeriods(perkId: number): ResponseOf<"/perks/{perk_id}/periods", "get">["periods"] {
+  const iso = (year: number, month: number) =>
+    new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+  const now = new Date();
+  return Array.from({ length: 6 }, (_, index) => {
+    const offset = now.getUTCMonth() - (5 - index);
+    const start = iso(now.getUTCFullYear(), offset);
+    return {
+      start,
+      end: iso(now.getUTCFullYear(), offset + 1),
+      index,
+      is_used: markedPeriods.has(`${perkId}|${start}`),
+      used_amount_cents: null,
+      note: null,
+      is_current: index === 5,
+    };
+  });
 }
 
 /** Two recorded uses across two cards, newest first, one partial and one full. */
