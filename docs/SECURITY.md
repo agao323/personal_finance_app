@@ -10,8 +10,8 @@ not the same as intuitive risk:
 | 1 | Real data leaking into the public demo | Separate deployment, **separate Neon project**, synthetic seed. Infra boundary, not a flag. |
 | 2 | Database and **backups** at rest | Neon encryption at rest; nightly `pg_dump` encrypted with a key stored outside Neon. |
 | 3 | Secrets or real values in git history | `data/` gitignored; secret scanning in CI; no fixture ever contains a real number. |
-| 4 | Real values leaking into logs or an AI session transcript | Log redaction filter with a test; `data/` never read into context. |
-| 5 | AI agent exfiltration | See [AI agent](#ai-agent). Ships last. |
+| 4 | Real values leaking into logs or an AI session transcript | Log redaction filter with a test; `data/` never read into context. Advisor transcripts: Postgres, 30-day TTL ([ADR 0012](adr/0012-transcripts-live-in-postgres-for-30-days.md)). |
+| 5 | AI agent exfiltration | See [AI agent](#ai-agent) and [ADVISOR.md](ADVISOR.md). The model half ships last, switched off. |
 | 6 | Session hijack / weak auth on the real app | Cloudflare Access at the edge + passkeys. No passwords, ever. |
 | 7 | Aggregator holding bank credentials | Only relevant post-v1. Accepted consciously if a connector ships. |
 
@@ -174,6 +174,31 @@ Constraints, non-negotiable, to be enforced when the feature is built:
 
 It ships **last**: highest risk, lowest marginal value, and much easier to add safely once
 the data model is stable.
+
+### The advisor's threat model
+
+Planned in ticket 080; the design is [ADVISOR.md](ADVISOR.md). The feature splits in two, and
+"ships last" now applies to the half that calls a model — see
+[DECISIONS.md](DECISIONS.md#2026-09-27--the-ai-advisor-the-half-without-a-model-ships-first-the-half-with-one-still-ships-last).
+The constraints above stand unchanged; these are the threats they are answering, ranked.
+
+| # | Threat | Vector | Mitigation | Residual |
+|---|---|---|---|---|
+| 1 | **Confidently wrong numbers** | The model subtracts, rounds or recalls a figure itself | Figures computed in Python and rendered pre-formatted; a grounding check on every answer; findings computed deterministically ([ADR 0011](adr/0011-findings-are-computed-and-figures-are-grounded.md)) | A correct figure with a wrong explanation. The evals, not the checker, cover reasoning |
+| 2 | **Injection steering advice** | Instructions in a merchant name, memo, perk note or account name — CSV today, SimpleFIN later | Untrusted text marked by field name and sanitised at the tool boundary; instruction-like text and tool names withheld; canary-tagged injection corpus in the evals | Persuasive wording can still colour an explanation. There is no action it can take |
+| 3 | **Exfiltration through the browser** | A markdown image or link in an answer, fetched or clicked | Stripped by the API, not renderable by the chat (no `a`, no `img`), and blocked by CSP `img-src`/`connect-src 'self'` — three independent layers | None known |
+| 4 | **Exfiltration through a tool** | A tool that reaches the network or writes | No fetch tool, no server tools, no write tools; each call in a `READ ONLY` transaction; the one free-text argument cannot express a URL; a test asserts the tool list sent is exactly the registry | — |
+| 5 | **Advice on stale or partial data** | 90-day carry-forward; CSV freshness; history before the first snapshot | Staleness in every tool result; `get_data_health`; stale evidence demotes a finding and turns its action into "update this balance" | Data the app does not know is missing |
+| 6 | **Denial of wallet** | Tool loops, long conversations, a leaked session | Per-turn, per-conversation and monthly caps checked before every call; a kill switch that defaults off; **a provider-side spend limit** that no bug here can bypass | Up to the monthly cap |
+| 7 | **The provider reads household data** | Every tool result is sent to it | Minimisation — aggregates by default, bounded rows, no emails, names or institutions; 30-day deletion; no training by default; a dedicated workspace ([ADR 0009](adr/0009-advisor-model-provider.md)) | A fourth processor, with up to two years' retention if a request is flagged. Accepted consciously, or not at all |
+| 8 | **Transcripts at rest** | Figures in prose in Postgres and in backups | 30-day TTL, immediate delete, and a delete confirmation that says backup files keep their copy | Copies in backups written before the delete |
+| 9 | **Leaks through observability** | Stack-frame local variables in Sentry; arguments in logs | `include_local_variables=False`; stdout carries tool names and counts only; arguments go to the audit table, never stdout | — |
+| 10 | **The public demo as a spend or prompt surface** | An unauthenticated endpoint that calls a model | The demo never calls one: disabled in code under `DEMO_MODE`, no key deployed, CI guard, recorded answers instead ([ADR 0014](adr/0014-the-demo-advisor-replays-recorded-answers.md)) | — |
+
+Two things this does **not** change. The API still has no public address, and a model provider is
+not reached by joining anything to Fly's private network — which is one reason self-hosting on a
+laptop was rejected in ADR 0009. And the advisor cannot move money, because nothing in this app
+can.
 
 ## Backups
 

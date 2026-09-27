@@ -89,6 +89,19 @@ income stopped," which is the only version of the question worth a dashboard til
 income is coming in. Income is still classified (so it stays out of the spend rollups) but
 is not displayed in v1.
 
+### Planned — ticketed, not built
+
+- **AI advisor** over the household's finances — ask about anything in the app, get trends
+  explained and recommendations grounded in figures the app computed rather than the model.
+  Two halves: a deterministic **Insights panel** that needs no model and ships first, and a chat
+  that calls one, which still ships last under the constraints in
+  [SECURITY.md](SECURITY.md#ai-agent). Plan in ticket 080; design in [ADVISOR.md](ADVISOR.md).
+
+  It pulls the read-only half of three Later items forward: **subscriptions I should cancel**
+  (recurring-charge detection), **income** (a savings rate, as an insight rather than a view),
+  and **transfer pairs** (suggested, never marked automatically). FIRE projections follow in
+  its last wave, to the bar set below.
+
 ### Later — intended, unscheduled
 
 - **Institution connectors** (Teller / SimpleFIN / Plaid) behind the `source` abstraction.
@@ -106,8 +119,6 @@ is not displayed in v1.
 - **Holdings-level tracking** (shares × price). Would require a second precision regime —
   balances are 2dp, prices are not. Out of scope until it's actually wanted.
 - **Automatic transfer-pair detection.** v1 marks transfers by category and by hand.
-- **AI agent** over my finances — ask questions, get recommendations. Highest risk feature in
-  the project; ships last, under the constraints in [SECURITY.md](SECURITY.md#ai-agent).
 
 ### Rejected
 

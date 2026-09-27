@@ -5,6 +5,68 @@ Implementation-level decisions made during tickets go in `adr/` instead.
 
 ---
 
+## 2026-09-27 — The AI advisor: the half without a model ships first, the half with one still ships last
+
+PRODUCT listed the AI agent as Later, and SECURITY.md said it **ships last**: highest risk, lowest
+marginal value, and easier to add safely once the data model is stable. Planning it (ticket 080,
+[docs/ADVISOR.md](ADVISOR.md)) showed the feature is two features with different risk, and the
+rule should apply to only one of them.
+
+### The split
+
+**The no-model half** — read-only tools, deterministic analyses, a findings engine, and an
+Insights panel — is ordinary read-only code over the existing services. It adds no egress and no
+new class of risk; it is more `GET` endpoints. **It may ship as soon as it is built** (Wave 9).
+
+**The model half** — the loop, the chat, the provider — is what "ships last" was written about,
+and it still does (Wave 10). It ships **switched off**, and `ADVISOR_ENABLED` stays false in
+production until every gate below holds.
+
+### What must be true before the model half is switched on
+
+1. **Real data is in production, behind a proven restore.** ADR 0008's drill against production
+   is still pending. Until it runs there is nothing real for the advisor to read, and nothing
+   should be added that reads it.
+2. **Ticket 103's hardening is done** — Sentry no longer captures local variables, advisor logs
+   carry no arguments or results, the demo cannot hold a model key.
+3. **A passing `make eval` run is recorded** in ADVISOR.md at the model, effort and prompt being
+   deployed.
+4. **The provider-side spend limit exists** on a dedicated Console workspace. Our own caps are
+   code; that one is not.
+5. **ADR 0009 is accepted** — the owner has agreed to a fourth processor reading this data.
+
+### What does not block it
+
+- **024, the Google Sheet history.** Without it, trend questions about the months before the app
+  existed return "insufficient history". The tools report coverage rather than the advisor waiting
+  for it.
+- **075, SimpleFIN.** Without it, transactions are as fresh as the last CSV. `get_data_health`
+  reports the last transaction per account, and the analyses skip months with no data rather than
+  counting them as zero. The injection defences sit at the tool boundary, so they cover SimpleFIN
+  text the day it arrives.
+- **037's outstanding infrastructure checks.** The demo never calls a model (ADR 0014), so its
+  remaining verification has no bearing on the real advisor.
+
+### Why "last" was right, and why it is still right for the model half
+
+The data model is now stable enough: the cards wave is finished, the export has a guard, and the
+restore has been drilled. What was uncertain in August — what the tables mean and whether they
+would move — no longer is. What remains uncertain is the model itself: what it will be tricked
+into, what it will get wrong, and what it will cost. That is exactly the half still held back.
+
+**Rules out:** write tools; an outbound fetch tool; model-generated SQL; server tools such as web
+search (the model API stays the only egress); a live model on the public demo; email or push for
+proactive insights (egress); a scheduler for anything the advisor does.
+
+**Also decided on 2026-09-27, by the owner:** transcripts in Postgres with a 30-day TTL
+([ADR 0012](adr/0012-transcripts-live-in-postgres-for-30-days.md)); a $20 monthly cap; advice at
+the level of allocation and fund types, never tickers; spending analysis first. And, after an
+investigation of self-hosted open-weight models, the Anthropic API behind a provider-neutral
+seam, recorded with its revisit conditions in
+[ADR 0009](adr/0009-advisor-model-provider.md) — pending the owner's acceptance.
+
+---
+
 ## 2026-08-14 — Plan review: six corrections before implementation
 
 A review of the initial plan surfaced gaps that would have surfaced mid-ticket as rework.

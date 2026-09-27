@@ -31,6 +31,16 @@ runs out of budget mid-change and leaves the repo broken.
 | 6 — Simplify | 045–047 | serial | **Remove the passkey layer**; Access is the authentication |
 | 7 — Cards | 053–059 | **053 → 054 → 5 lanes** | Multiple cards, editing, cadence-aware urgency, history, net value |
 | 8 — Connectors | 075 | planning | SimpleFIN: transactions nightly, credits marked from them. **Blocked by 017.** |
+| 9 — Advisor foundations | 080–094 | **081 → 082 → 083, then 3 lanes** | Tools, analyses, findings, and an Insights panel. **No model, no egress.** Plan: 080 |
+| 10 — Advisor loop and chat | 095–107 | **2 lanes**, then 107 | Loop, audit, caps, grounding, evals, streaming chat. Ships **switched off**; 107 switches it on behind gates |
+| 11 — Goals | 108–111 | serial | Spending limits, emergency fund, savings targets; stated assumptions; goal-aware advice |
+| 12 — Debt and projections | 112–118 | 112 → 113, then fan-out | Liability terms, tax treatment, allocation, debt strategies, projections to the FIRE bar |
+| 13 — Monthly review | 119 | optional | User-initiated, in-app only |
+
+Waves 11 and 12 are ordered **provisionally**. The advisor records every question it could not
+answer, and why, through `note_limitation`; a month of Wave 10 in real use ranks those gaps, and
+that ranking decides which wave goes first. Ticket 080 has the plan; [ADVISOR.md](../docs/ADVISOR.md)
+has the design.
 
 Wave 7 rebuilds the cards page. Two serial tickets then a five-way fan-out: **053** carries
 the single migration the wave needs (partial redemption amounts, annual fee) plus the urgency
@@ -100,6 +110,31 @@ Point a screen at its real endpoint as soon as that endpoint lands; don't hold t
 
 If Lane C ever *does* block on Lane A or B, the lane structure has collapsed into a serial
 plan wearing a table.
+
+## Waves 9 and 10: the advisor's lanes
+
+The Wave 2 pattern again, for the same reason: **081 freezes the contract** — every Insights and
+advisor route stubbed at `501`, every model and the SSE event union generated into
+`api-types.ts` — so the web lane builds against MSW while the API is still being written. 082
+(read models out of routers) and 083 (the tool framework) complete the serial start.
+
+| Lane | Theme | Tickets | Owns |
+|---|---|---|---|
+| **T** | Tools | 084–086 | `api/app/advisor/tools/{balances,spending,cards}.py` |
+| **S** | Analyses and findings | 087–093 | `api/app/services/analysis/**` (after 083's `periods.py`), `api/app/services/findings.py`, `api/app/advisor/tools/analysis.py`, `api/app/routers/insights.py` |
+| **L** | Loop | 095–099, 101–103 | `api/app/advisor/{model,pricing,loop,store,grounding,answer,sse}.py`, `advisor/prompts/`, `advisor/tools/meta.py`, `models/advisor.py`, `routers/advisor.py`, `api/evals/**`, migration 0007 |
+| **W** | Web | 094, 100, 104–106 | `web/src/components/{insights,advisor}/**`, `web/src/app/(dashboard)/advisor/**`, `web/src/lib/{screens,advisor-stream,markdown-lite}.ts`, and `route.ts` for 100 only |
+
+- **Lane W starts the day 081 merges**, in Wave 9. Its `Integrates with` fields name the API
+  tickets that serve its data; they are not blockers.
+- **Only 081, 095's re-freeze, and the Wave 11–12 schema tickets edit `api-types.ts`.**
+  Anything else needing a shape change stops and re-freezes, per ADR 0006.
+- **Migrations serialise: 095 → 108 → 109 → 112 → 113.** One in flight at a time.
+- Lane L's evals (101) depend on lanes T and S having landed their tools. That is the one
+  cross-lane blocker, and it is at the end of the lane rather than the start.
+
+**Header addition from Wave 9 on:** a `Touches:` line names a **migration**, a **contract**
+change, or a **dependency**, so the serialising rules above can be checked at a glance.
 
 ## Tests
 
