@@ -41,53 +41,17 @@ security boundary — not a feature flag. See [SECURITY.md](SECURITY.md#demo-iso
 
 ## Request path
 
-**The browser only ever talks to `<domain>`.** Next.js route handlers under `/api/*`
-proxy to the FastAPI service over Fly's private network. The API has no public address at
-all.
-
-This is a deliberate choice with four consequences, all of them the reason for it:
-
-1. **Origin lock is structural.** There is no public API hostname to leave unprotected. A Fly
-   app is publicly addressable by default; putting Cloudflare Access in front of a
-   reachable origin is a false sense of security. Here there is nothing to reach.
-2. **No CORS, anywhere.** Same origin. The API ships no CORS middleware, and CI fails if
-   `NEXT_PUBLIC_API_URL` or an absolute API origin appears in `web/`.
-3. **One Cloudflare Access application, not two.** Access answers unauthenticated requests
-   with a redirect to the identity provider. A `fetch()` cannot meaningfully follow that —
-   an expired session would surface as an opaque network failure instead of a `401`. With
-   the API behind the BFF, only page navigations ever hit Access, which is exactly what
-   Access is designed for.
-4. **Sessions are simple.** One origin means one cookie scope and no cross-site negotiation.
-
-What it costs: a thin proxy route handler, and server-side code has to know the internal API
-URL while the browser knows no API URL at all. That split has to be right from ticket 002 —
-locally the API is `http://api:8000`, in production `http://pfa-api.internal:8000`.
-Not `.flycast`: that needs an `[http_service]` block, and the moment one exists public
-exposure is one allocated IP away. See [ADR 0001](adr/0001-hosting.md).
-
-The two-service split itself is unchanged: two Dockerfiles, two deploys, two ecosystems.
+**The browser only ever talks to `<domain>`.** Next.js route handlers under `/api/*` proxy
+to FastAPI over Fly's private network (`.internal`); the API has no public address. That is
+what makes the origin lock structural, removes CORS, and keeps Cloudflare Access to one
+application. Design and enforcement: [design-docs/request-path.md](design-docs/request-path.md).
 
 ## The API contract
 
-The decision was to not hand-write or maintain an OpenAPI spec. We don't. FastAPI *emits*
-`openapi.json` from the Pydantic models we write anyway, and the frontend generates
-TypeScript types from it:
-
-```
-Pydantic response models  →  openapi.json  →  openapi-typescript  →  web/src/lib/api-types.ts
-        (source of truth)      (generated)        (generated, committed)
-```
-
-`make types` runs the pipeline. CI regenerates and fails on diff.
-
-Why this matters more here than usual: tickets are implemented across sessions with no shared
-memory, and in Wave 2 they run **in three parallel lanes**. Without a frozen contract, a
-frontend session writes a component against a response shape a backend session never built,
-and nothing catches it until runtime. Ticket 012 declares every model and every route up
-front — stubbed at `501` — so the contract exists before any implementation does. After that,
-drift is a failed CI check rather than a merge conflict.
-
-**The Pydantic models are the contract.** The frontend never hand-writes an API response type.
+**The Pydantic models are the contract.** `openapi.json` is emitted from them and
+`web/src/lib/api-types.ts` is generated from that; `make types-check` fails on drift. Nobody
+hand-writes a spec or a response type. Design, rules and the re-freeze procedure:
+[design-docs/api-contract.md](design-docs/api-contract.md).
 
 ## Users and ownership
 
@@ -287,58 +251,10 @@ script refuses to run against a database marked real.
 
 ## Endpoints
 
-The complete v1 surface. Declared by ticket 012 and stubbed at `501` until the named
-ticket implements it.
-
-**This table is checked against the running app by a test.** Adding a route without
-listing it here, or listing one that does not exist, fails the suite — a stale
-inventory is worse than none, because it is trusted.
-
-| Method | Path | Ticket |
-|---|---|---|
-| GET | `/health` | 003 |
-| GET | `/ready` | 003 |
-| GET | `/net-worth` | 014 |
-| GET | `/net-worth/series` | 014 |
-| GET | `/spend` | 015 |
-| GET | `/runway` | 016 |
-| GET | `/export` | 017 |
-| GET POST | `/accounts` | 019 |
-| GET PATCH | `/accounts/{account_id}` | 019 |
-| GET | `/accounts/{account_id}/history` | 019 |
-| GET | `/accounts/{account_id}/deletion-preview` | 063 |
-| DELETE | `/accounts/{account_id}` | 063 |
-| POST | `/accounts/{account_id}/balances` | 019 |
-| POST | `/accounts/{account_id}/stakes` | 019 |
-| POST | `/import/csv/preview` | 020 |
-| POST | `/import/csv/commit` | 021 |
-| GET POST | `/rules` | 022 |
-| PATCH DELETE | `/rules/{rule_id}` | 022 |
-| POST | `/rules/apply` | 022 |
-| POST | `/rules/preview` | 033 |
-| GET | `/categories` | 030 |
-| GET | `/transactions` | 023 |
-| PATCH | `/transactions/{transaction_id}` | 023 |
-| POST | `/transactions/bulk-categorise` | 023 |
-| POST | `/transactions/bulk-transfer` | 030 |
-| GET | `/auth/session` | 034 |
-| GET | `/cards` | 050 |
-| POST | `/cards/{account_id}/perks` | 050 |
-| PATCH | `/perks/{perk_id}` | 050 |
-| POST DELETE | `/perks/{perk_id}/redemptions` | 050 |
-| GET | `/perks/upcoming` | 050 |
-| DELETE | `/perks/{perk_id}` | 054 |
-| GET | `/perks/{perk_id}/history` | 054 |
-| GET | `/cards/history` | 054 |
-| GET | `/perks/{perk_id}/periods` | 068 |
-| GET | `/perks/schedule` | 079 |
-| GET POST | `/members` | 043 |
-| PATCH | `/members/{member_id}` | 043 |
-
-Query parameters, request bodies, and response shapes are defined in
-`api/app/schemas/` and generated into `web/src/lib/api-types.ts`. They are deliberately
-not duplicated here — a hand-maintained copy would go stale, which is the whole reason
-the contract is generated.
+The route inventory — with the ticket that landed each route — is the table in
+[design-docs/api-contract.md#endpoints](design-docs/api-contract.md#endpoints), which
+`api/tests/test_contract.py` checks against the running app. Parameters and shapes are
+generated into [generated/api-endpoints.md](generated/api-endpoints.md).
 
 ## Account sources
 

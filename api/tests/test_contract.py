@@ -3,7 +3,7 @@
 The freeze that makes Wave 2's three lanes safe. These assert three things:
 
 1. Every declared route exists and answers 501 until its lane implements it.
-2. The route inventory in ARCHITECTURE.md matches the running app exactly.
+2. The route inventory in docs/design-docs/api-contract.md matches the running app exactly.
 3. Money crosses the wire as integer cents, everywhere, with no exceptions.
 
 A stale inventory is worse than none, because it gets trusted.
@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from tests.conftest import API_ROOT
 
-DOCS = API_ROOT.parent / "docs" / "ARCHITECTURE.md"
+DOCS = API_ROOT.parent / "docs" / "design-docs" / "api-contract.md"
 
 #: Routes that are no longer stubs.
 #:
@@ -74,11 +74,21 @@ def _openapi() -> dict[str, Any]:
     return schema
 
 
-def _documented_paths() -> set[str]:
-    """Parse the endpoint table out of ARCHITECTURE.md."""
+def _endpoints_section() -> str:
+    """The `## Endpoints` section of api-contract.md, up to the next `## ` heading.
+
+    Bounded by "the next heading" rather than by a named one, so reordering or renaming
+    the sections around it cannot silently widen or empty the slice.
+    """
     text = DOCS.read_text(encoding="utf-8")
-    section = text[text.index("## Endpoints") : text.index("## Account sources")]
-    return set(re.findall(r"\|\s*`(/[^`]*)`\s*\|", section))
+    start = text.index("\n## Endpoints\n")
+    end = text.find("\n## ", start + 1)
+    return text[start : end if end != -1 else len(text)]
+
+
+def _documented_paths() -> set[str]:
+    """Parse the endpoint table out of docs/design-docs/api-contract.md."""
+    return set(re.findall(r"\|\s*`(/[^`]*)`\s*\|", _endpoints_section()))
 
 
 def _declared_paths() -> set[str]:
@@ -94,14 +104,14 @@ def test_documented_inventory_matches_the_app() -> None:
 
     assert documented == declared, (
         f"undocumented routes: {sorted(declared - documented)}; "
-        f"documented but missing: {sorted(documented - declared)}"
+        f"documented but missing: {sorted(documented - declared)}. "
+        "Every route is listed, with the ticket that landed it, in the table at "
+        "docs/design-docs/api-contract.md#endpoints — add or remove the row."
     )
 
 
 def test_every_documented_path_names_the_ticket_that_lands_it() -> None:
-    text = DOCS.read_text(encoding="utf-8")
-    section = text[text.index("## Endpoints") : text.index("## Account sources")]
-    rows = [ln for ln in section.splitlines() if ln.startswith("| ") and "`/" in ln]
+    rows = [ln for ln in _endpoints_section().splitlines() if ln.startswith("| ") and "`/" in ln]
 
     assert rows, "endpoint table not found"
     for row in rows:
