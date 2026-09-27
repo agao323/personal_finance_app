@@ -16,20 +16,16 @@ import { useEffect, useState } from "react";
 import { ErrorState, Refreshing, Skeleton } from "@/components/states";
 import { apiFetch } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { CADENCE_LABELS, type Cadence, type History } from "./types";
-
-const WINDOWS = [
-  { months: 0, label: "All time" },
-  { months: 3, label: "3 months" },
-  { months: 12, label: "12 months" },
-] as const;
-
-/** `months` back from today, as an ISO date. UTC throughout, matching `formatDate`. */
-function isoMonthsAgo(months: number): string {
-  const now = new Date();
-  const target = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months, 1));
-  return target.toISOString().slice(0, 10);
-}
+import {
+  CADENCE_LABELS,
+  CADENCE_ORDER,
+  HISTORY_WINDOWS,
+  calendarWindowStart,
+  type Cadence,
+  type History,
+  type HistoryWindow,
+  type Redemption,
+} from "./types";
 
 export function HistoryPanel({
   revision,
@@ -39,7 +35,7 @@ export function HistoryPanel({
   /** Scope to one card. Omitted means the whole wallet. */
   accountId?: number;
 }) {
-  const [months, setMonths] = useState(0);
+  const [span, setSpan] = useState<HistoryWindow>("all");
   const [loaded, setLoaded] = useState<{
     key: string;
     data: History | null;
@@ -51,7 +47,7 @@ export function HistoryPanel({
   // Ticket 070: the window switcher was the worst offender. Every change of window blanked
   // the totals and the whole list and rebuilt them, for a request that usually answers in
   // under a tenth of a second. The rows in hand stay up while the next ones load.
-  const key = `${months}|${revision}|${accountId ?? "all"}`;
+  const key = `${span}|${revision}|${accountId ?? "all"}`;
   const data = loaded?.data ?? null;
   const pending = loaded === null;
   const refreshing = loaded !== null && loaded.key !== key;
@@ -59,10 +55,11 @@ export function HistoryPanel({
 
   useEffect(() => {
     let live = true;
-    const requested = `${months}|${revision}|${accountId ?? "all"}`;
+    const requested = `${span}|${revision}|${accountId ?? "all"}`;
+    const from = calendarWindowStart(span, new Date());
     apiFetch("/cards/history", {
       query: {
-        ...(months === 0 ? {} : { from: isoMonthsAgo(months) }),
+        ...(from === null ? {} : { from }),
         ...(accountId === undefined ? {} : { account_id: accountId }),
       },
     })
@@ -81,7 +78,7 @@ export function HistoryPanel({
     return () => {
       live = false;
     };
-  }, [months, revision, accountId]);
+  }, [span, revision, accountId]);
 
   return (
     <section className="border-hairline bg-surface-1 mt-4 rounded-xl border p-4">
@@ -90,15 +87,15 @@ export function HistoryPanel({
           What you have used
           {refreshing ? <Refreshing /> : null}
         </h2>
-        <div role="group" aria-label="How far back" className="flex flex-wrap gap-1">
-          {WINDOWS.map((option) => (
+        <div role="group" aria-label="Which period" className="flex flex-wrap gap-1">
+          {HISTORY_WINDOWS.map((option) => (
             <button
-              key={option.months}
+              key={option.id}
               type="button"
-              aria-pressed={months === option.months}
-              onClick={() => setMonths(option.months)}
+              aria-pressed={span === option.id}
+              onClick={() => setSpan(option.id)}
               className={`rounded-md px-2 py-1 text-xs transition-colors ${
-                months === option.months
+                span === option.id
                   ? "bg-accent-bg text-accent-strong font-medium"
                   : "text-ink-secondary hover:text-ink"
               }`}
@@ -108,6 +105,14 @@ export function HistoryPanel({
           ))}
         </div>
       </div>
+
+      {/* What the window actually selects. The rows record which period a credit belongs
+          to and nothing else — no day of spending is stored anywhere — so a window that
+          claimed to be about when you spent it would be claiming a precision the data does
+          not have. */}
+      <p className="text-ink-muted mt-1 text-xs">
+        Counted by the period each credit belongs to, not the day you spent it.
+      </p>
 
       {error && data === null ? <ErrorState detail={error} /> : null}
       {error && data !== null ? (
@@ -136,9 +141,13 @@ export function HistoryPanel({
             ) : null}
           </p>
 
+          <CadenceTotals rows={data.redemptions} />
+
           {data.redemptions.length === 0 ? (
             <p className="text-ink-muted mt-3 text-sm">
-              Nothing recorded yet. Marking a credit used here builds the history.
+              {span === "all"
+                ? "Nothing recorded yet. Marking a credit used builds the history."
+                : "Nothing recorded in this period."}
             </p>
           ) : (
             <ul className="mt-3">
@@ -170,5 +179,39 @@ export function HistoryPanel({
         </>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Realised value split by cadence.
+ *
+ * A monthly dining credit and an annual travel credit add to one number that describes
+ * neither. Summed from the rows already in hand rather than asked for separately: the API's
+ * `realised_cents` is the sum of exactly these rows, so the split cannot disagree with the
+ * total it sits under.
+ *
+ * Hidden when only one cadence has anything in the window, where a "breakdown" would be the
+ * total written twice.
+ */
+
+function CadenceTotals({ rows }: { rows: Redemption[] }) {
+  const totals = CADENCE_ORDER.map((cadence) => ({
+    cadence,
+    cents: rows
+      .filter((row) => (row.cadence as Cadence) === cadence)
+      .reduce((sum, row) => sum + row.realised_cents, 0),
+  })).filter((entry) => entry.cents > 0);
+
+  if (totals.length < 2) return null;
+
+  return (
+    <dl className="text-ink-secondary mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+      {totals.map((entry) => (
+        <div key={entry.cadence} className="flex items-baseline gap-1">
+          <dt>{CADENCE_LABELS[entry.cadence]}</dt>
+          <dd className="text-ink font-medium tabular-nums">{formatCurrency(entry.cents)}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

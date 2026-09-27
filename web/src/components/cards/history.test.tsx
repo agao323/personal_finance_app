@@ -75,7 +75,7 @@ describe("HistoryPanel", () => {
     render(<HistoryPanel revision={0} />);
     await waitFor(() => expect(urls).toHaveLength(1));
 
-    await userEvent.click(screen.getByRole("button", { name: "3 months" }));
+    await userEvent.click(screen.getByRole("button", { name: "This quarter" }));
 
     await waitFor(() => expect(urls).toHaveLength(2));
     expect(new URL(urls[1]).searchParams.get("from")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -119,7 +119,7 @@ describe("HistoryPanel refreshing", () => {
     );
     // A window other than the one already selected; clicking the current one changes
     // nothing and would make this test pass without exercising anything.
-    await userEvent.click(screen.getByRole("button", { name: "3 months" }));
+    await userEvent.click(screen.getByRole("button", { name: "This quarter" }));
 
     await waitFor(() => expect(gate.release).not.toBeNull());
     expect(screen.getByText("Dining credit")).toBeInTheDocument();
@@ -137,9 +137,82 @@ describe("HistoryPanel refreshing", () => {
     server.use(
       http.get("/api/cards/history", () => HttpResponse.json({ detail: "nope" }, { status: 500 })),
     );
-    await userEvent.click(screen.getByRole("button", { name: "3 months" }));
+    await userEvent.click(screen.getByRole("button", { name: "This quarter" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not refresh");
     expect(screen.getByText("Dining credit")).toBeInTheDocument();
+  });
+});
+
+describe("windows that follow the cadences (071)", () => {
+  it("asks for the calendar period, not a count of months back", async () => {
+    // "This quarter" is the unit a quarterly credit is described in. "3 months back" is a
+    // unit nothing is described in.
+    const urls: string[] = [];
+    server.use(
+      http.get("/api/cards/history", ({ request }) => {
+        urls.push(request.url);
+        return HttpResponse.json(walletHistory);
+      }),
+    );
+    render(<HistoryPanel revision={0} />);
+    await screen.findByText("Dining credit");
+
+    await userEvent.click(screen.getByRole("button", { name: "This month" }));
+
+    await waitFor(() => expect(urls).toHaveLength(2));
+    const now = new Date();
+    const firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+      .toISOString()
+      .slice(0, 10);
+    expect(new URL(urls[1]).searchParams.get("from")).toBe(firstOfMonth);
+  });
+
+  it("offers every cadence's own period", async () => {
+    render(<HistoryPanel revision={0} />);
+
+    for (const label of ["This month", "This quarter", "This half year", "This year", "All time"]) {
+      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    }
+  });
+
+  it("splits realised value by cadence, and the split sums to the total", async () => {
+    // One number covering a monthly dining credit and an annual travel credit describes
+    // neither.
+    render(<HistoryPanel revision={0} />);
+
+    await screen.findByText("Dining credit");
+    const monthly = screen.getByText("Monthly").parentElement;
+    const annual = screen.getByText("Annual").parentElement;
+    expect(monthly).toHaveTextContent("$25.00");
+    expect(annual).toHaveTextContent("$300.00");
+    // $25 + $300 is the $325 the panel reports realised.
+    expect(screen.getByText("$325.00")).toBeInTheDocument();
+  });
+
+  it("omits a cadence with nothing in the window rather than showing it as zero", async () => {
+    server.use(
+      http.get("/api/cards/history", () =>
+        HttpResponse.json({
+          ...walletHistory,
+          redemptions: walletHistory.redemptions.filter((row) => row.cadence === "monthly"),
+        }),
+      ),
+    );
+    render(<HistoryPanel revision={0} />);
+
+    await screen.findByText("Dining credit");
+    expect(screen.queryByText("Quarterly")).not.toBeInTheDocument();
+    // And with only one cadence left there is no breakdown at all — it would be the total
+    // written twice.
+    expect(screen.queryByText("Monthly")).not.toBeInTheDocument();
+  });
+
+  it("says the window is about the period a credit belongs to", async () => {
+    // Nothing records the day you spent it, so a window claiming otherwise would claim a
+    // precision the rows do not have.
+    render(<HistoryPanel revision={0} />);
+
+    expect(screen.getByText(/not the day you spent it/)).toBeInTheDocument();
   });
 });

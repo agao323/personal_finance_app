@@ -105,3 +105,50 @@ export function periodLabel(cadence: Cadence, start: string): string {
       return String(year);
   }
 }
+
+/**
+ * A window over history, named for the calendar period it covers. (Ticket 071)
+ *
+ * The credits themselves run on calendar periods, so the windows for reading them back do
+ * too: "this quarter" is the unit a quarterly credit is described in, where "3 months back"
+ * is a unit nothing is described in.
+ */
+export type HistoryWindow = "month" | "quarter" | "half" | "year" | "all";
+
+export const HISTORY_WINDOWS: readonly { id: HistoryWindow; label: string }[] = [
+  { id: "month", label: "This month" },
+  { id: "quarter", label: "This quarter" },
+  { id: "half", label: "This half year" },
+  { id: "year", label: "This year" },
+  // Last, and the default. No silent cut-off: "show me everything" is the request the
+  // panel answers, and a window it narrowed to on its own would hide exactly the old
+  // entries being asked for.
+  { id: "all", label: "All time" },
+];
+
+/**
+ * When a window begins, as an ISO date, or null for all time.
+ *
+ * Plain calendar arithmetic, deliberately: these are boundaries of months and quarters,
+ * not of any perk's periods, so there is nothing here that could disagree with
+ * `services/perks.py`. A window over a *perk's* own periods would have to come from the
+ * API, and does — see `period-grid.tsx`.
+ *
+ * UTC throughout, matching `formatDate` and the ISO dates the API speaks.
+ */
+export function calendarWindowStart(window: HistoryWindow, today: Date): string | null {
+  if (window === "all") return null;
+  const year = today.getUTCFullYear();
+  const month = today.getUTCMonth();
+  const firstOf = (m: number) => new Date(Date.UTC(year, m, 1)).toISOString().slice(0, 10);
+  switch (window) {
+    case "month":
+      return firstOf(month);
+    case "quarter":
+      return firstOf(Math.floor(month / 3) * 3);
+    case "half":
+      return firstOf(month < 6 ? 0 : 6);
+    case "year":
+      return firstOf(0);
+  }
+}

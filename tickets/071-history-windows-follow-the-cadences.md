@@ -1,5 +1,5 @@
 # 071 — History windows follow the cadences
-Status: todo
+Status: done
 Wave: 7   Lane: —
 Blocked by: none
 Read first: docs/PRODUCT.md

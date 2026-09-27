@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { PERIODS_BACK, periodLabel } from "@/components/cards/types";
+import { PERIODS_BACK, calendarWindowStart, periodLabel } from "@/components/cards/types";
 
 describe("periodLabel", () => {
   it("names a month", () => {
@@ -60,5 +60,37 @@ describe("PERIODS_BACK", () => {
       expect(span).toBeGreaterThanOrEqual(1);
       expect(span).toBeLessThanOrEqual(3);
     }
+  });
+});
+
+describe("calendarWindowStart", () => {
+  const on = (iso: string) => new Date(`${iso}T12:00:00Z`);
+
+  it("has no start for all time", () => {
+    // No silent cut-off: the default window hides nothing.
+    expect(calendarWindowStart("all", on("2026-09-27"))).toBeNull();
+  });
+
+  it("starts the month, quarter, half and year containing the date", () => {
+    expect(calendarWindowStart("month", on("2026-09-27"))).toBe("2026-09-01");
+    expect(calendarWindowStart("quarter", on("2026-09-27"))).toBe("2026-07-01");
+    expect(calendarWindowStart("half", on("2026-09-27"))).toBe("2026-07-01");
+    expect(calendarWindowStart("year", on("2026-09-27"))).toBe("2026-01-01");
+  });
+
+  it("is right in the first month of a quarter and in the last", () => {
+    expect(calendarWindowStart("quarter", on("2026-04-01"))).toBe("2026-04-01");
+    expect(calendarWindowStart("quarter", on("2026-06-30"))).toBe("2026-04-01");
+  });
+
+  it("puts the first half of the year at January and the second at July", () => {
+    expect(calendarWindowStart("half", on("2026-06-30"))).toBe("2026-01-01");
+    expect(calendarWindowStart("half", on("2026-07-01"))).toBe("2026-07-01");
+  });
+
+  it("does not roll into the next year on 31 December", () => {
+    expect(calendarWindowStart("month", on("2026-12-31"))).toBe("2026-12-01");
+    expect(calendarWindowStart("quarter", on("2026-12-31"))).toBe("2026-10-01");
+    expect(calendarWindowStart("year", on("2026-12-31"))).toBe("2026-01-01");
   });
 });
