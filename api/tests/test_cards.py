@@ -156,14 +156,17 @@ def test_a_mark_belongs_to_one_period_only(
     assert january[0]["perks"][0]["current_period"]["is_used"] is False
 
 
-def test_marking_before_the_first_period_is_refused(
+def test_marking_before_the_anchor_records_that_period(
     client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
 ) -> None:
-    perk = add_perk(card_id, anchor_on="2027-01-01")
+    """Refused with 422 until ticket 076. The anchor is not when the credit began."""
+    perk = add_perk(card_id, cadence="annual", anchor_on="2027-01-01")
 
     response = client.post(f"/perks/{perk['id']}/redemptions", json={"on": "2026-06-15"})
 
-    assert response.status_code == 422
+    assert response.status_code == 200, response.text
+    body = client.get(f"/perks/{perk['id']}/periods", params={"on": "2026-06-15"}).json()
+    assert [p["start"] for p in body["periods"] if p["is_used"]] == ["2026-01-01"]
 
 
 # ── upcoming ──────────────────────────────────────────────────────────────────
@@ -623,7 +626,7 @@ def test_periods_report_exactly_the_recorded_ones_as_used(
         f"/perks/{perk['id']}/redemptions", json={"on": "2026-08-01", "amount_cents": 2_500}
     )
 
-    body = client.get(f"/perks/{perk['id']}/periods", params={"back": 8, "on": "2026-10-15"}).json()
+    body = client.get(f"/perks/{perk['id']}/periods", params={"back": 4, "on": "2026-10-15"}).json()
 
     assert body["cadence"] == "quarterly"
     assert [p["start"] for p in body["periods"]] == [
@@ -638,30 +641,56 @@ def test_periods_report_exactly_the_recorded_ones_as_used(
     assert [p["is_current"] for p in body["periods"]] == [False, False, False, True]
 
 
-def test_has_earlier_is_false_only_at_the_start_of_history(
+def test_there_is_always_more_history_to_ask_for(
     client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
 ) -> None:
-    """A row of chips looks identical at the beginning of history and in the middle."""
+    """Since ticket 076 there is no first period, so `has_earlier` is always true."""
     perk = add_perk(card_id, cadence="quarterly", anchor_on="2026-01-01")
 
-    whole = client.get(f"/perks/{perk['id']}/periods", params={"back": 8, "on": "2026-10-15"})
-    assert whole.json()["has_earlier"] is False
-
     windowed = client.get(f"/perks/{perk['id']}/periods", params={"back": 2, "on": "2026-10-15"})
+
     assert windowed.json()["has_earlier"] is True
     assert [p["start"] for p in windowed.json()["periods"]] == ["2026-07-01", "2026-10-01"]
 
 
-def test_periods_before_a_perk_starts_are_not_offered(
+def test_periods_before_the_anchor_are_offered_and_can_be_marked(
     client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
 ) -> None:
-    """Nothing to mark, rather than a window that never happened."""
-    perk = add_perk(card_id, cadence="monthly", anchor_on="2026-06-01")
+    """The reported bug, end to end.
 
-    body = client.get(f"/perks/{perk['id']}/periods", params={"on": "2026-05-31"}).json()
+    A monthly credit set up in August offered August and September and nothing else, so the
+    eight months before it could not be recorded at all.
+    """
+    perk = add_perk(card_id, cadence="monthly", anchor_on="2026-08-13")
 
-    assert body["periods"] == []
-    assert body["has_earlier"] is False
+    body = client.get(
+        f"/perks/{perk['id']}/periods", params={"back": 12, "on": "2026-09-27"}
+    ).json()
+
+    assert len(body["periods"]) == 12
+    assert body["periods"][0]["start"] == "2025-10-13"
+    # Every period of the current calendar year is reachable.
+    assert any(p["start"].startswith("2026-01") for p in body["periods"])
+
+    marked = client.post(f"/perks/{perk['id']}/redemptions", json={"on": "2026-01-13"})
+    assert marked.status_code == 200, marked.text
+
+    again = client.get(
+        f"/perks/{perk['id']}/periods", params={"back": 12, "on": "2026-09-27"}
+    ).json()
+    assert [p["start"] for p in again["periods"] if p["is_used"]] == ["2026-01-13"]
+
+
+def test_a_credit_whose_first_period_is_in_the_future_has_no_current_period(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    """The one thing the anchor still gates, kept working."""
+    perk = add_perk(card_id, cadence="monthly", anchor_on="2027-06-01")
+
+    card = client.get("/cards", params={"on": "2026-09-27"}).json()[0]
+    found = next(p for p in card["perks"] if p["id"] == perk["id"])
+
+    assert found["current_period"] is None
 
 
 def test_a_chips_own_start_date_marks_that_period(
@@ -675,15 +704,16 @@ def test_a_chips_own_start_date_marks_that_period(
     perk = add_perk(card_id, cadence="monthly", anchor_on="2026-01-31")
 
     listed = client.get(f"/perks/{perk['id']}/periods", params={"on": "2026-04-15"}).json()
-    second = listed["periods"][1]
+    # By index, not by position: the grid now runs back past the anchor, so index 1 is not
+    # the second row. Anchored on the 31st, period 1 runs 28 February to 31 March, because
+    # February has no 31st and periods step from the anchor rather than from each other.
+    second = next(p for p in listed["periods"] if p["index"] == 1)
     assert second["start"] == "2026-02-28"
 
     client.post(f"/perks/{perk['id']}/redemptions", json={"on": second["start"]})
     again = client.get(f"/perks/{perk['id']}/periods", params={"on": "2026-04-15"}).json()
 
-    # Three periods, not four: anchored on the 31st, period 1 runs 28 February to
-    # 31 March, so 15 April is only the third.
-    assert [p["is_used"] for p in again["periods"]] == [False, True, False]
+    assert [p["start"] for p in again["periods"] if p["is_used"]] == ["2026-02-28"]
 
 
 def test_periods_of_an_unknown_perk_is_a_404(client: TestClient) -> None:

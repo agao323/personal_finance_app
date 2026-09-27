@@ -60,7 +60,9 @@ class PerkPeriodState(Schema):
     start: dt.date
     #: Exclusive, like every other period boundary here.
     end: dt.date
-    #: Periods since the anchor. 0 is the perk's first.
+    #: Periods relative to the anchor. 0 is the one the anchor begins, and **negative
+    #: values are periods before it** — the anchor sets where a boundary falls, not when the
+    #: credit came into existence. See ticket 076.
     index: int
     is_used: bool
     #: The amount recorded, when a partial use was. `None` with `is_used` true means the
@@ -82,9 +84,10 @@ class PerkPeriodsRead(Schema):
     cadence: PerkCadence
     anchor_on: dt.date
     periods: list[PerkPeriodState]
-    #: Whether periods exist before the first one returned. The browser needs to know
-    #: whether a "show earlier" control has anything behind it; it cannot work this out
-    #: from the rows, which look the same at the start of history as in the middle of it.
+    #: Whether periods exist before the first one returned. **Always true** when any period
+    #: is returned: since ticket 076 there is no first period, so there is always more
+    #: history to ask for. What ends a "show earlier" control is the client's own ceiling
+    #: on `back`, not this flag.
     has_earlier: bool
 
 

@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
 
 import { ErrorState, Refreshing, Skeleton } from "@/components/states";
 import { apiFetch } from "@/lib/api";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { centsToInputValue, formatCurrency, formatDate, parseDollarsToCents } from "@/lib/format";
 import {
   PERIODS_BACK,
   PERIOD_NOUN,
@@ -63,6 +63,7 @@ export function PeriodGrid({
    */
   const [guesses, setGuesses] = useState<Record<string, boolean>>({});
   const [failed, setFailed] = useState<string | null>(null);
+  const [partialOpen, setPartialOpen] = useState(false);
 
   const key = `${back}|${revision}`;
   const data = loaded?.data ?? null;
@@ -171,15 +172,37 @@ export function PeriodGrid({
             ))}
           </div>
 
-          {data.has_earlier ? (
-            <button
-              type="button"
-              onClick={() => setPages((current) => current + 1)}
-              disabled={back >= MOST_PERIODS}
-              className="text-ink-secondary hover:text-ink mt-2 text-xs underline underline-offset-4 disabled:opacity-50"
-            >
-              Show earlier
-            </button>
+          {/* One row, so the two links do not run into each other. */}
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            {!partialOpen ? (
+              <button
+                type="button"
+                onClick={() => setPartialOpen(true)}
+                className="text-ink-secondary hover:text-ink text-xs underline underline-offset-4"
+              >
+                Used only part of one?
+              </button>
+            ) : null}
+            {data.has_earlier ? (
+              <button
+                type="button"
+                onClick={() => setPages((current) => current + 1)}
+                disabled={back >= MOST_PERIODS}
+                className="text-ink-secondary hover:text-ink text-xs underline underline-offset-4 disabled:opacity-50"
+              >
+                Show earlier
+              </button>
+            ) : null}
+          </div>
+
+          {partialOpen ? (
+            <PartialForm
+              perkId={perk.id}
+              cadence={cadence}
+              periods={data.periods}
+              onClose={() => setPartialOpen(false)}
+              onDone={onChange}
+            />
           ) : null}
         </>
       ) : null}
@@ -256,5 +279,137 @@ function PeriodChip({
         {second}
       </span>
     </button>
+  );
+}
+
+/**
+ * Record part of a period's value, for any period. (Ticket 077)
+ *
+ * `MarkButton` has had a "Part" control since 053, but only ever for the period you are in,
+ * so a credit you half-used in March could be recorded as all or nothing and no more.
+ *
+ * A separate control rather than a second gesture on the chip: tapping a used chip un-marks
+ * it, which is the common correction, and hiding an amount editor behind that tap would make
+ * undo a two-step operation in order to serve the rarer case. One tap still records the full
+ * value; the fast path does not get slower to make room for this.
+ */
+function PartialForm({
+  perkId,
+  cadence,
+  periods,
+  onClose,
+  onDone,
+}: {
+  perkId: number;
+  cadence: Cadence;
+  periods: PeriodState[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  // Newest first here, unlike the grid: the period you are correcting is usually a recent
+  // one, and a select is read from the top.
+  const choices = [...periods].reverse();
+  const [start, setStart] = useState(choices[0]?.start ?? "");
+  const chosen = choices.find((period) => period.start === start);
+  // Prefilled from whatever that period already has, so this reads as a correction rather
+  // than a blank form.
+  const [amount, setAmount] = useState(
+    choices[0]?.used_amount_cents != null ? centsToInputValue(choices[0].used_amount_cents) : "",
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    const cents = parseDollarsToCents(amount);
+    if (cents === null || cents <= 0) {
+      // Zero is not a partial use, it is an unused period, and the chip already says that.
+      setError("Enter how much of it you used.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      // The same endpoint one tap uses. It updates the amount when a period is already
+      // marked, so this corrects a full mark as readily as it records a new partial one.
+      await apiFetch("/perks/{perk_id}/redemptions", {
+        method: "post",
+        params: { perk_id: perkId },
+        body: { on: start, amount_cents: cents },
+      });
+      onClose();
+      onDone();
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : "That did not save.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="border-hairline/60 mt-2 border-t pt-2">
+      <div className="flex flex-wrap items-end gap-2">
+        <span className="flex flex-col gap-1">
+          <label htmlFor={`partial-period-${perkId}`} className="text-ink-muted text-[11px]">
+            Which {PERIOD_NOUN[cadence].one}
+          </label>
+          <select
+            id={`partial-period-${perkId}`}
+            value={start}
+            onChange={(event) => {
+              setStart(event.target.value);
+              const next = choices.find((period) => period.start === event.target.value);
+              setAmount(
+                next?.used_amount_cents != null ? centsToInputValue(next.used_amount_cents) : "",
+              );
+            }}
+            className="border-hairline bg-surface-1 rounded-md border px-2 py-1 text-sm"
+          >
+            {choices.map((period) => (
+              <option key={period.start} value={period.start}>
+                {periodLabel(cadence, period.start)}
+              </option>
+            ))}
+          </select>
+        </span>
+        <span className="flex flex-col gap-1">
+          <label htmlFor={`partial-amount-${perkId}`} className="text-ink-muted text-[11px]">
+            Amount used
+          </label>
+          <input
+            id={`partial-amount-${perkId}`}
+            type="text"
+            inputMode="decimal"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            className="border-hairline bg-surface-1 w-24 rounded-md border px-2 py-1 text-sm tabular-nums"
+          />
+        </span>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void save()}
+          className="bg-accent-bg text-accent-strong rounded-lg px-2.5 py-1 text-sm font-medium disabled:opacity-50"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-ink-secondary hover:text-ink text-sm underline underline-offset-4"
+        >
+          Cancel
+        </button>
+      </div>
+      {chosen && !chosen.is_used ? (
+        <p className="text-ink-muted mt-1 text-[11px]">
+          That {PERIOD_NOUN[cadence].one} is not marked yet. Saving marks it for this amount.
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-critical-text mt-1 text-xs">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }

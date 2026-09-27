@@ -56,7 +56,7 @@ export function PerkForm({
       return;
     }
     if (!anchor) {
-      setError("Enter the date this credit's first period began.");
+      setError("Enter a date one of this credit's periods starts on.");
       return;
     }
 
@@ -128,10 +128,15 @@ export function PerkForm({
           )}
         </Field>
         {/* The label alone is meaningless and a wrong value here silently shifts every
-            period for this credit. The hint is doing the work. */}
+            period for this credit. The hint is doing the work.
+
+            It used to say "First period began" and invite the day you opened the card, and
+            then the grid treated that date as the beginning of history — so a credit set up
+            in August offered two months and refused the rest. Ticket 076 made the anchor a
+            phase reference only, and this copy stops implying otherwise. */}
         <Field
-          label="First period began"
-          hint="1 January for a credit that resets on the calendar year, or the day you opened the card if it resets on your cardmember year."
+          label="Resets on"
+          hint="Any date one of this credit's periods starts — it sets where the reset falls, not when the credit began. 1 January for a credit that resets on the calendar year, or your card's anniversary if it resets on the cardmember year. Earlier periods can still be recorded."
         >
           {({ id, describedBy }) => (
             <input

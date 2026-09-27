@@ -53,12 +53,30 @@ export function CardDetail({
   const [editingFee, setEditingFee] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [removing, setRemoving] = useState(false);
+  /**
+   * Which credits have their period grid open. (Ticket 078)
+   *
+   * Held here rather than in each row, because "is any of them open" is a question no single
+   * row can answer, and closing them one at a time is the thing being fixed.
+   *
+   * Deliberately not persisted: a card that reopens with six grids expanded is worse than
+   * one that reopens closed.
+   */
+  const [openGrids, setOpenGrids] = useState<ReadonlySet<number>>(new Set());
+
+  const toggleGrid = (perkId: number) =>
+    setOpenGrids((current) => {
+      const next = new Set(current);
+      if (!next.delete(perkId)) next.add(perkId);
+      return next;
+    });
 
   const grouped = CADENCE_ORDER.map((cadence) => ({
     cadence,
     perks: card.perks.filter((perk) => perk.cadence === cadence && perk.is_active),
   })).filter((group) => group.perks.length > 0);
   const retired = card.perks.filter((perk) => !perk.is_active);
+  const anyOpen = openGrids.size > 0;
 
   return (
     <div>
@@ -176,7 +194,21 @@ export function CardDetail({
       </section>
 
       <section className="border-hairline bg-surface-1 mt-4 rounded-xl border p-4">
-        <h2 className="text-sm font-medium">Credits</h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-medium">Credits</h2>
+          {/* One control, both directions. Its label says which it will do. */}
+          {card.perks.length > 0 ? (
+            <button
+              type="button"
+              onClick={() =>
+                setOpenGrids(anyOpen ? new Set() : new Set(card.perks.map((perk) => perk.id)))
+              }
+              className="text-ink-secondary hover:text-ink text-xs underline underline-offset-4"
+            >
+              {anyOpen ? "Hide all periods" : "Show all periods"}
+            </button>
+          ) : null}
+        </div>
 
         {grouped.length === 0 && retired.length === 0 ? (
           <p className="text-ink-muted mt-2 text-xs">
@@ -197,6 +229,8 @@ export function CardDetail({
                   accountId={card.account_id}
                   perk={perk}
                   revision={revision}
+                  showingPeriods={openGrids.has(perk.id)}
+                  onTogglePeriods={() => toggleGrid(perk.id)}
                   onChange={onChange}
                 />
               ))}
@@ -217,6 +251,8 @@ export function CardDetail({
                   accountId={card.account_id}
                   perk={perk}
                   revision={revision}
+                  showingPeriods={openGrids.has(perk.id)}
+                  onTogglePeriods={() => toggleGrid(perk.id)}
                   onChange={onChange}
                 />
               ))}
@@ -341,15 +377,19 @@ function PerkRowItem({
   accountId,
   perk,
   revision,
+  showingPeriods,
+  onTogglePeriods,
   onChange,
 }: {
   accountId: number;
   perk: Perk;
   revision: number;
+  /** Owned by the card, so one control can close every grid at once. Ticket 078. */
+  showingPeriods: boolean;
+  onTogglePeriods: () => void;
   onChange: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [showingPeriods, setShowingPeriods] = useState(false);
   const period = perk.current_period;
   const noun = PERIOD_NOUN[perk.cadence as Cadence];
 
@@ -396,14 +436,14 @@ function PerkRowItem({
           ) : null}
           {period && perk.is_active ? <MarkButton perk={perk} onChange={onChange} /> : null}
           <IconButton
-            label={`Edit ${perk.name} — its value, how often it resets, or when its first period began`}
+            label={`Edit ${perk.name} — its value, how often it resets, or what date it resets on`}
             onClick={() => setEditing(true)}
           >
             <PencilIcon />
           </IconButton>
           <IconButton
             label={`Which ${noun.many} you used ${perk.name} in — tap a ${noun.one} to record one you forgot`}
-            onClick={() => setShowingPeriods((current) => !current)}
+            onClick={onTogglePeriods}
           >
             <HistoryIcon />
           </IconButton>

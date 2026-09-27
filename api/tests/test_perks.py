@@ -49,7 +49,6 @@ def test_calendar_anchored_periods(
 ) -> None:
     period = period_containing(cadence, D(2026, 1, 1), on)
 
-    assert period is not None
     assert (period.start, period.end) == (start, end)
 
 
@@ -74,19 +73,24 @@ def test_a_date_on_the_boundary_belongs_to_the_later_period() -> None:
     """Half-open, so `start` is in the period and `end` is not."""
     period = period_containing(PerkCadence.ANNUAL, D(2026, 1, 1), D(2027, 1, 1))
 
-    assert period is not None
     assert period.start == D(2027, 1, 1)
 
 
-def test_a_date_before_the_anchor_is_in_no_period() -> None:
-    """Not "period -1" — a question about a perk that did not exist yet."""
-    assert period_containing(PerkCadence.ANNUAL, D(2026, 1, 1), D(2025, 12, 31)) is None
+def test_a_date_before_the_anchor_is_period_minus_one() -> None:
+    """Ticket 076 reversed this. It used to be None.
+
+    The anchor says where a boundary falls, not when the credit came into existence, and
+    people enter the day they set the credit up in the app. Treating that as the beginning
+    of history made the grid refuse to record uses there was no reason to doubt.
+    """
+    period = period_containing(PerkCadence.ANNUAL, D(2026, 1, 1), D(2025, 12, 31))
+
+    assert (period.start, period.end, period.index) == (D(2025, 1, 1), D(2026, 1, 1), -1)
 
 
 def test_the_anchor_day_itself_is_the_first_period() -> None:
     period = period_containing(PerkCadence.MONTHLY, D(2026, 3, 10), D(2026, 3, 10))
 
-    assert period is not None
     assert (period.start, period.index) == (D(2026, 3, 10), 0)
 
 
@@ -330,9 +334,30 @@ def test_period_at_and_period_containing_are_inverses(index: int) -> None:
     assert (resolved.start, resolved.end) == (period.start, period.end)
 
 
-def test_period_at_refuses_a_period_before_the_anchor() -> None:
-    with pytest.raises(ValueError, match="no periods"):
-        period_at(PerkCadence.MONTHLY, D(2026, 1, 1), -1)
+@pytest.mark.parametrize("index", [-1, -2, -8, -13])
+def test_period_at_and_period_containing_are_inverses_before_the_anchor(index: int) -> None:
+    """The same round-trip property, on the side of the anchor that used to be refused.
+
+    `add_months` handles a negative span because Python floors both division and modulo
+    toward negative infinity — month -3 lands in October of the previous year. Asserted
+    rather than assumed.
+    """
+    anchor = D(2026, 8, 13)
+
+    period = period_at(PerkCadence.MONTHLY, anchor, index)
+    resolved = period_containing(PerkCadence.MONTHLY, anchor, period.start)
+
+    assert period.start < period.end
+    assert resolved.index == index
+    assert (resolved.start, resolved.end) == (period.start, period.end)
+
+
+def test_negative_periods_cross_the_year_boundary_correctly() -> None:
+    """The case the floor-division reasoning is actually about."""
+    # Eight months before 13 August 2026 is 13 December 2025, not 13 December 2026.
+    period = period_at(PerkCadence.MONTHLY, D(2026, 8, 13), -8)
+
+    assert (period.start, period.end) == (D(2025, 12, 13), D(2026, 1, 13))
 
 
 def test_recent_periods_ends_with_the_one_containing_the_date() -> None:
@@ -343,24 +368,42 @@ def test_recent_periods_ends_with_the_one_containing_the_date() -> None:
     assert periods[-1].start <= D(2026, 6, 15) < periods[-1].end
 
 
-def test_recent_periods_on_the_anchor_itself_is_one_period() -> None:
+def test_recent_periods_on_the_anchor_itself_still_offers_a_full_year() -> None:
+    """Twelve chips, ending at the anchor's own period."""
     periods = recent_periods(PerkCadence.MONTHLY, D(2026, 1, 31), D(2026, 1, 31), 12)
 
-    assert [p.index for p in periods] == [0]
-    assert periods[0].start == D(2026, 1, 31)
+    assert len(periods) == 12
+    assert periods[-1].index == 0
+    assert periods[-1].start == D(2026, 1, 31)
+    assert periods[0].start == D(2025, 2, 28)
 
 
-def test_recent_periods_is_empty_the_day_before_the_anchor() -> None:
-    """Not a period with index -1. That window never happened."""
-    assert recent_periods(PerkCadence.MONTHLY, D(2026, 1, 31), D(2026, 1, 30), 12) == []
+def test_recent_periods_does_not_clip_at_the_anchor() -> None:
+    """The bug ticket 076 fixes, as a test.
+
+    A monthly credit anchored 13 August offered exactly two chips — August and September —
+    and no way at all to record the eight months before it.
+    """
+    periods = recent_periods(PerkCadence.MONTHLY, D(2026, 8, 13), D(2026, 9, 27), 12)
+
+    assert len(periods) == 12
+    assert [periods[0].start, periods[-1].start] == [D(2025, 10, 13), D(2026, 9, 13)]
 
 
-def test_recent_periods_clips_to_the_perks_age() -> None:
-    """A perk two months old offers two chips, not twelve."""
-    periods = recent_periods(PerkCadence.MONTHLY, D(2026, 1, 31), D(2026, 3, 15), 12)
+def test_recent_periods_covers_the_whole_calendar_year_at_every_cadence() -> None:
+    """`PERIODS_BACK` in the browser promises the current year. This is what makes it true.
 
-    assert [p.index for p in periods] == [0, 1]
-    assert [p.start for p in periods] == [D(2026, 1, 31), D(2026, 2, 28)]
+    Checked on the last day of the year, when the year holds the most periods it ever will.
+    """
+    depth = {
+        PerkCadence.MONTHLY: 12,
+        PerkCadence.QUARTERLY: 8,
+        PerkCadence.SEMIANNUAL: 4,
+        PerkCadence.ANNUAL: 3,
+    }
+    for cadence, count in depth.items():
+        periods = recent_periods(cadence, D(2026, 1, 1), D(2026, 12, 31), count)
+        assert periods[0].start <= D(2026, 1, 1), cadence
 
 
 def test_recent_periods_counts_periods_not_days() -> None:
@@ -373,3 +416,10 @@ def test_recent_periods_counts_periods_not_days() -> None:
 
 def test_recent_periods_of_none_is_empty() -> None:
     assert recent_periods(PerkCadence.ANNUAL, D(2026, 1, 1), D(2026, 6, 1), 0) == []
+
+
+def test_recent_periods_ends_at_the_date_asked_about_not_at_the_anchor() -> None:
+    """A future anchor still reports the period containing today, not the anchor's."""
+    periods = recent_periods(PerkCadence.MONTHLY, D(2027, 5, 1), D(2026, 9, 27), 3)
+
+    assert periods[-1].start <= D(2026, 9, 27) < periods[-1].end

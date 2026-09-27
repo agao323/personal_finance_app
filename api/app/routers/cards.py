@@ -84,9 +84,12 @@ def _to_read(session: Session, perk: CardPerk, on: dt.date) -> PerkRead:
     there is exactly one implementation of what window a date is in — the same rule that
     keeps rounding inside `services/ownership.py`.
     """
-    period = perk_service.period_containing(perk.cadence, perk.anchor_on, on)
+    # **The one thing the anchor still gates**: a credit whose first period is in the future
+    # has no current period. Asked here, as one comparison that says what it means, rather
+    # than by `period_containing` answering None to two different questions (ticket 076).
     current: PerkPeriodRead | None = None
-    if period is not None:
+    if perk.anchor_on <= on:
+        period = perk_service.period_containing(perk.cadence, perk.anchor_on, on)
         redemption = _redeemed(session, perk.id, period.start)
         remaining = period.days_remaining(on)
         current = PerkPeriodRead(
@@ -281,12 +284,10 @@ def mark_used(
     """
     perk = _perk(session, perk_id)
     on = payload.on or dt.date.today()
+    # Any date resolves to a period, including one before the anchor. See ticket 076: the
+    # anchor sets where a boundary falls, not when the credit came into existence, and
+    # refusing a backfill on that basis refused uses there was no reason to doubt.
     period = perk_service.period_containing(perk.cadence, perk.anchor_on, on)
-    if period is None:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="That date is before this perk's first period",
-        )
 
     amount = from_cents(payload.amount_cents) if payload.amount_cents is not None else None
     existing = _redeemed(session, perk.id, period.start)
@@ -321,14 +322,13 @@ def mark_unused(
     perk = _perk(session, perk_id)
     day = on or dt.date.today()
     period = perk_service.period_containing(perk.cadence, perk.anchor_on, day)
-    if period is not None:
-        session.execute(
-            delete(PerkRedemption).where(
-                PerkRedemption.perk_id == perk.id,
-                PerkRedemption.period_start == period.start,
-            )
+    session.execute(
+        delete(PerkRedemption).where(
+            PerkRedemption.perk_id == perk.id,
+            PerkRedemption.period_start == period.start,
         )
-        session.flush()
+    )
+    session.flush()
     return _to_read(session, perk, day)
 
 
@@ -378,9 +378,7 @@ def _history(
                 account_id=account.id,
                 card_name=account.name,
                 period_start=redemption.period_start,
-                # A stored period_start always resolves, but fall back rather than
-                # raising: a perk whose anchor was edited later must not break history.
-                period_end=period.end if period else redemption.period_start,
+                period_end=period.end,
                 cadence=perk.cadence,
                 realised_cents=to_cents(value),
                 is_face_value=redemption.amount is None,
@@ -405,12 +403,13 @@ def _history(
                 select(PerkRedemption).where(PerkRedemption.perk_id == perk.id)
             ).scalars()
         }
+        # Still from the anchor, not from the beginning of time. A period before the credit
+        # was set up can now be *recorded* (ticket 076), but calling it missed would invent
+        # an obligation out of a date someone typed into a form.
         cursor = max(perk.anchor_on, from_date) if from_date else perk.anchor_on
         horizon = min(to_date, today) if to_date else today
         while cursor <= horizon:
             period = perk_service.period_containing(perk.cadence, perk.anchor_on, cursor)
-            if period is None:
-                break
             # Only periods that have actually ended can be called missed. The current one
             # is still spendable.
             if period.end <= today and period.start not in recorded:
@@ -533,7 +532,9 @@ def perk_periods(
         perk_id=perk.id,
         cadence=perk.cadence,
         anchor_on=perk.anchor_on,
-        has_earlier=bool(windows) and windows[0].index > 0,
+        # Always true since ticket 076: the anchor is not a start date, so there is no
+        # first period. What ends "show earlier" is the client's own cap on `back`.
+        has_earlier=bool(windows),
         periods=states,
     )
 

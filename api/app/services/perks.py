@@ -94,14 +94,18 @@ def add_months(day: dt.date, months: int) -> dt.date:
 
 
 def period_at(cadence: PerkCadence, anchor_on: dt.date, index: int) -> Period:
-    """The `index`-th period since the anchor. 0 is the first.
+    """The `index`-th period relative to the anchor. 0 is the one the anchor begins.
+
+    **Negative indices are periods before the anchor, and they are legitimate** (ticket 076).
+    `anchor_on` says where a boundary falls, not when the credit came into existence: it is
+    what makes a monthly credit reset on the 13th rather than the 1st. People routinely enter
+    the day they set the credit up in this app, and treating that as the beginning of history
+    made the grid refuse to record uses it had no reason to doubt.
 
     The inverse of `period_containing`, and the two must agree: a period built from an
     index must contain its own start, and `period_containing` asked about that start must
     return the same index. Both step from the anchor for the reason `add_months` explains.
     """
-    if index < 0:
-        raise ValueError("A perk has no periods before its anchor")
     step = MONTHS[cadence]
     return Period(
         start=add_months(anchor_on, index * step),
@@ -118,30 +122,26 @@ def recent_periods(
     Oldest first because that is reading order for a row of months, and the newest being
     last puts the current period nearest the controls that act on it.
 
-    Fewer than `count` when the perk has not existed that long, and empty when `on` is
-    before the anchor. Never a negative index: a period before a perk's first one is not
-    a period you could have used, and offering it would let a redemption be recorded
-    against a window that never happened.
+    Always `count` periods, including ones before the anchor. It used to stop at the anchor,
+    which meant a monthly credit set up in August offered two chips and no way to record the
+    eight months before it — see `period_at` for why the anchor is not a start date.
     """
     if count <= 0:
         return []
     current = period_containing(cadence, anchor_on, on)
-    if current is None:
-        return []
-    first = max(0, current.index - count + 1)
+    first = current.index - count + 1
     return [period_at(cadence, anchor_on, index) for index in range(first, current.index + 1)]
 
 
-def period_containing(cadence: PerkCadence, anchor_on: dt.date, on: dt.date) -> Period | None:
-    """The period `on` falls in, or None if `on` is before the perk's first period.
+def period_containing(cadence: PerkCadence, anchor_on: dt.date, on: dt.date) -> Period:
+    """The period `on` falls in. Always answers.
 
-    None rather than a negative index: a date before the anchor is not "period -1", it
-    is a question about a perk that did not exist yet, and returning a window for it
-    would let a redemption be recorded against a period that never happened.
+    It used to return None for a date before the anchor. That conflated two different
+    questions — "has this credit started yet?" and "which window is this date in?" — and only
+    the first has anything to do with the anchor. Callers that care whether a credit has
+    started compare the anchor to the date themselves, which is one comparison and says what
+    it means.
     """
-    if on < anchor_on:
-        return None
-
     step = MONTHS[cadence]
     # An estimate from plain month arithmetic, then corrected. The estimate can be off
     # by one in either direction because of day-of-month clamping, and correcting is
@@ -149,7 +149,7 @@ def period_containing(cadence: PerkCadence, anchor_on: dt.date, on: dt.date) -> 
     months_between = (on.year - anchor_on.year) * 12 + (on.month - anchor_on.month)
     index = months_between // step
 
-    while index > 0 and add_months(anchor_on, index * step) > on:
+    while add_months(anchor_on, index * step) > on:
         index -= 1
     while add_months(anchor_on, (index + 1) * step) <= on:
         index += 1

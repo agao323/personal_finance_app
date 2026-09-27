@@ -21,7 +21,7 @@ describe("PerkForm", () => {
 
     await userEvent.type(screen.getByLabelText("Name"), "Lounge access");
     await userEvent.type(screen.getByLabelText("Value"), "200");
-    await userEvent.type(screen.getByLabelText("First period began"), "2026-01-01");
+    await userEvent.type(screen.getByLabelText("Resets on"), "2026-01-01");
     await userEvent.click(screen.getByRole("button", { name: "Add credit" }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalled());
@@ -58,7 +58,7 @@ describe("PerkForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add credit" }));
 
     // Matched on the error sentence, not the label — a looser regex hits both.
-    expect(await screen.findByText(/Enter the date this credit/)).toBeInTheDocument();
+    expect(await screen.findByText(/Enter a date one of this credit/)).toBeInTheDocument();
   });
 
   it("explains the anchor date, because the label alone does not", () => {

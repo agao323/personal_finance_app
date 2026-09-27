@@ -301,3 +301,73 @@ describe("chips of equal height (074)", () => {
     expect(chips()[0].getAttribute("aria-label")).not.toContain("current period");
   });
 });
+
+describe("a partial amount for any period (077)", () => {
+  function postedBodies() {
+    const bodies: unknown[] = [];
+    server.use(
+      http.get("/api/perks/:id/periods", () => HttpResponse.json(THREE_MONTHS)),
+      http.post("/api/perks/:id/redemptions", async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json(perk);
+      }),
+    );
+    return bodies;
+  }
+
+  it("records part of a past period, not only the current one", async () => {
+    // "Part" existed on the mark button, but only ever for the period you are in, so a
+    // credit half-used in March was all or nothing.
+    const bodies = postedBodies();
+    const onChange = vi.fn();
+    render(<PeriodGrid perk={perk} revision={0} onChange={onChange} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Used only part of one?" }));
+    await userEvent.selectOptions(screen.getByLabelText("Which month"), "2026-03-01");
+    await userEvent.type(screen.getByLabelText("Amount used"), "12");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(bodies).toEqual([{ on: "2026-03-01", amount_cents: 1_200 }]));
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it("corrects a period already marked at full value", async () => {
+    const bodies = postedBodies();
+    render(<PeriodGrid perk={perk} revision={0} onChange={() => {}} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Used only part of one?" }));
+    await userEvent.selectOptions(screen.getByLabelText("Which month"), "2026-04-01");
+    await userEvent.type(screen.getByLabelText("Amount used"), "7.50");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    // Same endpoint as one tap; it updates the amount when the period is already marked.
+    await waitFor(() => expect(bodies).toEqual([{ on: "2026-04-01", amount_cents: 750 }]));
+  });
+
+  it("refuses an empty or zero amount rather than recording an unused period", async () => {
+    // Zero is not a partial use. It is an unused period, and the chip already says that.
+    postedBodies();
+    render(<PeriodGrid perk={perk} revision={0} onChange={() => {}} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Used only part of one?" }));
+    await userEvent.type(screen.getByLabelText("Amount used"), "0");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Enter how much of it you used");
+  });
+
+  it("names the period by its cadence in the chooser", async () => {
+    server.use(
+      http.get("/api/perks/:id/periods", () =>
+        HttpResponse.json({ ...THREE_MONTHS, cadence: "quarterly" as const }),
+      ),
+    );
+    render(
+      <PeriodGrid perk={{ ...perk, cadence: "quarterly" }} revision={0} onChange={() => {}} />,
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Used only part of one?" }));
+
+    expect(screen.getByLabelText("Which quarter")).toBeInTheDocument();
+  });
+});

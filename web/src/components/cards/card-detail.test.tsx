@@ -245,3 +245,47 @@ describe("acting on the card (072)", () => {
     await waitFor(() => expect(pushed).toHaveBeenCalledWith("/cards"));
   });
 });
+
+describe("opening every period grid at once (078)", () => {
+  it("opens all of them when none is open", async () => {
+    render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Show all periods" }));
+
+    // One grid per credit on the card.
+    expect(await screen.findAllByText(/Which .* did you use this in\?/)).toHaveLength(
+      cards[0].perks.length,
+    );
+  });
+
+  it("closes all of them when any is open, so they need not be clicked shut one by one", async () => {
+    render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /^Which years you used Travel credit in/ }),
+    );
+    await screen.findByText(/Which years did you use this in\?/);
+
+    await userEvent.click(screen.getByRole("button", { name: "Hide all periods" }));
+
+    expect(screen.queryByText(/did you use this in\?/)).not.toBeInTheDocument();
+  });
+
+  it("says which way the toggle goes", async () => {
+    render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
+
+    expect(screen.getByRole("button", { name: "Show all periods" })).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /^Which years you used Travel credit in/ }),
+    );
+
+    expect(screen.getByRole("button", { name: "Hide all periods" })).toBeInTheDocument();
+  });
+
+  it("offers no toggle on a card with no credits", () => {
+    render(<CardDetail card={{ ...cards[0], perks: [] }} revision={0} onChange={() => {}} />);
+
+    expect(screen.queryByRole("button", { name: /all periods/ })).not.toBeInTheDocument();
+  });
+});
