@@ -135,12 +135,15 @@ class CardRead(Schema):
     active_perk_count: int
     #: The annual fee, when one is recorded. Absent is not zero.
     annual_fee_cents: Cents | None = None
+    #: When the fee is next charged. Informational: it anchors nothing. Until ticket 073 it
+    #: anchored a "fee year" that the realised figure was measured against, which made the
+    #: figure unavailable whenever this was blank and wrong for the first months of every
+    #: fee year.
     fee_renews_on: dt.date | None = None
-    #: Value realised in the current fee year — redemption amounts, falling back to face
-    #: value. `None` when no fee is recorded, because the figure has nothing to be
-    #: measured against.
-    realised_this_fee_year_cents: Cents | None = None
-    fee_year_start: dt.date | None = None
+    #: Value realised in the calendar year — redemption amounts, falling back to face
+    #: value. Always present: it needs no fee to be measured against, and a card with
+    #: recorded uses and no fee still has an answer.
+    realised_this_year_cents: Cents = 0
 
 
 class RedemptionRead(Schema):

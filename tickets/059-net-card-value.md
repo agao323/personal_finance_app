@@ -1,5 +1,6 @@
 # 059 — Is this card paying for itself?
 Status: done
+Superseded by: 073 (the window became the calendar year; the fee year is gone)
 Wave: 7   Lane: W5
 Blocked by: 053, 054
 Read first: tickets/053-card-perks-schema-for-partial-use-and-fees.md

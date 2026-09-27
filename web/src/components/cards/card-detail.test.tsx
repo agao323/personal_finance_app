@@ -128,13 +128,15 @@ describe("the annual fee (062, 072)", () => {
   it("offers to add a fee when none is recorded", () => {
     render(
       <CardDetail
-        card={{ ...cards[0], annual_fee_cents: null, realised_this_fee_year_cents: null }}
+        card={{ ...cards[0], annual_fee_cents: null, realised_this_year_cents: 0 }}
         revision={0}
         onChange={() => {}}
       />,
     );
 
     expect(screen.getByRole("button", { name: "Add" })).toBeInTheDocument();
+    // And the realised figure is still there: it is not about the fee.
+    expect(screen.getByText("Realised this year")).toBeInTheDocument();
   });
 
   it("puts the control with the figure it edits, not in the panel header", async () => {
@@ -147,13 +149,31 @@ describe("the annual fee (062, 072)", () => {
     expect(within(figure!).getByText("$695.00")).toBeInTheDocument();
   });
 
+  it("says when the fee is charged, under the fee", async () => {
+    // The date is the deadline for deciding whether to keep the card, so it belongs with
+    // the fee. It anchors nothing since ticket 073.
+    render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
+
+    const figure = screen.getByText("Annual fee").parentElement;
+    expect(within(figure!).getByText("Charged Mar 1, 2026")).toBeInTheDocument();
+  });
+
+  it("puts no detail line under the realised figure", async () => {
+    // The window is the calendar year, which the label says, and the history panel below
+    // reports the same number under "This year".
+    render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
+
+    const figure = screen.getByText("Realised this year").parentElement;
+    expect(figure?.textContent).toBe("Realised this year$25.00");
+  });
+
   it("keeps the figures visible while the fee is being edited", async () => {
     // Ticket 070's rule: nothing that is still true gets unmounted.
     render(<CardDetail card={cards[0]} revision={0} onChange={() => {}} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Edit" }));
 
-    expect(screen.getByText("Realised this fee year")).toBeInTheDocument();
+    expect(screen.getByText("Realised this year")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save fee" })).toBeInTheDocument();
   });
 });

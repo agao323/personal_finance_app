@@ -248,3 +248,56 @@ describe("naming the period", () => {
     expect(screen.getByText(/for that quarter/)).toBeInTheDocument();
   });
 });
+
+describe("chips of equal height (074)", () => {
+  it("gives every chip the same number of lines, current or not", async () => {
+    // A conditional second line made the row holding the current period taller than the
+    // rows around it, and the grid stepped.
+    render(<PeriodGrid perk={perk} revision={0} onChange={() => {}} />);
+
+    await waitFor(() => expect(chips()).toHaveLength(6));
+
+    // Every chip has a second line, and every second line has content in it. An empty one
+    // collapses its line box in a real browser, which is the unevenness itself — and is
+    // invisible to jsdom, which does no layout.
+    for (const chip of chips()) {
+      const lines = chip.querySelectorAll("span");
+      expect(lines).toHaveLength(2);
+      expect(lines[1].textContent?.length ?? 0).toBeGreaterThan(0);
+    }
+    expect(chips().at(-1)?.textContent).toContain("now");
+  });
+
+  it("keeps a chip carrying an amount the same height as its neighbours", async () => {
+    server.use(
+      http.get("/api/perks/:id/periods", () =>
+        HttpResponse.json({
+          ...THREE_MONTHS,
+          periods: THREE_MONTHS.periods.map((period) =>
+            period.start === "2026-04-01"
+              ? { ...period, is_used: true, used_amount_cents: 1_200 }
+              : period,
+          ),
+        }),
+      ),
+    );
+    render(<PeriodGrid perk={perk} revision={0} onChange={() => {}} />);
+
+    await waitFor(() => expect(chips()).toHaveLength(3));
+
+    for (const chip of chips()) {
+      const lines = chip.querySelectorAll("span");
+      expect(lines).toHaveLength(2);
+      expect(lines[1].textContent?.length ?? 0).toBeGreaterThan(0);
+    }
+    expect(screen.getByText("$12.00")).toBeInTheDocument();
+  });
+
+  it("says which period is current in its accessible name, not by the ring alone", async () => {
+    render(<PeriodGrid perk={perk} revision={0} onChange={() => {}} />);
+
+    await waitFor(() => expect(chips()).toHaveLength(6));
+    expect(chips().at(-1)?.getAttribute("aria-label")).toContain("current period");
+    expect(chips()[0].getAttribute("aria-label")).not.toContain("current period");
+  });
+});

@@ -501,8 +501,8 @@ def test_a_card_reports_its_fee_and_what_it_realised(
     card = client.get("/cards", params={"on": "2026-06-15"}).json()[0]
 
     assert card["annual_fee_cents"] == 69_500
-    assert card["fee_year_start"] == "2026-03-01"
-    assert card["realised_this_fee_year_cents"] == 7_500
+    assert card["fee_renews_on"] == "2026-03-01"
+    assert card["realised_this_year_cents"] == 7_500
 
 
 def test_a_card_with_no_fee_reports_none_not_zero(
@@ -514,7 +514,92 @@ def test_a_card_with_no_fee_reports_none_not_zero(
     card = client.get("/cards", params={"on": "2026-06-15"}).json()[0]
 
     assert card["annual_fee_cents"] is None
-    assert card["realised_this_fee_year_cents"] is None
+    # The realised figure is not about the fee and does not wait for one.
+    assert card["realised_this_year_cents"] == 0
+
+
+def test_realised_value_needs_no_renewal_date(
+    client: TestClient,
+    db_session: Session,
+    card_id: int,
+    add_perk: Callable[..., dict[str, object]],
+) -> None:
+    """A fee with no date recorded still reports what the card realised.
+
+    Before ticket 073 this was `null`: the figure was measured against a fee year the
+    renewal date anchored, so a blank date meant no answer at all.
+    """
+    db_session.execute(
+        text("UPDATE accounts SET annual_fee = 695.00 WHERE id = :i"), {"i": card_id}
+    )
+    perk = add_perk(card_id, value_cents=20_000, anchor_on="2026-01-01")
+    client.post(f"/perks/{perk['id']}/redemptions", json={"on": "2026-06-15"})
+
+    card = client.get("/cards", params={"on": "2026-06-15"}).json()[0]
+
+    assert card["fee_renews_on"] is None
+    assert card["realised_this_year_cents"] == 20_000
+
+
+def test_realised_counts_a_credit_in_the_year_its_period_began(
+    client: TestClient,
+    db_session: Session,
+    card_id: int,
+    add_perk: Callable[..., dict[str, object]],
+) -> None:
+    """The bug the fee year had, stated as a test.
+
+    A calendar-year credit spent in January belongs to that year and to no other. Under the
+    old overlap rule it also counted against a fee year beginning the following March, so
+    on day two of a new fee year the card claimed $200 of the $695 just charged.
+    """
+    db_session.execute(
+        text("UPDATE accounts SET annual_fee = 695.00, fee_renews_on = '2026-03-01' WHERE id = :i"),
+        {"i": card_id},
+    )
+    perk = add_perk(card_id, value_cents=20_000, cadence="annual", anchor_on="2026-01-01")
+    client.post(f"/perks/{perk['id']}/redemptions", json={"on": "2026-01-15"})
+
+    in_year = client.get("/cards", params={"on": "2026-03-02"}).json()[0]
+    next_year = client.get("/cards", params={"on": "2027-03-02"}).json()[0]
+
+    # Still 2026: the period began in January and January is in this year.
+    assert in_year["realised_this_year_cents"] == 20_000
+    # 2027: that use belonged to 2026 and is not borrowed forward.
+    assert next_year["realised_this_year_cents"] == 0
+
+
+def test_realised_starts_at_1_january_exactly(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    """The boundary, pinned. A window of roughly the right size can still be wrong."""
+    perk = add_perk(card_id, value_cents=2_500, cadence="monthly", anchor_on="2025-12-01")
+    client.post(f"/perks/{perk['id']}/redemptions", json={"on": "2025-12-10"})
+    client.post(f"/perks/{perk['id']}/redemptions", json={"on": "2026-01-10"})
+
+    card = client.get("/cards", params={"on": "2026-06-15"}).json()[0]
+
+    # December belongs to 2025 and is not borrowed into 2026. One period, not two.
+    assert card["realised_this_year_cents"] == 2_500
+
+
+def test_realised_agrees_with_the_history_panels_year_window(
+    client: TestClient, card_id: int, add_perk: Callable[..., dict[str, object]]
+) -> None:
+    """Two figures on one screen, one rule. This is the whole point of ticket 073."""
+    monthly = add_perk(card_id, name="Dining", value_cents=2_500, cadence="monthly")
+    annual = add_perk(card_id, name="Travel", value_cents=20_000, cadence="annual")
+    client.post(f"/perks/{monthly['id']}/redemptions", json={"on": "2026-02-10"})
+    client.post(f"/perks/{monthly['id']}/redemptions", json={"on": "2026-05-10"})
+    client.post(f"/perks/{annual['id']}/redemptions", json={"on": "2026-04-01"})
+
+    card = client.get("/cards", params={"on": "2026-06-15"}).json()[0]
+    history = client.get(
+        "/cards/history",
+        params={"from": "2026-01-01", "account_id": card_id, "on": "2026-06-15"},
+    ).json()
+
+    assert card["realised_this_year_cents"] == history["realised_cents"] == 25_000
 
 
 def test_renaming_a_card_works(client: TestClient, card_id: int) -> None:

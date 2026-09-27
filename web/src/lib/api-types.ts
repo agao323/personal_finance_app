@@ -1200,8 +1200,6 @@ export interface components {
       annual_fee_cents?: number | null;
       /** Fee Renews On */
       fee_renews_on?: string | null;
-      /** Fee Year Start */
-      fee_year_start?: string | null;
       /** Institution */
       institution?: string | null;
       /** Is Closed */
@@ -1210,8 +1208,12 @@ export interface components {
       name: string;
       /** Perks */
       perks: components["schemas"]["PerkRead"][];
-      /** Realised This Fee Year Cents */
-      realised_this_fee_year_cents?: number | null;
+      /**
+       * Realised This Year Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       * @default 0
+       */
+      realised_this_year_cents: number;
       /**
        * Unused Cents
        * @description Amount in integer cents. 1234 means $12.34.

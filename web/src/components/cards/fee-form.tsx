@@ -1,13 +1,17 @@
 "use client";
 
 /**
- * A card's annual fee. (Ticket 062)
+ * A card's annual fee. (Tickets 062, 073)
  *
  * The column has existed since 053 and 059 renders the figures, but nothing could set it.
  *
- * **Clearing means null, not zero.** A card with no fee recorded shows no net-value panel
- * at all; a card with a $0 fee is a different and rarer claim, and conflating them would
- * make "I have not filled this in" indistinguishable from "this card is free".
+ * **The renewal date is optional.** It used to anchor the window the realised figure was
+ * measured against, so leaving it blank meant no figure at all. Since 073 it only says when
+ * you next get charged.
+ *
+ * **Clearing means null, not zero.** A card with no fee recorded shows an em dash; a card
+ * with a $0 fee is a different and rarer claim, and conflating them would make "I have not
+ * filled this in" indistinguishable from "this card is free".
  */
 
 import { useState } from "react";
@@ -40,10 +44,6 @@ export function FeeForm({
         setError("Enter the fee, like 695 or 0.");
         return;
       }
-      if (!renews) {
-        setError("Enter the date the fee is charged each year.");
-        return;
-      }
     }
     setBusy(true);
     setError(null);
@@ -53,7 +53,7 @@ export function FeeForm({
         params: { account_id: card.account_id },
         body: clear
           ? { annual_fee_cents: null, fee_renews_on: null }
-          : { annual_fee_cents: cents, fee_renews_on: renews },
+          : { annual_fee_cents: cents, fee_renews_on: renews || null },
       });
       onDone();
     } catch (cause: unknown) {
@@ -87,8 +87,8 @@ export function FeeForm({
           )}
         </Field>
         <Field
-          label="Fee charged on"
-          hint="The date the fee hits each year — normally your card's anniversary, not 1 January. It sets the fee year the realised figure is measured against, which is why a calendar-year credit and an anniversary fee year can happily disagree."
+          label="Fee charged on (optional)"
+          hint="The date the fee hits each year — normally your card's anniversary, not 1 January. Shown beside the fee as the deadline for deciding whether to keep the card. It does not affect what the card reports realising, which is measured on the calendar year."
         >
           {({ id, describedBy }) => (
             <input

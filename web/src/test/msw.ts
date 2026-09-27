@@ -776,8 +776,7 @@ export const cards: ResponseOf<"/cards", "get"> = [
     active_perk_count: 2,
     annual_fee_cents: 69_500,
     fee_renews_on: "2026-03-01",
-    fee_year_start: "2026-03-01",
-    realised_this_fee_year_cents: 2_500,
+    realised_this_year_cents: 2_500,
     perks: [
       {
         id: 1,

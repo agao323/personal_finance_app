@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from app.deps import CurrentUser, DbSession
 from app.models.account import Account
 from app.models.card_perk import CardPerk, PerkRedemption
-from app.models.enums import AccountSubtype, PerkCadence
+from app.models.enums import AccountSubtype
 from app.schemas.card_perk import (
     CardRead,
     HistoryRead,
@@ -143,7 +143,6 @@ def list_cards(
             for p in perk_reads
             if p.is_active and p.current_period is not None and not p.current_period.is_used
         )
-        fee_year = _fee_year_start(account, today)
         result.append(
             CardRead(
                 account_id=account.id,
@@ -157,58 +156,49 @@ def list_cards(
                     to_cents(account.annual_fee) if account.annual_fee is not None else None
                 ),
                 fee_renews_on=account.fee_renews_on,
-                fee_year_start=fee_year,
-                realised_this_fee_year_cents=(
-                    _realised(session, account.id, fee_year, today) if fee_year else None
-                ),
+                realised_this_year_cents=_realised_this_year(session, account.id, today),
             )
         )
     return result
 
 
-def _fee_year_start(account: Account, on: dt.date) -> dt.date | None:
-    """When the current fee year began, or None when no fee is recorded.
+def _realised_value(redemption: PerkRedemption, perk: CardPerk) -> Decimal:
+    """What one recorded use was worth.
 
-    Same anchor-stepped-by-cadence arithmetic as a perk, reusing the one implementation —
-    a fee year is an annual period whose anchor is the renewal date.
+    The recorded amount, or the perk's face value when a one-tap mark recorded none.
+    **Never what was available**, which would flatter every card.
+
+    One function because two callers need the same answer: the per-card figure and the
+    history panel. They used to compute it separately and with different window rules, and
+    the card screen showed both at once.
     """
-    if account.annual_fee is None or account.fee_renews_on is None:
-        return None
-    period = perk_service.period_containing(PerkCadence.ANNUAL, account.fee_renews_on, on)
-    return period.start if period else None
+    return redemption.amount if redemption.amount is not None else perk.value
 
 
-def _realised(session: Session, account_id: int, since: dt.date, until: dt.date) -> int:
-    """Value actually realised on this card between two dates, in cents.
+def _realised_this_year(session: Session, account_id: int, on: dt.date) -> int:
+    """Value realised on this card in the calendar year containing `on`, in cents.
 
-    Redemption amounts, falling back to the perk's face value when no amount was
-    recorded. **Never the sum of what was available**, which would flatter every card.
+    **Containment on `period_start`, the same rule `_history` applies** — a period belongs
+    to the year it began in, and to exactly one year. That is what lets this figure and the
+    history panel's "This year" window agree by construction rather than by comment.
+
+    This replaced a fee year anchored on the renewal date, which matched on period
+    *overlap* because a calendar-year credit's period almost always begins before the fee
+    year it was counted against. The cost of overlap was that on the second day of a new
+    fee year, a credit spent eleven months earlier still counted toward the fee just
+    charged — wrong in exactly the case the figure existed for. See ticket 073.
     """
+    start = dt.date(on.year, 1, 1)
     rows = session.execute(
         select(PerkRedemption, CardPerk)
         .join(CardPerk, CardPerk.id == PerkRedemption.perk_id)
-        .where(CardPerk.account_id == account_id)
-    ).all()
-
-    total = ZERO
-    for redemption, perk in rows:
-        period = perk_service.period_containing(
-            perk.cadence, perk.anchor_on, redemption.period_start
+        .where(
+            CardPerk.account_id == account_id,
+            PerkRedemption.period_start >= start,
+            PerkRedemption.period_start <= on,
         )
-        if period is None:
-            continue
-        # **Overlap, not containment.** The common real case is a fee that renews on your
-        # card anniversary and credits that reset on the calendar year, so a credit's
-        # period almost always starts before the fee year it is being counted against.
-        # Filtering on `period_start >= since` reported nearly zero realised for most of
-        # every fee year, which is the opposite of useful.
-        #
-        # The cost is that a period straddling two fee years counts in both. That is
-        # defensible — the credit genuinely was available in both — and far less wrong
-        # than reporting nothing.
-        if period.end > since and period.start <= until:
-            total += redemption.amount if redemption.amount is not None else perk.value
-    return to_cents(total)
+    ).all()
+    return to_cents(sum((_realised_value(r, p) for r, p in rows), ZERO))
 
 
 @router.post("/cards/{account_id}/perks", response_model=PerkRead, status_code=201)
@@ -379,7 +369,7 @@ def _history(
         period = perk_service.period_containing(
             perk.cadence, perk.anchor_on, redemption.period_start
         )
-        value = redemption.amount if redemption.amount is not None else perk.value
+        value = _realised_value(redemption, perk)
         realised += value
         entries.append(
             RedemptionRead(

@@ -135,6 +135,9 @@ export function CardDetail({
           <Figure
             label="Annual fee"
             value={card.annual_fee_cents != null ? formatCurrency(card.annual_fee_cents) : "—"}
+            // When you next get charged. It anchors nothing — it sits here because this is
+            // the figure it is about, and because it is the deadline for deciding.
+            detail={card.fee_renews_on ? `Charged ${formatDate(card.fee_renews_on)}` : undefined}
             // Beside the number it edits, rather than in the panel header. A control
             // somewhere other than the thing it acts on is a control you have to look for.
             action={
@@ -147,14 +150,12 @@ export function CardDetail({
               </button>
             }
           />
+          {/* No detail line. The window is the calendar year, which the label already
+              says, and the history panel below reports the same number under "This
+              year" — by the same rule, so they cannot disagree. */}
           <Figure
-            label="Realised this fee year"
-            value={
-              card.realised_this_fee_year_cents != null
-                ? formatCurrency(card.realised_this_fee_year_cents)
-                : "—"
-            }
-            detail={card.fee_year_start ? `since ${formatDate(card.fee_year_start)}` : undefined}
+            label="Realised this year"
+            value={formatCurrency(card.realised_this_year_cents)}
           />
         </dl>
 

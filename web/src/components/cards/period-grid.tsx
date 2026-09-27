@@ -216,11 +216,25 @@ function PeriodChip({
   const state = used ? "used" : "not used";
   const range = `period from ${formatDate(period.start)}, resets ${formatDate(period.end)}`;
 
+  // **Always rendered, so every chip is the same height.** Conditionally, a row holding the
+  // current period or a partial amount grew taller than the rows around it and the grid
+  // stepped. A non-breaking space keeps the line box when there is nothing to say.
+  //
+  // A current period that also carries an amount shows the amount: it is the rarer and more
+  // informative fact, and "now" is already carried by the ring, the last position, and the
+  // accessible name.
+  const second =
+    used && period.used_amount_cents != null
+      ? formatCurrency(period.used_amount_cents)
+      : period.is_current
+        ? "now"
+        : "\u00a0";
+
   return (
     <button
       type="button"
       aria-pressed={used}
-      aria-label={`${label}, ${state}. The ${range}.`}
+      aria-label={`${label}, ${state}${period.is_current ? ", current period" : ""}. The ${range}.`}
       onClick={onToggle}
       className={`rounded-md border px-2 py-1.5 text-center text-xs transition-colors ${
         used
@@ -230,17 +244,17 @@ function PeriodChip({
         failed ? "border-critical-text" : ""
       }`}
     >
-      <span className="block tabular-nums">{label}</span>
+      <span className="block truncate tabular-nums">{label}</span>
       {/* A partial redemption is a different fact from "used it all" and the grid must not
           flatten the two into one filled chip. */}
-      {used && period.used_amount_cents != null ? (
-        <span className="block text-[10px] font-normal">
-          {formatCurrency(period.used_amount_cents)}
-        </span>
-      ) : null}
-      {period.is_current ? (
-        <span className="text-ink-muted block text-[10px] font-normal">now</span>
-      ) : null}
+      <span
+        aria-hidden={second === "\u00a0"}
+        className={`block truncate text-[10px] font-normal ${
+          used && period.used_amount_cents != null ? "" : "text-ink-muted"
+        }`}
+      >
+        {second}
+      </span>
     </button>
   );
 }
