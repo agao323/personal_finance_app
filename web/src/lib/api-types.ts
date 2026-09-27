@@ -281,11 +281,14 @@ export interface paths {
     };
     /**
      * Get Export
-     * @description Every row, as JSON.
+     * @description Every row of every table, as JSON.
      *
-     *     Deliberately the whole dataset rather than a filtered view: the point is that
-     *     nothing is trapped in here. Ownership stakes and their effective dates come too,
-     *     because without them the balances alone cannot reconstruct a net worth figure.
+     *     Deliberately the whole dataset rather than a filtered view: the point is that nothing
+     *     is trapped in here. Ownership stakes and their effective dates come too, because
+     *     without them the balances alone cannot reconstruct a net worth figure.
+     *
+     *     This is now layer two of the backup story rather than only an escape hatch — see
+     *     [ADR 0008](../../../docs/adr/0008-local-backups.md). `make backup` writes it to disk.
      */
     get: operations["get_export_export_get"];
     put?: never;
@@ -1358,7 +1361,15 @@ export interface components {
       /** Transaction Count */
       transaction_count: number;
     };
-    /** ExportRead */
+    /**
+     * ExportRead
+     * @description Every table. **Not a selection** — see the guard test.
+     *
+     *     It used to be a selection, and the selection went stale: `institutions`, `card_perks`,
+     *     `perk_redemptions` and `import_mappings` were all missing, because the export was
+     *     written before the cards feature and nobody extended it while the ticket went on
+     *     claiming "the full dataset". A test now fails when a mapped table is absent from here.
+     */
     ExportRead: {
       /** Accounts */
       accounts: {
@@ -1366,6 +1377,10 @@ export interface components {
       }[];
       /** Balance Snapshots */
       balance_snapshots: {
+        [key: string]: unknown;
+      }[];
+      /** Card Perks */
+      card_perks: {
         [key: string]: unknown;
       }[];
       /** Categories */
@@ -1376,13 +1391,33 @@ export interface components {
       categorization_rules: {
         [key: string]: unknown;
       }[];
+      /** Data Marker */
+      data_marker: {
+        [key: string]: unknown;
+      }[];
+      /** Import Mappings */
+      import_mappings: {
+        [key: string]: unknown;
+      }[];
+      /** Institutions */
+      institutions: {
+        [key: string]: unknown;
+      }[];
       meta: components["schemas"]["ExportMeta"];
       /** Ownership Stakes */
       ownership_stakes: {
         [key: string]: unknown;
       }[];
+      /** Perk Redemptions */
+      perk_redemptions: {
+        [key: string]: unknown;
+      }[];
       /** Transactions */
       transactions: {
+        [key: string]: unknown;
+      }[];
+      /** Users */
+      users: {
         [key: string]: unknown;
       }[];
     };
