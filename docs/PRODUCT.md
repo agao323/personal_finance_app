@@ -77,9 +77,12 @@ Grouped by conviction. **v1** is committed. **Later** is intended but unschedule
   edit rules and to override a category by hand.**
 - A transactions screen with filtering and inline recategorisation.
 - Dashboard: current net worth, runway/burn, net worth over time, spend by category MTD/YTD.
-- Passkey auth + Cloudflare Access.
+- Cloudflare Access as the authentication, with the `users` table as the allowlist.
+  (Passkeys in the app were built too, then removed — [ADR 0007](adr/0007-drop-passkeys.md).)
 - Public demo deployment on synthetic data.
-- Nightly encrypted backups with a restore that has actually been performed.
+- Backups with a restore that has actually been performed: Neon's point-in-time recovery
+  plus a full local export. (Originally nightly encrypted dumps offsite —
+  [ADR 0008](adr/0008-local-backups.md) has why that changed.)
 
 ### Burn and runway
 

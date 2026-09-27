@@ -8,11 +8,11 @@ not the same as intuitive risk:
 | # | Risk | Mitigation |
 |---|---|---|
 | 1 | Real data leaking into the public demo | Separate deployment, **separate Neon project**, synthetic seed. Infra boundary, not a flag. |
-| 2 | Database and **backups** at rest | Neon encryption at rest; nightly `pg_dump` encrypted with a key stored outside Neon. |
+| 2 | Database and **backups** at rest | Neon encryption at rest. The only copy we make is `make backup`'s JSON export into gitignored `data/backups/` on a FileVault-encrypted disk, and it never leaves that machine ([ADR 0008](adr/0008-local-backups.md)). |
 | 3 | Secrets or real values in git history | `data/` gitignored; secret scanning in CI; no fixture ever contains a real number. |
 | 4 | Real values leaking into logs or an AI session transcript | Log redaction filter with a test; `data/` never read into context. |
 | 5 | AI agent exfiltration | See [AI agent](#ai-agent). Ships last. |
-| 6 | Session hijack / weak auth on the real app | Cloudflare Access at the edge + passkeys. No passwords, ever. |
+| 6 | Session hijack / weak auth on the real app | Cloudflare Access at the edge, against a Google account carrying a hardware key or passkey, with 24-hour sessions; the `users` allowlist; the Access JWT verified again at the origin. No passwords, ever. The in-app passkey layer was removed ([ADR 0007](adr/0007-drop-passkeys.md)). |
 | 7 | Aggregator holding bank credentials | Only relevant post-v1. Accepted consciously if a connector ships. |
 
 **Traffic interception is not on this list** because TLS solves it and every host provides it
@@ -125,9 +125,8 @@ change, a closed account, transfer pairs, and some uncategorised transactions. S
 the demo is reproducible.
 
 The demo deployment **omits authentication entirely, at build time** — the demo bundle must
-not contain a code path capable of authenticating against the real API. The passkey
-implementation is therefore exercised by the production app and by its test suite, not by the
-demo.
+not contain a code path capable of authenticating against the real API. It serves a fixed
+synthetic identity instead (see [Locally, and on the demo](#locally-and-on-the-demo)).
 
 ## Handling real data during development
 
@@ -184,8 +183,10 @@ the data model is stable.
   Nothing we operate stores a copy offsite — see [ADR 0008](adr/0008-local-backups.md),
   which supersedes the encrypted-dumps-to-R2 design in [0004](adr/0004-backups.md).
 - **Restore is tested at least once** before the app is trusted with real data. An untested
-  export is a file you believe in. **No real data enters production until ticket 017 is
-  done** — the Google Sheet import runs against a local database until then.
+  export is a file you believe in. Ticket 017 is done and its first drill passed against
+  synthetic data; **no real data enters production until the drill has been run against a
+  production export** (the pending row in ADR 0008). The Google Sheet import (024) and the
+  SimpleFIN connector (075) wait on it, and run against a local database until then.
 - Full data export from the UI (`GET /export`). The app must never become a place data can
   only go into — that's both a user-hostile design and insurance against losing interest in
   the project.
