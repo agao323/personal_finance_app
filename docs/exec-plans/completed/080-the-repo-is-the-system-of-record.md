@@ -1,8 +1,8 @@
 # 080 — The repo is the system of record
-Status: in-progress
+Status: done
 Wave: 9   Lane: —
 Blocked by: none
-Read first: CLAUDE.md, docs/PLANS.md
+Read first: AGENTS.md, docs/PLANS.md
 
 ## Goal
 Any future agent can start from one short map, reach every doc in at most two hops, and
@@ -154,45 +154,45 @@ anchor in a completed ticket's `Read first`.
 
 Each ≤~5 files except the purely mechanical move. Commit as `080x: …`.
 
-- [ ] **080a — PLANS.md.** `tickets/README.md` → `docs/PLANS.md` with the wave table
+- [x] **080a — PLANS.md.** `tickets/README.md` → `docs/PLANS.md` with the wave table
       corrected to the ticket headers; the pointer; CLAUDE.md, `import_csv.py` docstring,
       ARCHITECTURE#testing repointed.
-- [ ] **080b — Move the plans (mechanical).** `git mv` every ticket into
+- [x] **080b — Move the plans (mechanical).** `git mv` every ticket into
       `exec-plans/active` or `completed`; rewrite relative links and `Read first` paths.
-- [ ] **080c — request-path.md, api-contract.md**, the endpoint table with them,
+- [x] **080c — request-path.md, api-contract.md**, the endpoint table with them,
       `test_contract.py` repointed.
-- [ ] **080d — data-model.md, ownership-and-rounding.md, snapshots-and-carry-forward.md.**
-- [ ] **080e — transactions-and-ingestion.md, transfers-and-categories.md,
+- [x] **080d — data-model.md, ownership-and-rounding.md, snapshots-and-carry-forward.md.**
+- [x] **080e — transactions-and-ingestion.md, transfers-and-categories.md,
       card-perks-period-engine.md.**
-- [ ] **080f — account-sources.md, hosting.md, and ARCHITECTURE.md at its final shape**
+- [x] **080f — account-sources.md, hosting.md, and ARCHITECTURE.md at its final shape**
       (layer map, domain map, invariants); links in PRODUCT, DECISIONS, ADR 0001, with
       superseded banners only where true.
-- [ ] **080g — RELIABILITY.md, FRONTEND.md**; README's pitfalls move.
-- [ ] **080h — Drift, part 1:** README (backup badge, ticket count, `SESSION_SECRET`/`RP_ID`,
+- [x] **080g — RELIABILITY.md, FRONTEND.md**; README's pitfalls move.
+- [x] **080h — Drift, part 1:** README (backup badge, ticket count, `SESSION_SECRET`/`RP_ID`,
       `SourceAdapter` claim, R2 in running cost), SECURITY threat rows 2 and 6 and the demo
       passkey paragraph, PRODUCT v1 list, adr/README 0003 status.
-- [ ] **080i — Drift, part 2, and the debt tracker:** 075's ADR number and blocker,
+- [x] **080i — Drift, part 2, and the debt tracker:** 075's ADR number and blocker,
       going-live §C to ADR 0008, `tech-debt-tracker.md` seeded.
-- [ ] **080j — core-beliefs.md, design-docs/index.md, AGENTS.md, CLAUDE.md → `@AGENTS.md`.**
-- [ ] **080k–080m — product-specs** in three batches.
-- [ ] **080n–080o — references** in two batches.
-- [ ] **080p — Generated docs:** `api/scripts/generate_docs.py`, its test, `db-schema.md`,
+- [x] **080j — core-beliefs.md, design-docs/index.md, AGENTS.md, CLAUDE.md → `@AGENTS.md`.**
+- [x] **080k–080m — product-specs** in three batches.
+- [x] **080n–080o — references** in two batches.
+- [x] **080p — Generated docs:** `api/scripts/generate_docs.py`, its test, `db-schema.md`,
       `api-endpoints.md`, `make docs` / `make docs-check`, CI.
-- [ ] **080q — Architecture test:** `api/tests/test_architecture.py`, stdlib `ast`, with a
+- [x] **080q — Architecture test:** `api/tests/test_architecture.py`, stdlib `ast`, with a
       shrink-only allowlist keyed to the debt tracker.
-- [ ] **080r — Web lint rules:** no `fetch()` outside `lib/api.ts` and the proxy route;
+- [x] **080r — Web lint rules:** no `fetch()` outside `lib/api.ts` and the proxy route;
       `api-types` imported as types only; a self-test proving both fire.
-- [ ] **080s — Doc checks 1–5** in `scripts/check_docs.py`, self-tests in
+- [x] **080s — Doc checks 1–5** in `scripts/check_docs.py`, self-tests in
       `scripts/test_guards.sh`, the generated plan index, wired into `make test` and CI.
-- [ ] **080t — QUALITY_SCORE.md and runbooks/doc-gardening.md.**
-- [ ] **080u — Close:** fix what the checks found, mark this done, move it to completed.
+- [x] **080t — QUALITY_SCORE.md and runbooks/doc-gardening.md.**
+- [x] **080u — Close:** fix what the checks found, mark this done, move it to completed.
 
 ## Acceptance criteria
-- [ ] Every doc is ≤2 hops from AGENTS.md, and a check says so
-- [ ] Every new check is proven to fail by a self-test
-- [ ] `make lint && make test && make types-check` green at every commit; no
+- [x] Every doc is ≤2 hops from AGENTS.md, and a check says so
+- [x] Every new check is proven to fail by a self-test
+- [x] `make lint && make test && make types-check` green at every commit; no
       `api-types.ts` diff anywhere in the branch
-- [ ] Drift listed in 080h/080i fixed; everything that is not a pure doc correction is
+- [x] Drift listed in 080h/080i fixed; everything that is not a pure doc correction is
       in `tech-debt-tracker.md`
 
 ## Files
@@ -210,3 +210,36 @@ deleted `test_invitations.py`; `webauthn` is still a declared dependency with no
 exists; `NetWorthPoint.stale_account_count` is served and never drawn; `AccountList.total_cents`
 is a kind-blind raw sum 029 already called meaningless; the `SourceAdapter` the docs call
 built was never built; and query logic lives in eight of twelve routers.
+
+## Done — 2026-09-27
+
+Twenty-one commits, `080` to `080u`, each green on `make lint && make test && make types-check`.
+`git diff main -- web/src/lib/api-types.ts` is empty; the only line changed under `api/app/`
+is a module docstring's path.
+
+**Deviations from the plan above, and why:**
+
+- **080t landed before 080s.** The first run of the doc checks correctly flagged links to
+  `QUALITY_SCORE.md` and `doc-gardening.md`, which 080t writes. Committing the checks first
+  would have made a red commit.
+- **080n and 080o are one commit** — the six reference notes shared one verification pass.
+- **The doc-check self-tests are `scripts/test_check_docs.sh`, not more cases in
+  `test_guards.sh`.** `demo-guard.yml` runs `test_guards.sh` on a runner without `uv`; the
+  doc checks need Python 3.12. Same pattern, separate file.
+- **080g failed once** on `test_the_series_agrees_on_contributions_too`, a pre-existing
+  order-sensitive test, on a docs-only change; it passed on rerun. Logged as TD-013, not
+  fixed here.
+- **The counts.** Before this plan there were 79 plan files (001–079, with 047 split into
+  047a/047b and no file for 065) in **nine** waves, 0–8. With 080 it is 80 in ten. No count
+  is hand-kept any more: `docs/generated/exec-plans.md` counts itself.
+
+**Found by the new checks and fixed in the same commit:** a status read from an index's
+prose instead of its table row (a checker bug); a test name in the self-tests that cited a
+missing anchor; nothing else — every anchor code cites survived the moves.
+
+**Deliberately not done** (each is in the tech-debt tracker): fixing the `/members` test
+gap (TD-002), the demo guard's retired secret (TD-007), the flaky series test (TD-013),
+removing `webauthn` and `RP_ID` (TD-009), wiring the series' staleness into the chart
+(TD-010), dropping `AccountList.total_cents` (TD-011), and ticking the acceptance boxes of
+068–079 without checking each against the code (TD-014). All are code or contract changes,
+out of scope for a structure-and-enforcement plan.

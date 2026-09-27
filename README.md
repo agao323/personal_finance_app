@@ -74,6 +74,8 @@ compile error rather than a runtime surprise.
 
 ## Running it locally
 
+Working on it with an agent? Start at [`AGENTS.md`](AGENTS.md) — the map of every doc.
+
 From a clean clone, with Docker and `make`:
 
 ```bash
@@ -99,11 +101,12 @@ are — it is ignored on any https origin. See [ADR 0007](docs/adr/0007-drop-pas
 |---|---|
 | `make dev` | Full stack, hot reload |
 | `make seed` | Synthetic data. Resets the database, leaving household members alone |
-| `make test` | Guards, pytest, vitest |
+| `make test` | Guards, doc checks, pytest, vitest |
 | `make e2e` | Playwright against the running stack |
 | `make lint` | ruff + mypy + eslint + tsc + prettier |
 | `make smoke` | Builds the deploy images and asserts the whole request path works |
 | `make types` | Regenerate `api-types.ts` from the Pydantic models |
+| `make docs` | Regenerate `docs/generated/`: the schema, the endpoints, the plan index |
 
 Adding a dependency, creating a new route directory, and running two checkouts at once
 each have a trap that costs twenty minutes the first time —

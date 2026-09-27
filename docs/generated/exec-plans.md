@@ -4,7 +4,7 @@
 
 Every plan, generated from its header. How to work one: [PLANS.md](../PLANS.md). Known debt that is not a plan: [tech-debt-tracker.md](../exec-plans/tech-debt-tracker.md).
 
-80 plans: 6 active, 74 completed, in waves 0, 1, 2, 3, 4, 5, 6, 7, 8, 9. No plan file for: 065.
+80 plans: 5 active, 75 completed, in waves 0, 1, 2, 3, 4, 5, 6, 7, 8, 9. No plan file for: 065.
 
 ## Active
 
@@ -15,7 +15,6 @@ Every plan, generated from its header. How to work one: [PLANS.md](../PLANS.md).
 | 039 | [README, architecture diagram, and ADR backfill](../exec-plans/active/039-readme-architecture-diagram-and-adr-backfill.md) | in-progress | 4 | — | 038 |
 | 060 | [Seeding a card's perks from a catalogue](../exec-plans/active/060-seeding-a-cards-perks-from-a-catalogue.md) | todo — needs a decision, see below | 7 | — | 057 |
 | 075 | [SimpleFIN connector: transactions, and credits marked from them](../exec-plans/active/075-simplefin-connector.md) | planning | 8 | — | none — 017 is done; the production restore drill it left pending gates real data (see below) |
-| 080 | [The repo is the system of record](../exec-plans/active/080-the-repo-is-the-system-of-record.md) | in-progress | 9 | — | none |
 
 ## Completed
 
@@ -95,3 +94,4 @@ Every plan, generated from its header. How to work one: [PLANS.md](../PLANS.md).
 | 077 | [Record a partial amount for any period](../exec-plans/completed/077-record-a-partial-amount-for-any-period.md) | done | 7 |
 | 078 | [Collapse every period grid at once](../exec-plans/completed/078-collapse-every-period-grid-at-once.md) | done | 7 |
 | 079 | [Credits reset on calendar boundaries unless you say otherwise](../exec-plans/completed/079-credits-reset-on-calendar-boundaries.md) | done | 7 |
+| 080 | [The repo is the system of record](../exec-plans/completed/080-the-repo-is-the-system-of-record.md) | done | 9 |
