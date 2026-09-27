@@ -1,7 +1,7 @@
 # 075 — SimpleFIN connector: transactions, and credits marked from them
 Status: planning
 Wave: 8   Lane: —
-Blocked by: 017 (backups must be running before real transaction history lands)
+Blocked by: none — 017 is done; the production restore drill it left pending gates real data (see below)
 Read first: docs/ARCHITECTURE.md#account-sources, docs/SECURITY.md
 
 ## Goal
@@ -73,7 +73,8 @@ POST, and a 403 there means the token may be compromised and must be said so, no
 
 **The Access URL is a credential**, with Basic Auth embedded in it. It is stored encrypted at
 rest, keyed from a Fly secret, never logged, never in an error message, never in a response
-body. This wants a short ADR (0008) of its own alongside `docs/SECURITY.md`.
+body. This wants a short ADR of its own alongside `docs/SECURITY.md` — the next free
+number, 0009 at the time of writing (0008 is local backups).
 
 Linking a SimpleFIN account to one of ours is a manual mapping step — their `id` and `name`
 against our accounts — reusing the `import_mappings` idea rather than guessing by name.
@@ -132,17 +133,22 @@ Two rules that are not negotiable:
    index does not protect across sources.
 4. **Cards only, or everything?** The ask is credit cards. Connecting checking and savings too
    is nearly free once the adapter exists, but each connected institution is real data landing
-   in a database whose backups are still off. See the blocker.
+   in a database whose restore has not yet been proven against real data. See the gate below.
 
-## Blocked by 017, and this is not a formality
+## Gated on a proven restore, and this is not a formality
 [SECURITY.md](../../SECURITY.md) argues that moving a financial picture out of Google Sheets
 into a self-run database is a durability downgrade until backups are proven. Nightly
 connectors are the point at which this database becomes the only copy of something — a
 transaction history no CSV on disk reproduces. Ticket 024 is already held for this reason and
 this is the same rule.
 
-Backups need: the R2 bucket and token, the seven repository secrets, a restore actually
-performed once, and the schedule turned back on.
+*Updated 2026-09-27 (ticket 080).* This section was written when 017 meant the R2 design,
+and listed an R2 bucket, seven repository secrets and a schedule. 017 replaced all of that
+with local exports ([ADR 0008](../../adr/0008-local-backups.md)) and is done; its first
+restore drill passed against synthetic data. What still stands between this plan and real
+data is the drill against a **production** export — ADR 0008's pending row — the same gate
+that holds 024. Tracked as TD-003 in the
+[tech-debt tracker](../tech-debt-tracker.md).
 
 ## Testing
 Fixtures are recorded SimpleFIN responses, hand-edited to synthetic values — rule 1, and the

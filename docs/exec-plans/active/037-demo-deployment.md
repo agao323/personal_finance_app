@@ -87,7 +87,7 @@ stripped first now — the same trap `check_fly_api_private.sh` already document
    ```bash
    fly apps create pfa-demo-api && fly apps create pfa-demo-web
    fly secrets set -a pfa-demo-api DATABASE_URL='<the demo project pooled URL>'
-   fly secrets set -a pfa-demo-api SESSION_SECRET="$(openssl rand -base64 32)"
+   # (2026-09-27, ticket 080: no SESSION_SECRET — nothing reads it since 047b.)
    make deploy-demo
    fly certs add -a pfa-demo-web demo.allofmymoney.com
    ```

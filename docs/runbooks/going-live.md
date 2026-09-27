@@ -137,75 +137,39 @@ Access, and you are signed in.
 ## C · Ticket 017 · Backups and a tested restore
 
 **Why now:** moving out of Google Sheets is a durability *downgrade* until a restore has
-actually been performed. This gates 024 for that reason.
+actually been performed. This gates 024 (and 075) for that reason.
 
-### C1. Create the R2 bucket
+Ticket 017 replaced the nightly encrypted dumps to R2 with a local export — see
+[ADR 0008](../adr/0008-local-backups.md) for why, and [ADR 0004](../adr/0004-backups.md)
+for the design it replaced. There is no bucket, key, healthcheck or repository secret to
+set up. The code is done; what is left is running it against production once.
 
-Cloudflare dashboard → **R2** → Create bucket → name it `pfa-backups`.
+### C1. Point the export at production
 
-Then **Manage API tokens** → Create token, scoped to that bucket, **Object Read &
-Write**. Note the **account ID** — the endpoint URL is
-`https://<account-id>.r2.cloudflarestorage.com`.
+Put the **unpooled** Neon connection string in `.env` as `BACKUP_DATABASE_URL` — the host
+*without* `-pooler`. A full export opens one long read, and PgBouncer is the wrong thing in
+front of it. `.env` is gitignored; never paste the string anywhere else.
 
-### C2. Generate the encryption key
+### C2. Take the export
 
 ```bash
-cd api && uv run python scripts/backup.py --print-key
+make backup
 ```
 
-**Put it in your password manager and nowhere else.** Losing it loses every backup —
-that is the deliberate trade in [ADR 0004](../adr/0004-backups.md). Do not commit it,
-do not email it to yourself, do not leave it in shell history you sync.
+Writes `data/backups/pfa-<today>.json` and prints a row count per table. Do not open the
+file — the counts are all you need.
 
-### C3. Create the dead-man's switch
+### C3. Run the restore drill
 
-[healthchecks.io](https://healthchecks.io), free tier. **Period: 1 day. Grace: 6
-hours.**
+Follow [`../../api/scripts/restore.md`](../../api/scripts/restore.md) end to end: a scratch
+database in the local Docker Postgres, the export loaded into it, row counts compared, and
+a sum compared to the source. A restore that ran without proving it restored the right data
+is not a tested restore.
 
-The generous grace is deliberate: GitHub delays scheduled runs under load, and a tight
-window would alert on lateness rather than failure — which trains you to ignore it.
+### C4. Record the drill
 
-Copy the ping URL.
-
-### C4. Add seven GitHub Actions secrets
-
-Repository → Settings → Secrets and variables → Actions:
-
-| Secret | Value |
-|---|---|
-| `BACKUP_DATABASE_URL` | The **unpooled** Neon string |
-| `R2_BUCKET` | `pfa-backups` |
-| `R2_ENDPOINT_URL` | `https://<account-id>.r2.cloudflarestorage.com` |
-| `R2_ACCESS_KEY_ID` | From the R2 token |
-| `R2_SECRET_ACCESS_KEY` | From the R2 token |
-| `BACKUP_ENCRYPTION_KEY` | From step C2 |
-| `BACKUP_HEALTHCHECK_URL` | From step C3 |
-
-**Unpooled**, not pooled. `pg_dump` opens one long connection and PgBouncer is the
-wrong thing in front of it. The pooled string is the one with `-pooler` in the host;
-you want the other one.
-
-### C5. Trigger it once by hand
-
-Actions → **Nightly backup** → Run workflow. Then confirm an object appears in the R2
-bucket.
-
-The nightly run has been failing on schedule since the workflow landed, for want of
-these secrets. It should go green now.
-
-### C6. Run the restore drill
-
-Follow [`../../api/scripts/restore.md`](../../api/scripts/restore.md) end to end. It
-restores into a **Neon branch of the real project** — which is what branches are good
-for, and is a different question from the demo's isolation, where a branch is too weak.
-
-Section 5 is the point: row counts and a spot-checked aggregate. A restore that ran
-without proving it restored the right data is not a tested restore.
-
-### C7. Record the drill
-
-Fill in the table in [ADR 0004](../adr/0004-backups.md). **This table, not the backup
-job, is ticket 017's acceptance criterion.**
+Fill in the pending row in the drills table in [ADR 0008](../adr/0008-local-backups.md).
+**That row, not the backup command, is what lets real data in.**
 
 ---
 
@@ -317,6 +281,12 @@ edge-cached.
 Add `DEMO_DATABASE_URL` as a GitHub Actions secret. That switches
 `.github/workflows/demo-guard.yml` from skipping to enforcing — it asserts the two
 databases are different Neon *projects*, on every push and weekly.
+
+**It also needs the real database URL**, which the workflow reads from a
+`BACKUP_DATABASE_URL` secret — a name left over from the R2 design, which ADR 0008 retired
+along with its secrets. If that secret is unset the guard keeps skipping, silently. Decide
+how the guard should get the real URL before relying on it: TD-007 in the
+[tech-debt tracker](../exec-plans/tech-debt-tracker.md).
 
 ### E6. Verify and record
 
