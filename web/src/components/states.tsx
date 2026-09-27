@@ -29,6 +29,46 @@ export function Skeleton({ className = "" }: { className?: string }) {
   );
 }
 
+/**
+ * A mark that figures already on screen are being replaced.
+ *
+ * **Not a `Skeleton`.** A skeleton means "there is nothing here yet", and using one for a
+ * refresh throws away numbers that are still true, rebuilds the panel around the gap, and
+ * reads as a page reload for a one-field change. This sits beside the data instead, so
+ * nothing unmounts and nothing moves.
+ *
+ * Its accessible name is "Refreshing", distinct from the skeleton's "Loading", so a test
+ * can tell the two apart — which is the difference the whole change is about.
+ */
+export function Refreshing({ label = "Refreshing" }: { label?: string }) {
+  return (
+    <span
+      role="status"
+      className="text-ink-muted inline-flex shrink-0 items-center gap-1 text-[11px] font-normal"
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3 w-3 animate-spin">
+        <circle
+          cx="8"
+          cy="8"
+          r="6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeOpacity="0.25"
+        />
+        <path
+          d="M8 2a6 6 0 0 1 6 6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+      {label}
+    </span>
+  );
+}
+
 export function ErrorState({
   title = "Could not load this",
   detail,

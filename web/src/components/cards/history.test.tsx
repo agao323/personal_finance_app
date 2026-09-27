@@ -148,3 +148,48 @@ describe("BackfillForm", () => {
     expect(screen.getByText(/28 February/)).toBeInTheDocument();
   });
 });
+
+describe("HistoryPanel refreshing", () => {
+  it("keeps the rows and totals up while a new window loads", async () => {
+    // The complaint this fixes: switching window blanked the totals and the whole list and
+    // rebuilt them, for a request that answers in a tenth of a second.
+    // A holder rather than a bare `let`: TypeScript narrows a local assigned only inside
+    // a closure to `null`, and the release call then fails to type-check.
+    const gate: { release: (() => void) | null } = { release: null };
+    render(<HistoryPanel revision={0} />);
+    await screen.findByText("Dining credit");
+
+    server.use(
+      http.get("/api/cards/history", async () => {
+        await new Promise<void>((resolve) => {
+          gate.release = resolve;
+        });
+        return HttpResponse.json({ ...walletHistory, redemptions: [] });
+      }),
+    );
+    // A window other than the one already selected; clicking the current one changes
+    // nothing and would make this test pass without exercising anything.
+    await userEvent.click(screen.getByRole("button", { name: "3 months" }));
+
+    await waitFor(() => expect(gate.release).not.toBeNull());
+    expect(screen.getByText("Dining credit")).toBeInTheDocument();
+    expect(screen.getByText("Refreshing")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Loading")).not.toBeInTheDocument();
+
+    gate.release?.();
+    await waitFor(() => expect(screen.queryByText("Dining credit")).not.toBeInTheDocument());
+  });
+
+  it("keeps the figures when a refresh fails", async () => {
+    render(<HistoryPanel revision={0} />);
+    await screen.findByText("Dining credit");
+
+    server.use(
+      http.get("/api/cards/history", () => HttpResponse.json({ detail: "nope" }, { status: 500 })),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "3 months" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not refresh");
+    expect(screen.getByText("Dining credit")).toBeInTheDocument();
+  });
+});

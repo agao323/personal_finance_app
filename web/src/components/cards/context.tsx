@@ -15,7 +15,13 @@ import type { Cards } from "./types";
 
 export interface CardsState {
   cards: Cards | null;
+  /**
+   * Nothing has ever arrived. **Not** "what I have is one revision old" — that is
+   * `refreshing`, and conflating the two is what made every mark blank the screen.
+   */
   pending: boolean;
+  /** A reload is in flight over data that is already on screen. */
+  refreshing: boolean;
   error: string | null;
   reload: () => void;
   /** Bumped by `reload`. Panels that fetch their own data key off it. */
@@ -25,6 +31,7 @@ export interface CardsState {
 export const CardsContext = createContext<CardsState>({
   cards: null,
   pending: true,
+  refreshing: false,
   error: null,
   reload: () => {},
   revision: 0,

@@ -1,5 +1,5 @@
 # 070 — Refresh without flashing
-Status: todo
+Status: done
 Wave: 7   Lane: —
 Blocked by: none
 Read first: docs/ARCHITECTURE.md#the-api-contract

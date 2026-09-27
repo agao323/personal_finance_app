@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from "react";
 
-import { ErrorState, Skeleton } from "@/components/states";
+import { ErrorState, Refreshing, Skeleton } from "@/components/states";
 import { apiFetch } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { CADENCE_LABELS, type Cadence, type History } from "./types";
@@ -44,10 +44,15 @@ export function HistoryPanel({
   } | null>(null);
 
   // Derived, not a flag set at the top of the effect — see the note in `upcoming.tsx`.
+  //
+  // Ticket 070: the window switcher was the worst offender. Every change of window blanked
+  // the totals and the whole list and rebuilt them, for a request that usually answers in
+  // under a tenth of a second. The rows in hand stay up while the next ones load.
   const key = `${months}|${revision}|${accountId ?? "all"}`;
-  const data = loaded?.key === key && !loaded.error ? loaded.data : null;
-  const pending = loaded?.key !== key;
-  const error = loaded?.key === key ? loaded.error : null;
+  const data = loaded?.data ?? null;
+  const pending = loaded === null;
+  const refreshing = loaded !== null && loaded.key !== key;
+  const error = loaded?.error ?? null;
 
   useEffect(() => {
     let live = true;
@@ -63,11 +68,12 @@ export function HistoryPanel({
       })
       .catch((cause: unknown) => {
         if (live)
-          setLoaded({
+          // Keep the rows already on screen; a failed refresh has not made them wrong.
+          setLoaded((previous) => ({
             key: requested,
-            data: null,
+            data: previous?.data ?? null,
             error: cause instanceof Error ? cause.message : "That did not load.",
-          });
+          }));
       });
     return () => {
       live = false;
@@ -77,7 +83,10 @@ export function HistoryPanel({
   return (
     <section className="border-hairline bg-surface-1 mt-4 rounded-xl border p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-sm font-medium">What you have used</h2>
+        <h2 className="flex items-baseline gap-2 text-sm font-medium">
+          What you have used
+          {refreshing ? <Refreshing /> : null}
+        </h2>
         <div role="group" aria-label="How far back" className="flex flex-wrap gap-1">
           {WINDOWS.map((option) => (
             <button
@@ -97,7 +106,12 @@ export function HistoryPanel({
         </div>
       </div>
 
-      {error ? <ErrorState detail={error} /> : null}
+      {error && data === null ? <ErrorState detail={error} /> : null}
+      {error && data !== null ? (
+        <p role="alert" className="text-critical-text mt-1 text-xs">
+          Could not refresh that window.
+        </p>
+      ) : null}
 
       {pending && !error ? (
         <Skeleton className="mt-3 h-24 w-full" />

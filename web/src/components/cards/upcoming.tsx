@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { ErrorState, Skeleton } from "@/components/states";
+import { ErrorState, Refreshing, Skeleton } from "@/components/states";
 import { apiFetch } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { MarkButton } from "./mark-button";
@@ -75,10 +75,16 @@ export function UpcomingPanel({
 
   // Derived from state only ever written by a settled response, rather than a `loading`
   // flag set at the top of the effect. Same pattern as the net worth chart.
+  //
+  // Ticket 070: the last response stays on screen while the next one is in flight, so
+  // switching the horizon or marking a credit updates the figures in place instead of
+  // replacing the panel with a skeleton and rebuilding it. `pending` is the first load
+  // only.
   const key = `${horizon}|${revision}`;
-  const data = loaded?.key === key && !loaded.error ? loaded.data : null;
-  const pending = loaded?.key !== key;
-  const error = loaded?.key === key ? loaded.error : null;
+  const data = loaded?.data ?? null;
+  const pending = loaded === null;
+  const refreshing = loaded !== null && loaded.key !== key;
+  const error = loaded?.error ?? null;
 
   const choose = useCallback((days: number) => {
     setHorizon(days);
@@ -98,11 +104,12 @@ export function UpcomingPanel({
       })
       .catch((cause: unknown) => {
         if (live)
-          setLoaded({
+          // Keep the rows already on screen; a failed refresh has not made them wrong.
+          setLoaded((previous) => ({
             key: requested,
-            data: null,
+            data: previous?.data ?? null,
             error: cause instanceof Error ? cause.message : "That did not load.",
-          });
+          }));
       });
     return () => {
       live = false;
@@ -119,7 +126,10 @@ export function UpcomingPanel({
   return (
     <section className="border-hairline bg-surface-1 rounded-xl border p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-sm font-medium">Available to use</h2>
+        <h2 className="flex items-baseline gap-2 text-sm font-medium">
+          Available to use
+          {refreshing ? <Refreshing /> : null}
+        </h2>
         <div role="group" aria-label="How far ahead" className="flex flex-wrap gap-1">
           {HORIZONS.map((option) => (
             <button
@@ -139,7 +149,17 @@ export function UpcomingPanel({
         </div>
       </div>
 
-      {error ? <ErrorState detail={error} onRetry={reload} /> : null}
+      {/* Over data that is still on screen, the failure is a line rather than a panel
+          that replaces the figures. */}
+      {error && data === null ? <ErrorState detail={error} onRetry={reload} /> : null}
+      {error && data !== null ? (
+        <p role="alert" className="text-critical-text mt-1 text-xs">
+          Could not refresh.{" "}
+          <button type="button" onClick={reload} className="underline underline-offset-4">
+            Try again
+          </button>
+        </p>
+      ) : null}
 
       {pending && !error ? (
         <Skeleton className="mt-3 h-20 w-full" />

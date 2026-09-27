@@ -11,7 +11,15 @@ function renderIndex(
 ) {
   return render(
     <CardsContext.Provider
-      value={{ cards, pending: false, error: null, reload: () => {}, revision: 0, ...state }}
+      value={{
+        cards,
+        pending: false,
+        refreshing: false,
+        error: null,
+        reload: () => {},
+        revision: 0,
+        ...state,
+      }}
     >
       <CardsIndexPage />
     </CardsContext.Provider>,

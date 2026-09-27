@@ -11,15 +11,21 @@ import { use } from "react";
 
 import { CardDetail } from "@/components/cards/card-detail";
 import { useCards } from "@/components/cards/context";
-import { EmptyState, Skeleton } from "@/components/states";
+import { EmptyState, ErrorState, Skeleton } from "@/components/states";
 
 export default function CardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { cards, pending, reload, revision } = useCards();
+  const { cards, pending, error, reload, revision } = useCards();
 
+  // `pending` is the first load only (ticket 070), so marking a credit no longer replaces
+  // the whole card with a skeleton — the figures update where they are.
   if (pending) return <Skeleton className="h-64 w-full" />;
 
-  const card = (cards ?? []).find((candidate) => candidate.account_id === Number(id));
+  // Without the wallet there is no way to know whether this card exists, and "No such
+  // card" would be a guess dressed as a fact.
+  if (cards === null) return <ErrorState detail={error ?? undefined} onRetry={reload} />;
+
+  const card = cards.find((candidate) => candidate.account_id === Number(id));
 
   if (!card) {
     // Says so rather than rendering an empty shell that looks like a card with no credits.
