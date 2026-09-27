@@ -93,6 +93,45 @@ def add_months(day: dt.date, months: int) -> dt.date:
     return dt.date(year, month, min(day.day, calendar.monthrange(year, month)[1]))
 
 
+def period_at(cadence: PerkCadence, anchor_on: dt.date, index: int) -> Period:
+    """The `index`-th period since the anchor. 0 is the first.
+
+    The inverse of `period_containing`, and the two must agree: a period built from an
+    index must contain its own start, and `period_containing` asked about that start must
+    return the same index. Both step from the anchor for the reason `add_months` explains.
+    """
+    if index < 0:
+        raise ValueError("A perk has no periods before its anchor")
+    step = MONTHS[cadence]
+    return Period(
+        start=add_months(anchor_on, index * step),
+        end=add_months(anchor_on, (index + 1) * step),
+        index=index,
+    )
+
+
+def recent_periods(
+    cadence: PerkCadence, anchor_on: dt.date, on: dt.date, count: int
+) -> list[Period]:
+    """The `count` periods ending with the one containing `on`, oldest first.
+
+    Oldest first because that is reading order for a row of months, and the newest being
+    last puts the current period nearest the controls that act on it.
+
+    Fewer than `count` when the perk has not existed that long, and empty when `on` is
+    before the anchor. Never a negative index: a period before a perk's first one is not
+    a period you could have used, and offering it would let a redemption be recorded
+    against a window that never happened.
+    """
+    if count <= 0:
+        return []
+    current = period_containing(cadence, anchor_on, on)
+    if current is None:
+        return []
+    first = max(0, current.index - count + 1)
+    return [period_at(cadence, anchor_on, index) for index in range(first, current.index + 1)]
+
+
 def period_containing(cadence: PerkCadence, anchor_on: dt.date, on: dt.date) -> Period | None:
     """The period `on` falls in, or None if `on` is before the perk's first period.
 
@@ -115,8 +154,4 @@ def period_containing(cadence: PerkCadence, anchor_on: dt.date, on: dt.date) -> 
     while add_months(anchor_on, (index + 1) * step) <= on:
         index += 1
 
-    return Period(
-        start=add_months(anchor_on, index * step),
-        end=add_months(anchor_on, (index + 1) * step),
-        index=index,
-    )
+    return period_at(cadence, anchor_on, index)

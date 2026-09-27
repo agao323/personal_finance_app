@@ -330,6 +330,7 @@ inventory is worse than none, because it is trusted.
 | DELETE | `/perks/{perk_id}` | 054 |
 | GET | `/perks/{perk_id}/history` | 054 |
 | GET | `/cards/history` | 054 |
+| GET | `/perks/{perk_id}/periods` | 068 |
 | GET POST | `/members` | 043 |
 | PATCH | `/members/{member_id}` | 043 |
 

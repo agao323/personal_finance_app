@@ -16,7 +16,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.enums import PerkCadence
-from app.services.perks import URGENT_WITHIN, add_months, is_urgent, period_containing
+from app.services.perks import (
+    URGENT_WITHIN,
+    add_months,
+    is_urgent,
+    period_at,
+    period_containing,
+    recent_periods,
+)
 
 D = dt.date
 
@@ -299,3 +306,70 @@ def test_an_annual_fee_may_be_absent_but_not_negative(
             text("UPDATE accounts SET annual_fee = -1 WHERE id = :i"), {"i": account_id}
         )
         db_session.flush()
+
+
+# ── indexing periods, and listing recent ones ─────────────────────────────────
+
+
+@pytest.mark.parametrize("index", [0, 1, 2, 3, 4, 5])
+def test_period_at_and_period_containing_are_inverses(index: int) -> None:
+    """The property the grid depends on, across the month that breaks naive arithmetic.
+
+    Anchored on the 31st: February has no 31st, so period 0 ends on the 28th and period 1
+    begins there. A chip built from an index must resolve back to the same index, or
+    clicking it would mark a different period than the one it is labelled with.
+    """
+    anchor = D(2026, 1, 31)
+
+    period = period_at(PerkCadence.MONTHLY, anchor, index)
+    resolved = period_containing(PerkCadence.MONTHLY, anchor, period.start)
+
+    assert period.start < period.end
+    assert resolved is not None
+    assert resolved.index == index
+    assert (resolved.start, resolved.end) == (period.start, period.end)
+
+
+def test_period_at_refuses_a_period_before_the_anchor() -> None:
+    with pytest.raises(ValueError, match="no periods"):
+        period_at(PerkCadence.MONTHLY, D(2026, 1, 1), -1)
+
+
+def test_recent_periods_ends_with_the_one_containing_the_date() -> None:
+    periods = recent_periods(PerkCadence.MONTHLY, D(2026, 1, 1), D(2026, 6, 15), 3)
+
+    # Oldest first, newest last: reading order for a row of months.
+    assert [p.start for p in periods] == [D(2026, 4, 1), D(2026, 5, 1), D(2026, 6, 1)]
+    assert periods[-1].start <= D(2026, 6, 15) < periods[-1].end
+
+
+def test_recent_periods_on_the_anchor_itself_is_one_period() -> None:
+    periods = recent_periods(PerkCadence.MONTHLY, D(2026, 1, 31), D(2026, 1, 31), 12)
+
+    assert [p.index for p in periods] == [0]
+    assert periods[0].start == D(2026, 1, 31)
+
+
+def test_recent_periods_is_empty_the_day_before_the_anchor() -> None:
+    """Not a period with index -1. That window never happened."""
+    assert recent_periods(PerkCadence.MONTHLY, D(2026, 1, 31), D(2026, 1, 30), 12) == []
+
+
+def test_recent_periods_clips_to_the_perks_age() -> None:
+    """A perk two months old offers two chips, not twelve."""
+    periods = recent_periods(PerkCadence.MONTHLY, D(2026, 1, 31), D(2026, 3, 15), 12)
+
+    assert [p.index for p in periods] == [0, 1]
+    assert [p.start for p in periods] == [D(2026, 1, 31), D(2026, 2, 28)]
+
+
+def test_recent_periods_counts_periods_not_days() -> None:
+    """Three annual periods span three years; three monthly ones span three months."""
+    annual = recent_periods(PerkCadence.ANNUAL, D(2020, 1, 1), D(2026, 6, 15), 3)
+
+    assert [p.start for p in annual] == [D(2024, 1, 1), D(2025, 1, 1), D(2026, 1, 1)]
+    assert [p.index for p in annual] == [4, 5, 6]
+
+
+def test_recent_periods_of_none_is_empty() -> None:
+    assert recent_periods(PerkCadence.ANNUAL, D(2026, 1, 1), D(2026, 6, 1), 0) == []

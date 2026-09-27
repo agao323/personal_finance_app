@@ -555,6 +555,34 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/perks/{perk_id}/periods": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Perk Periods
+     * @description This perk's recent periods, oldest first, each with whether it was used.
+     *
+     *     What the screen needs to ask "which months did you use this?" instead of asking for a
+     *     date and then explaining which period that date lands in. The periods come from
+     *     `services/perks.py`, so the windows offered are the same windows a mark resolves to.
+     *
+     *     `back` is a count of periods, not a span of days, because how much history is worth
+     *     showing is a per-cadence question: twelve months and twelve years are both twelve
+     *     chips, and the caller is the one that knows which it wants.
+     */
+    get: operations["perk_periods_perks__perk_id__periods_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/perks/{perk_id}/redemptions": {
     parameters: {
       query?: never;
@@ -1621,6 +1649,60 @@ export interface components {
       used_amount_cents?: number | null;
       /** Used Note */
       used_note?: string | null;
+    };
+    /**
+     * PerkPeriodState
+     * @description One period of one perk, and whether it was used.
+     *
+     *     The shape the "which months did you use this?" grid is built from. Deliberately not
+     *     `PerkPeriodRead`: that one answers "how long have I got", carries `days_remaining` and
+     *     `is_urgent`, and both are meaningless for a period that closed last March.
+     */
+    PerkPeriodState: {
+      /**
+       * End
+       * Format: date
+       */
+      end: string;
+      /** Index */
+      index: number;
+      /**
+       * Is Current
+       * @default false
+       */
+      is_current: boolean;
+      /** Is Used */
+      is_used: boolean;
+      /** Note */
+      note?: string | null;
+      /**
+       * Start
+       * Format: date
+       */
+      start: string;
+      /** Used Amount Cents */
+      used_amount_cents?: number | null;
+    };
+    /**
+     * PerkPeriodsRead
+     * @description A perk's recent periods, oldest first.
+     *
+     *     Oldest first is reading order for a row of months, and it puts the current period
+     *     last, nearest whatever acts on it.
+     */
+    PerkPeriodsRead: {
+      /**
+       * Anchor On
+       * Format: date
+       */
+      anchor_on: string;
+      cadence: components["schemas"]["PerkCadence"];
+      /** Has Earlier */
+      has_earlier: boolean;
+      /** Periods */
+      periods: components["schemas"]["PerkPeriodState"][];
+      /** Perk Id */
+      perk_id: number;
     };
     /** PerkRead */
     PerkRead: {
@@ -3088,6 +3170,50 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HistoryRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  perk_periods_perks__perk_id__periods_get: {
+    parameters: {
+      query?: {
+        /** @description How many periods to return, counting back. */
+        back?: number;
+        on?: string | null;
+      };
+      header?: never;
+      path: {
+        perk_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PerkPeriodsRead"];
         };
       };
       /** @description Not Found */

@@ -49,6 +49,45 @@ class PerkRead(Schema):
     current_period: PerkPeriodRead | None = None
 
 
+class PerkPeriodState(Schema):
+    """One period of one perk, and whether it was used.
+
+    The shape the "which months did you use this?" grid is built from. Deliberately not
+    `PerkPeriodRead`: that one answers "how long have I got", carries `days_remaining` and
+    `is_urgent`, and both are meaningless for a period that closed last March.
+    """
+
+    start: dt.date
+    #: Exclusive, like every other period boundary here.
+    end: dt.date
+    #: Periods since the anchor. 0 is the perk's first.
+    index: int
+    is_used: bool
+    #: The amount recorded, when a partial use was. `None` with `is_used` true means the
+    #: full face value.
+    used_amount_cents: Cents | None = None
+    note: str | None = None
+    #: The period the evaluated date falls in. Exactly one period in a response has this.
+    is_current: bool = False
+
+
+class PerkPeriodsRead(Schema):
+    """A perk's recent periods, oldest first.
+
+    Oldest first is reading order for a row of months, and it puts the current period
+    last, nearest whatever acts on it.
+    """
+
+    perk_id: int
+    cadence: PerkCadence
+    anchor_on: dt.date
+    periods: list[PerkPeriodState]
+    #: Whether periods exist before the first one returned. The browser needs to know
+    #: whether a "show earlier" control has anything behind it; it cannot work this out
+    #: from the rows, which look the same at the start of history as in the middle of it.
+    has_earlier: bool
+
+
 class PerkCreate(Schema):
     name: str = Field(min_length=1, max_length=160)
     description: str | None = Field(default=None, max_length=500)

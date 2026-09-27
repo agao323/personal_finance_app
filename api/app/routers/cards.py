@@ -31,6 +31,8 @@ from app.schemas.card_perk import (
     HistoryRead,
     PerkCreate,
     PerkPeriodRead,
+    PerkPeriodsRead,
+    PerkPeriodState,
     PerkRead,
     PerkUpdate,
     RedemptionCreate,
@@ -475,6 +477,74 @@ def perk_history(
     _perk(session, perk_id)
     return _history(
         session, perk_id=perk_id, from_date=from_date, to_date=to_date, today=on or dt.date.today()
+    )
+
+
+@router.get("/perks/{perk_id}/periods", response_model=PerkPeriodsRead)
+def perk_periods(
+    session: DbSession,
+    user: CurrentUser,
+    perk_id: int,
+    back: Annotated[
+        int, Query(ge=1, le=60, description="How many periods to return, counting back.")
+    ] = 12,
+    on: Annotated[dt.date | None, Query()] = None,
+) -> PerkPeriodsRead:
+    """This perk's recent periods, oldest first, each with whether it was used.
+
+    What the screen needs to ask "which months did you use this?" instead of asking for a
+    date and then explaining which period that date lands in. The periods come from
+    `services/perks.py`, so the windows offered are the same windows a mark resolves to.
+
+    `back` is a count of periods, not a span of days, because how much history is worth
+    showing is a per-cadence question: twelve months and twelve years are both twelve
+    chips, and the caller is the one that knows which it wants.
+    """
+    perk = _perk(session, perk_id)
+    today = on or dt.date.today()
+    windows = perk_service.recent_periods(perk.cadence, perk.anchor_on, today, back)
+
+    marked: dict[dt.date, PerkRedemption] = {}
+    if windows:
+        # One query for the whole range, not one per period. `period_start` is indexed by
+        # the unique constraint on (perk_id, period_start).
+        marked = {
+            row.period_start: row
+            for row in session.execute(
+                select(PerkRedemption).where(
+                    PerkRedemption.perk_id == perk.id,
+                    PerkRedemption.period_start >= windows[0].start,
+                    PerkRedemption.period_start <= windows[-1].start,
+                )
+            ).scalars()
+        }
+
+    states: list[PerkPeriodState] = []
+    for window in windows:
+        redemption = marked.get(window.start)
+        states.append(
+            PerkPeriodState(
+                start=window.start,
+                end=window.end,
+                index=window.index,
+                is_used=redemption is not None,
+                used_amount_cents=(
+                    to_cents(redemption.amount)
+                    if redemption is not None and redemption.amount is not None
+                    else None
+                ),
+                note=redemption.note if redemption is not None else None,
+                # The last window is the one containing `today`, by construction.
+                is_current=window.index == windows[-1].index,
+            )
+        )
+
+    return PerkPeriodsRead(
+        perk_id=perk.id,
+        cadence=perk.cadence,
+        anchor_on=perk.anchor_on,
+        has_earlier=bool(windows) and windows[0].index > 0,
+        periods=states,
     )
 
 
