@@ -237,6 +237,10 @@ is a module docstring's path.
 prose instead of its table row (a checker bug); a test name in the self-tests that cited a
 missing anchor; nothing else — every anchor code cites survived the moves.
 
+**Found while landing it:** after rebasing onto `9bc1828`, comparing its new `.env.example`
+text with the code showed `make backup` never reads `.env` — confirmed by running it. The
+docs now say what the code does, with a working command; the fix is TD-016.
+
 **Deliberately not done** (each is in the tech-debt tracker): fixing the `/members` test
 gap (TD-002), the demo guard's retired secret (TD-007), the flaky series test (TD-013),
 removing `webauthn` and `RP_ID` (TD-009), wiring the series' staleness into the chart

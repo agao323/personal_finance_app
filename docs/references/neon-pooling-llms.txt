@@ -25,8 +25,9 @@ HOW THIS REPO USES IT
   PgBouncer already pools), pool_recycle=300, connect_args prepare_threshold=None (turns off
   psycopg's implicit server-side prepared statements, a conservative choice for transaction
   pooling).
-- The backup export reads BACKUP_DATABASE_URL, the DIRECT string, from .env: one long read
-  (api/scripts/restore.md, going-live §C).
+- The backup export takes BACKUP_DATABASE_URL from the environment (not yet from .env —
+  TD-016). The DIRECT string suits its one long read; since 9bc1828 export_local.py and
+  restore_local.py also set prepare_threshold=None, so a pooled string works too.
 - Migrations run as a Fly release command (`alembic upgrade head`). They use the app's
   configured URL unless ALEMBIC_DATABASE_URL is set; per the source, migrations are safer on
   the direct string. Check which one the release command uses before a migration that relies

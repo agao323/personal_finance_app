@@ -146,15 +146,21 @@ set up. The code is done; what is left is running it against production once.
 
 ### C1. Point the export at production
 
-Put the **unpooled** Neon connection string in `.env` as `BACKUP_DATABASE_URL` — the host
-*without* `-pooler`. A full export opens one long read, and PgBouncer is the wrong thing in
-front of it. `.env` is gitignored; never paste the string anywhere else.
+Copy the **unpooled** Neon connection string from the console — the host *without*
+`-pooler`. A full export opens one long read, and the direct endpoint is for that (the
+pooled one also works since `9bc1828`). `.env.example` documents `BACKUP_DATABASE_URL` in
+`.env` as its home, but **`make backup` does not read `.env` yet** (TD-016), so for now the
+string goes in at the prompt in C2 and nowhere else.
 
 ### C2. Take the export
 
 ```bash
-make backup
+(read -rs BACKUP_DATABASE_URL && export BACKUP_DATABASE_URL && make backup)
 ```
+
+Paste the string at the silent prompt and press Enter. The subshell means it is never
+echoed, never written to shell history, and not left exported afterwards. Once TD-016 is
+fixed this is just `make backup`.
 
 Writes `data/backups/pfa-<today>.json` and prints a row count per table. Do not open the
 file — the counts are all you need.

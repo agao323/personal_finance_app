@@ -14,7 +14,7 @@ database holds anything you would miss, and again after any change to these scri
 
 | | Where it lives |
 |---|---|
-| `BACKUP_DATABASE_URL` | `.env`. The **unpooled** Neon connection string — copy it from the Neon console. |
+| `BACKUP_DATABASE_URL` | Documented in `.env.example`, but `make backup` does not read `.env` yet (TD-016 in `docs/exec-plans/tech-debt-tracker.md`): give it at the prompt in going-live §C2. The **unpooled** Neon connection string — copy it from the Neon console. |
 | Docker running | Only for the restore drill, which uses the local database. |
 
 There is no encryption key. That is deliberate: the file never leaves a FileVault-encrypted

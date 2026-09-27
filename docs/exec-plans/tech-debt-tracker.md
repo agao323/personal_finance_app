@@ -26,6 +26,7 @@ Promote it to a plan in `active/` when someone is going to do it. The weekly
 | [TD-013](#td-013--an-order-sensitive-series-test-is-flaky) | An order-sensitive series test is flaky | test | medium |
 | [TD-014](#td-014--done-plans-with-unticked-acceptance-boxes) | Done plans with unticked acceptance boxes | records | low |
 | [TD-015](#td-015--the-stub-ratchet-is-dormant) | The stub ratchet is dormant | dormant code | low |
+| [TD-016](#td-016--make-backup-does-not-read-env) | `make backup` does not read `.env` | bug | medium — blocks TD-003 as documented |
 
 A sweep for `TODO`, `FIXME`, `XXX` and `HACK` markers across `api/`, `web/`, `scripts/` and
 the workflows on 2026-09-27 found **none** — this repo writes the reason into a comment or a
@@ -106,8 +107,8 @@ plan instead.
 
 - **Where:** `.github/workflows/demo-guard.yml` reads the real database URL from
   `secrets.BACKUP_DATABASE_URL`, a secret introduced for the R2 backup job. ADR 0008 retired
-  that job and says "no repository secrets"; the backup now reads `BACKUP_DATABASE_URL` from
-  `.env`, not from GitHub.
+  that job and says "no repository secrets"; the backup now takes `BACKUP_DATABASE_URL` on
+  the owner's machine, not from GitHub (and not, yet, from `.env` — TD-016).
 - **Why it matters:** the isolation step skips whenever either secret is unset, and says so
   only as a notice. Once 037 sets `DEMO_DATABASE_URL`, a missing real-URL secret leaves the
   most security-sensitive guard in the project green and doing nothing.
@@ -193,6 +194,24 @@ plan instead.
   declared route is live.
 - **Next step:** keep it for the next contract-first plan (075's phases could declare their
   routes as stubs first), or delete both. Decide when 075 is cut.
+- **Found:** 2026-09-27, ticket 080.
+
+### TD-016 — `make backup` does not read `.env`
+
+- **Where:** `api/scripts/export_local.py` takes its URL from
+  `os.environ["BACKUP_DATABASE_URL"]`, then `DATABASE_URL`. Nothing puts `.env` there: the
+  `backup` target in the `Makefile` does not load it, and `app.config.Settings` reads
+  `api/.env` (relative to the `cd api` the target does) into `Settings`, not into the
+  environment. `.env.example`, the Makefile comment and ticket 017 all say it reads `.env`.
+- **Seen:** 2026-09-27, after rebasing ticket 080 onto `9bc1828`. With
+  `BACKUP_DATABASE_URL` set in `.env`, `make backup` prints "No database URL." and exits 2;
+  with `.env` exported into the shell it picks the URL up. It fails loudly, never by
+  backing up the wrong database.
+- **Workaround:** [going-live §C2](../runbooks/going-live.md#c2-take-the-export) — give the
+  string at a silent prompt in a subshell. Sourcing `.env` would also work but breaks on
+  the `&` Neon strings usually contain.
+- **Next step:** a small plan: load the repository-root `.env` in `export_local.py` (or
+  export it from the Makefile), with a test that `make backup` finds a URL set only there.
 - **Found:** 2026-09-27, ticket 080.
 
 ## Closed

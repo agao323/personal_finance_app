@@ -18,8 +18,10 @@ insurance against losing interest in the project.
 - **Money crosses as a string**, never a float, which would quietly round the balances the
   file exists to preserve.
 - `make backup` **refuses to overwrite** a file from the same day (`ARGS=--force` to insist).
-  It reads the **unpooled** Neon string from `BACKUP_DATABASE_URL` in `.env`, falling back to
-  the local database, which is useful for rehearsing but is not a backup of anything.
+  It takes the Neon string (unpooled preferred) from `BACKUP_DATABASE_URL`, then
+  `DATABASE_URL`, in the **environment**. With neither exported it stops with "No database
+  URL" rather than backing up anything else. It does not load `.env` yet, although
+  `.env.example` documents the variable there (TD-016).
 - `make restore` **refuses a target that already has data** unless forced, and never
   defaults to production: overwriting a live database means naming it with `--database-url`
   *and* passing `--force`.

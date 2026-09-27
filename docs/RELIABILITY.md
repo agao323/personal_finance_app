@@ -110,8 +110,10 @@ Two layers, and nothing we operate holds an offsite copy ([ADR 0008](adr/0008-lo
 1. **Neon's automatic backups and point-in-time recovery.** Free, and ask nothing of anyone.
    They share fate with the Neon account, which is why there is a second layer.
 2. **`make backup`** writes every table to `data/backups/pfa-<date>.json` on the owner's
-   machine, whose own backup carries it from there. Reads `BACKUP_DATABASE_URL` (the
-   **unpooled** Neon string) from `.env`.
+   machine, whose own backup carries it from there. It takes `BACKUP_DATABASE_URL` (the
+   **unpooled** Neon string is best; pooled works) from the environment — **not yet from
+   `.env`**, whatever `.env.example` says (TD-016). [going-live §C2](runbooks/going-live.md#c2-take-the-export)
+   has the command that works today.
 
 **No schedule.** A manual command that is actually run beats a scheduled one that silently
 stops — the previous design's job failed every night for five weeks before anyone switched

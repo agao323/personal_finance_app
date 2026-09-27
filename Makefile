@@ -196,8 +196,8 @@ upgrade: .env ## Apply migrations up to head
 	@cd api && ALEMBIC_DATABASE_URL="$(LOCAL_DB_URL)" uv run alembic upgrade head
 
 backup: .env ## Write the whole database to data/backups/ on this machine (ADR 0008)
-	@# Reads BACKUP_DATABASE_URL from .env — the production Neon string. Falls back to the
-	@# local database, which is useful for rehearsing but is not a backup of anything.
+	@# Takes BACKUP_DATABASE_URL (the production Neon string), then DATABASE_URL, from the
+	@# environment. It does NOT load .env yet — TD-016 in docs/exec-plans/tech-debt-tracker.md.
 	@cd api && uv run python scripts/export_local.py $(ARGS)
 
 restore: .env ## Load an export back: make restore f=data/backups/pfa-2026-09-27.json

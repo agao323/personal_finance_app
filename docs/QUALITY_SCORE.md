@@ -137,7 +137,8 @@ Debt weights come from the [tech-debt tracker](exec-plans/tech-debt-tracker.md).
 - **Docs A.** [ADR 0008](adr/0008-local-backups.md), [spec](product-specs/export-and-backup.md),
   [restore.md](../api/scripts/restore.md).
 - **Layering B.** `routers/export.py` selects every table with no service — a generic dump.
-- **Debt C.** TD-003: the production drill (high).
+- **Debt C.** TD-003: the production drill (high); TD-016: `make backup` ignores `.env`
+  (medium, with a workaround).
 
 ### Household & auth
 
