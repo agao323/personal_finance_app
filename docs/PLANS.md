@@ -28,6 +28,10 @@ files predate the folder name.
    `exec-plans/completed/`, run `make docs` to refresh the generated index, and commit
    that too.
 
+The one exception to "every change belongs to a plan" is the weekly
+[doc-gardening](runbooks/doc-gardening.md) run: it only corrects docs to match the code, one
+small PR per drift topic, and commits as `garden: <imperative summary>`.
+
 If a plan turns out to be bigger than its scope suggests, stop and split it into
 `NNNa` / `NNNb` rather than pushing through. An oversized plan is the main way a session
 runs out of budget mid-change and leaves the repo broken.
