@@ -55,143 +55,46 @@ hand-writes a spec or a response type. Design, rules and the re-freeze procedure
 
 ## Users and ownership
 
-### `users`
-
-```
-id, email, display_name, is_active
-```
-
-v1 ships with one row. The second row is a partner: insert it, add the identity to the
-Cloudflare Access policy. That is the whole procedure — no passkey, no invitation, no
-roles, no sharing UI. Miss the Access step and they never reach the origin, which from
-their side is indistinguishable from being refused.
-
-The `users` table is also the auth allowlist — there is no separate allowlist config.
-
-### ★ `ownership_stakes`
-
-The requirement: *if I own 50% of an asset, only 50% counts toward my net worth.* Same for
-liabilities.
-
-```
-account_id, owner_user_id → users.id, percentage, effective_from, effective_to (nullable)
-```
-
-**Every account gets an explicit 100% stake row when it is created.** There is no implicit
-"an account with no stake row is fully owned" default — with two possible owners that default
-is ambiguous, and removing it deletes a special case from the lookup helper rather than
-adding one.
-
-**Effective-dated.** A stake that changes on 2027-03-01 closes the old row and opens a new
-one. Without this, changing a stake silently rewrites your historical net worth — the charts
-would retroactively lie. This costs almost nothing now and cannot be added cheaply later.
-
-Invariant, enforced in code and by test: for any account, stakes overlapping any given date
-sum to ≤ 100%.
-
-### Visibility: household-shared
-
-Both users see every account. Only the *money* splits:
-
-- `net_worth(as_of, viewer_id)` returns that user's ownership-adjusted share.
-- `net_worth(as_of, viewer_id=None)` returns the household total across all stakes.
-- The dashboard has a **Mine / Household** toggle. That is the entire multi-user surface.
-
-Per-account privacy was rejected: it means filtering every query by viewer, which is a
-multi-tenancy tax on an app that will never have tenants.
-
-**Spend and runway are per-account and are never fractionally attributed by ownership.** A
-$60 grocery charge on a jointly-owned card is $60 of spend, not $30. Splitting spend by
-ownership stake is a rabbit hole with no correct answer, and it isn't what the number is for.
+Every net worth figure is ownership-adjusted. Stakes are effective-dated, half-open, sum
+to ≤ 100% on any date, and every account gets an explicit 100% row at creation — there is
+no implicit default. Both users see every account; only the money splits, through the
+**Mine / Household** toggle. Spend and runway burn are never split by ownership. Design,
+invariants and tests: [design-docs/ownership-and-rounding.md](design-docs/ownership-and-rounding.md).
 
 ### Ownership is applied in exactly one place
 
-**Every** net worth figure is ownership-adjusted. There is no code path that sums raw
-balances. The adjustment — and the rounding it implies — happens in a single helper in
-`api/app/services/ownership.py`, and everything calls it. If you find yourself writing
-`SUM(balance)`, stop.
+`services/ownership.adjust()` applies every stake and is the only place ownership-adjusted
+money is rounded. No net worth figure is computed from raw balances.
+[Details](design-docs/ownership-and-rounding.md#ownership-is-applied-in-exactly-one-place).
 
 ## Money
 
 `Decimal` in Python, `NUMERIC(19,2)` in Postgres, **integer cents** over the wire. Never
-float, anywhere, for any reason. There is a CI check that fails if `Float` appears in a
-SQLAlchemy column definition.
-
-Two decimal places everywhere is deliberate. Balances are dollars-and-cents; the extra
-precision would be spurious for a number that changes daily anyway, and 2dp storage
-round-trips exactly through integer cents, so the wire format needs no scale field and no
-decimal strings.
+float. [Why 2dp, and the guards](design-docs/ownership-and-rounding.md#money).
 
 ### Rounding
 
-Ownership math produces fractional cents — 50% of $1,234.57 is $617.285. The rule:
-
-> **Round half-up, per account, immediately after applying the stake. Then sum.**
-
-Rounding per account rather than on the total means the figure on screen always equals the
-sum of the rows above it. Rounding at the end produces a dashboard where the numbers visibly
-don't add up, which destroys trust in every other number on the page.
-
-This is the only rounding site in the codebase.
-
-If holdings-level tracking (shares × price) is ever added, prices need their own precision —
-2dp is correct for balances and wrong for unit prices. That's a Later concern, called out so
-nobody assumes 2dp generalises.
+Round half-up, per account, immediately after applying the stake — then sum, so the total
+always equals the rows above it. [The rule and every other `quantize`](design-docs/ownership-and-rounding.md#rounding).
 
 ## Data model
 
-Eleven tables, all created in **one hand-reviewed migration** (ticket 009). The two marked ★
-are load-bearing — they are the reason this app is not a spreadsheet, and getting them wrong
-means rewriting every aggregate query later.
+Twelve tables; the v1 eleven were created in one hand-reviewed migration so Wave 2's lanes
+could not collide. Liabilities are stored positive; current balance is derived from the
+latest snapshot, never stored. Every table, why it is shaped that way, and the migration
+history: [design-docs/data-model.md](design-docs/data-model.md). Columns:
+[generated/db-schema.md](generated/db-schema.md).
 
-One upfront migration is a deliberate trade. Alembic's revision chain is linear, so parallel
-branches each adding a migration produce a branched head that has to be merged by hand. A
-single v1 schema removes that from the critical path entirely and is what makes Wave 2's
-three lanes safe. Post-v1 schema changes are incremental and serialised through one lane.
+### `balance_snapshots` and carry-forward
 
-### `institutions`
-Banks, brokerages, lenders, 401k and HSA providers. Mostly a display grouping.
-
-### `accounts`
-Every asset and liability. Key columns:
-
-- `kind` — `liquid_asset | illiquid_asset | liability`
-- `subtype` — `checking | savings | brokerage | 401k | hsa | real_estate | credit_card | mortgage | auto_loan | ...`
-- `source` — `manual | csv | teller | plaid | simplefin` ← see [Account sources](#account-sources)
-- `currency` — `CHECK (currency = 'USD')` in v1. Stored so the constraint can be relaxed later.
-- `closed_at` — nullable. See [Closed accounts](#closed-accounts-and-carry-forward).
-
-Liabilities are stored as **positive** balances with `kind = liability`. Net worth subtracts
-them. Do not store negative balances to represent debt — it makes every aggregate ambiguous.
-
-### ★ `balance_snapshots`
-```
-account_id, as_of (date), balance, source     -- unique (account_id, as_of)
-```
-
-Aggregators return *current* balances; essentially nobody backfills years of history.
-Which means: **history that isn't captured is lost permanently.** Snapshots start on first
-deploy and every balance write appends one.
-
-"Net worth over time" is a derived view over this table. It is not computable any other way.
-The Google Sheet import exists to seed this table with the history that predates the app.
-
-Current balance is **derived** as the latest snapshot, never duplicated onto `accounts`. That
-removes a whole class of consistency bug; accept the join.
+Every balance write appends a snapshot; history that isn't captured is lost. A series
+carries balances forward at most 90 days before flagging them stale, and `closed_at`
+stops an account counting from that date.
+[design-docs/snapshots-and-carry-forward.md](design-docs/snapshots-and-carry-forward.md).
 
 ### Closed accounts and carry-forward
 
-You will not snapshot every account every day, so a net worth series has to carry the last
-known balance forward. Carry-forward without a close date is a correctness bug: sell the car,
-stop updating the account, and its final balance sits in your net worth forever. Same for a
-paid-off loan or a rolled-over 401k.
-
-Two mechanisms, both required:
-
-- **`closed_at`** — an account is excluded from any `as_of` at or after its close date.
-- **A 90-day staleness cap** — a snapshot carries forward at most 90 days. Past that the
-  account still counts, but the value is flagged stale in the API response and surfaced in
-  the UI as a prompt to update it.
+See [the design doc](design-docs/snapshots-and-carry-forward.md#closed-accounts-and-carry-forward).
 
 ### `transactions`
 ```
@@ -244,10 +147,6 @@ A recurring benefit on a credit card, and one row per period it was used in. A p
 cadence, so a calendar-year credit and one that resets on the cardmember anniversary are the
 same arithmetic. `period_start` is stored on the redemption rather than recomputed, because it
 is the fact being recorded. Ticket 049.
-
-### `data_marker`
-A single row recording whether this database holds real or synthetic data. The synthetic seed
-script refuses to run against a database marked real.
 
 ## Endpoints
 
