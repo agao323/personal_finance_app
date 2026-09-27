@@ -46,6 +46,30 @@ URGENT_WITHIN: dict[PerkCadence, int] = {
 }
 
 
+def is_calendar_aligned(cadence: PerkCadence, anchor_on: dt.date) -> bool:
+    """Whether this anchor puts the periods on calendar boundaries.
+
+    Calendar quarters are January, April, July and October; calendar halves are January and
+    July; a calendar year is January. All of them start on the 1st. One rule covers every
+    cadence: the anchor is the 1st of a month, and that month is a whole number of steps from
+    January.
+
+    Here rather than in the browser because it is a statement about what the period
+    arithmetic will do, and the form that sets the anchor is the last place that should hold
+    a second opinion about it.
+    """
+    return anchor_on.day == 1 and (anchor_on.month - 1) % MONTHS[cadence] == 0
+
+
+def calendar_anchor(on: dt.date) -> dt.date:
+    """The anchor that puts any cadence on calendar boundaries.
+
+    1 January serves all four: months from the 1st, quarters at Jan/Apr/Jul/Oct, halves at
+    Jan/Jul, and the calendar year itself.
+    """
+    return dt.date(on.year, 1, 1)
+
+
 def is_urgent(cadence: PerkCadence, days_remaining: int) -> bool:
     """Whether this many days left is urgent for this cadence.
 

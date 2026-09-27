@@ -1,9 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PerkForm, PerkRemoveButton } from "@/components/cards/perk-form";
-import { cards, mockCards } from "@/test/msw";
+import { cards, mockCards, server } from "@/test/msw";
 
 beforeEach(() => {
   mockCards();
@@ -21,7 +22,7 @@ describe("PerkForm", () => {
 
     await userEvent.type(screen.getByLabelText("Name"), "Lounge access");
     await userEvent.type(screen.getByLabelText("Value"), "200");
-    await userEvent.type(screen.getByLabelText("Resets on"), "2026-01-01");
+    // No anchor typed: calendar boundaries are the default (ticket 079).
     await userEvent.click(screen.getByRole("button", { name: "Add credit" }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalled());
@@ -50,20 +51,20 @@ describe("PerkForm", () => {
     expect(await screen.findByText(/what the credit is worth/)).toBeInTheDocument();
   });
 
-  it("refuses a credit with no anchor date", async () => {
+  it("refuses a custom schedule with the date cleared", async () => {
     render(<PerkForm accountId={1} onDone={() => {}} onCancel={() => {}} />);
 
     await userEvent.type(screen.getByLabelText("Name"), "Lounge");
     await userEvent.type(screen.getByLabelText("Value"), "200");
+    await userEvent.click(screen.getByLabelText("A different date"));
+    await userEvent.clear(screen.getByLabelText("Date it resets on"));
     await userEvent.click(screen.getByRole("button", { name: "Add credit" }));
 
     // Matched on the error sentence, not the label — a looser regex hits both.
     expect(await screen.findByText(/Enter a date one of this credit/)).toBeInTheDocument();
   });
 
-  it("explains the anchor date, because the label alone does not", () => {
-    // The field most likely to be filled in wrong, and a wrong value silently shifts
-    // every period for that credit.
+  it("says a custom date is for a cardmember-year credit", () => {
     render(<PerkForm accountId={1} onDone={() => {}} onCancel={() => {}} />);
 
     expect(screen.getByText(/cardmember year/)).toBeInTheDocument();
@@ -77,6 +78,73 @@ describe("PerkForm", () => {
     await userEvent.selectOptions(screen.getByLabelText("Resets"), "monthly");
 
     expect(screen.getByText(/keeps the periods it was recorded against/)).toBeInTheDocument();
+  });
+});
+
+describe("calendar boundaries by default (079)", () => {
+  it("defaults to the calendar schedule for the chosen cadence", async () => {
+    // A quarterly credit means Jan, Apr, Jul, Oct. Getting anything else now takes saying so.
+    render(<PerkForm accountId={1} onDone={() => {}} onCancel={() => {}} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Resets"), "quarterly");
+
+    expect(screen.getByLabelText("Calendar quarters")).toBeChecked();
+    expect(screen.queryByLabelText("Date it resets on")).not.toBeInTheDocument();
+  });
+
+  it("sends 1 January as the anchor when the calendar schedule is chosen", async () => {
+    const bodies: unknown[] = [];
+    server.use(
+      http.post("/api/cards/:id/perks", async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({ id: 99 }, { status: 201 });
+      }),
+    );
+    render(<PerkForm accountId={1} onDone={() => {}} onCancel={() => {}} />);
+
+    await userEvent.type(screen.getByLabelText("Name"), "Lounge");
+    await userEvent.type(screen.getByLabelText("Value"), "50");
+    await userEvent.selectOptions(screen.getByLabelText("Resets"), "quarterly");
+    await userEvent.click(screen.getByRole("button", { name: "Add credit" }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    const year = new Date().getUTCFullYear();
+    expect(bodies[0]).toMatchObject({ cadence: "quarterly", anchor_on: `${year}-01-01` });
+  });
+
+  it("reveals the date input only when a different date is chosen", async () => {
+    render(<PerkForm accountId={1} onDone={() => {}} onCancel={() => {}} />);
+
+    await userEvent.click(screen.getByLabelText("A different date"));
+
+    expect(screen.getByLabelText("Date it resets on")).toBeInTheDocument();
+  });
+
+  it("shows the reset dates the API works out, not dates computed here", async () => {
+    // The consequence of an anchor was invisible until after saving, which is how a
+    // quarterly credit came to reset in December.
+    render(<PerkForm accountId={1} onDone={() => {}} onCancel={() => {}} />);
+
+    expect(await screen.findByText(/^Resets Oct 1, 2026, Jan 1, 2027/)).toBeInTheDocument();
+  });
+
+  it("says plainly when an anchor is not on calendar boundaries", async () => {
+    server.use(
+      http.get("/api/perks/schedule", () =>
+        HttpResponse.json({
+          cadence: "quarterly",
+          anchor_on: "2026-09-01",
+          is_calendar_aligned: false,
+          current_start: "2026-09-01",
+          resets_on: ["2026-12-01", "2027-03-01", "2027-06-01", "2027-09-01"],
+        }),
+      ),
+    );
+    render(<PerkForm accountId={1} onDone={() => {}} onCancel={() => {}} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Resets"), "quarterly");
+
+    expect(await screen.findByText(/not calendar quarters/)).toBeInTheDocument();
   });
 });
 

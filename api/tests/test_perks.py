@@ -19,6 +19,7 @@ from app.models.enums import PerkCadence
 from app.services.perks import (
     URGENT_WITHIN,
     add_months,
+    is_calendar_aligned,
     is_urgent,
     period_at,
     period_containing,
@@ -423,3 +424,45 @@ def test_recent_periods_ends_at_the_date_asked_about_not_at_the_anchor() -> None
     periods = recent_periods(PerkCadence.MONTHLY, D(2027, 5, 1), D(2026, 9, 27), 3)
 
     assert periods[-1].start <= D(2026, 9, 27) < periods[-1].end
+
+
+# ── calendar alignment ────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("cadence", "aligned_months"),
+    [
+        (PerkCadence.MONTHLY, list(range(1, 13))),
+        (PerkCadence.QUARTERLY, [1, 4, 7, 10]),
+        (PerkCadence.SEMIANNUAL, [1, 7]),
+        (PerkCadence.ANNUAL, [1]),
+    ],
+)
+def test_which_anchors_put_a_cadence_on_calendar_boundaries(
+    cadence: PerkCadence, aligned_months: list[int]
+) -> None:
+    """Calendar quarters are January, April, July and October. Hand-listed, not derived."""
+    found = [month for month in range(1, 13) if is_calendar_aligned(cadence, D(2026, month, 1))]
+
+    assert found == aligned_months
+
+
+@pytest.mark.parametrize("cadence", list(PerkCadence))
+def test_a_day_other_than_the_first_is_never_calendar_aligned(cadence: PerkCadence) -> None:
+    assert not is_calendar_aligned(cadence, D(2026, 1, 15))
+
+
+def test_the_first_of_january_aligns_every_cadence() -> None:
+    """Which is what makes it usable as the one default."""
+    assert all(is_calendar_aligned(cadence, D(2026, 1, 1)) for cadence in PerkCadence)
+
+
+def test_a_september_anchored_quarterly_credit_resets_in_december() -> None:
+    """The reported behaviour, and it is correct arithmetic — just not what was meant.
+
+    Kept as a test so nobody "fixes" the engine when the defect was the default.
+    """
+    period = period_containing(PerkCadence.QUARTERLY, D(2026, 9, 1), D(2026, 9, 27))
+
+    assert (period.start, period.end) == (D(2026, 9, 1), D(2026, 12, 1))
+    assert not is_calendar_aligned(PerkCadence.QUARTERLY, D(2026, 9, 1))

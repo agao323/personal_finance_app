@@ -718,3 +718,39 @@ def test_a_chips_own_start_date_marks_that_period(
 
 def test_periods_of_an_unknown_perk_is_a_404(client: TestClient) -> None:
     assert client.get("/perks/9999/periods").status_code == 404
+
+
+# ── the schedule preview (079) ────────────────────────────────────────────────
+
+
+def test_the_schedule_shows_calendar_quarters_for_a_january_anchor(client: TestClient) -> None:
+    body = client.get(
+        "/perks/schedule",
+        params={"cadence": "quarterly", "anchor_on": "2026-01-01", "on": "2026-09-27"},
+    ).json()
+
+    assert body["is_calendar_aligned"] is True
+    assert body["current_start"] == "2026-07-01"
+    assert body["resets_on"] == ["2026-10-01", "2027-01-01", "2027-04-01", "2027-07-01"]
+
+
+def test_the_schedule_shows_what_a_september_anchor_really_does(client: TestClient) -> None:
+    """The reported case. The form shows this before saving, which is the whole point."""
+    body = client.get(
+        "/perks/schedule",
+        params={"cadence": "quarterly", "anchor_on": "2026-09-01", "on": "2026-09-27"},
+    ).json()
+
+    assert body["is_calendar_aligned"] is False
+    assert body["resets_on"][0] == "2026-12-01"
+
+
+def test_the_schedule_needs_no_perk_to_exist(client: TestClient) -> None:
+    """It answers for a credit that has not been created yet — that is when it is needed."""
+    response = client.get(
+        "/perks/schedule",
+        params={"cadence": "annual", "anchor_on": "2026-01-01", "on": "2026-09-27"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["resets_on"] == ["2027-01-01", "2028-01-01", "2029-01-01", "2030-01-01"]

@@ -480,6 +480,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/perks/schedule": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Perk Schedule
+     * @description What a cadence and an anchor would produce, for a credit that does not exist yet.
+     *
+     *     Reads nothing and writes nothing. It exists so the form that sets an anchor can show what
+     *     the anchor does before it is saved: anchored 1 September a quarterly credit genuinely
+     *     resets on 1 December, which is correct arithmetic and almost never what was meant.
+     */
+    get: operations["perk_schedule_perks_schedule_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/perks/upcoming": {
     parameters: {
       query?: never;
@@ -1730,6 +1754,31 @@ export interface components {
        * @description Amount in integer cents. 1234 means $12.34.
        */
       value_cents: number;
+    };
+    /**
+     * PerkScheduleRead
+     * @description What a cadence and an anchor actually produce, before anything is saved.
+     *
+     *     The form asks this rather than working it out, for the same reason the period grid does:
+     *     a second implementation of the period arithmetic in the browser would disagree
+     *     eventually, and this one would disagree inside the form that sets it.
+     */
+    PerkScheduleRead: {
+      /**
+       * Anchor On
+       * Format: date
+       */
+      anchor_on: string;
+      cadence: components["schemas"]["PerkCadence"];
+      /**
+       * Current Start
+       * Format: date
+       */
+      current_start: string;
+      /** Is Calendar Aligned */
+      is_calendar_aligned: boolean;
+      /** Resets On */
+      resets_on: string[];
     };
     /** PerkUpdate */
     PerkUpdate: {
@@ -3023,6 +3072,48 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  perk_schedule_perks_schedule_get: {
+    parameters: {
+      query: {
+        cadence: components["schemas"]["PerkCadence"];
+        anchor_on: string;
+        on?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PerkScheduleRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

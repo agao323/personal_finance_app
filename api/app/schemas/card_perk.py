@@ -91,6 +91,26 @@ class PerkPeriodsRead(Schema):
     has_earlier: bool
 
 
+class PerkScheduleRead(Schema):
+    """What a cadence and an anchor actually produce, before anything is saved.
+
+    The form asks this rather than working it out, for the same reason the period grid does:
+    a second implementation of the period arithmetic in the browser would disagree
+    eventually, and this one would disagree inside the form that sets it.
+    """
+
+    cadence: PerkCadence
+    anchor_on: dt.date
+    #: Whether these are calendar quarters, calendar halves, the calendar year, or months
+    #: from the 1st. False is right for a credit that resets on the cardmember year and
+    #: wrong by accident the rest of the time, so it is reported rather than corrected.
+    is_calendar_aligned: bool
+    #: The period the evaluated date falls in.
+    current_start: dt.date
+    #: The next reset dates, soonest first. The first is the end of the current period.
+    resets_on: list[dt.date]
+
+
 class PerkCreate(Schema):
     name: str = Field(min_length=1, max_length=160)
     description: str | None = Field(default=None, max_length=500)

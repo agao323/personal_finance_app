@@ -18,10 +18,19 @@ export type History = ResponseOf<"/cards/history", "get">;
 export type Redemption = History["redemptions"][number];
 export type Cadence = components["schemas"]["PerkCadence"];
 export type Periods = ResponseOf<"/perks/{perk_id}/periods", "get">;
+export type Schedule = ResponseOf<"/perks/schedule", "get">;
 export type PeriodState = Periods["periods"][number];
 
 /** Monthly first: it recurs most often and so gets checked most often. */
 export const CADENCE_ORDER: readonly Cadence[] = ["monthly", "quarterly", "semiannual", "annual"];
+
+/** What a calendar-aligned schedule is called, per cadence. Ticket 079. */
+export const CALENDAR_LABELS: Record<Cadence, string> = {
+  monthly: "Calendar months",
+  quarterly: "Calendar quarters",
+  semiannual: "Calendar halves",
+  annual: "Calendar year",
+};
 
 export const CADENCE_LABELS: Record<Cadence, string> = {
   monthly: "Monthly",

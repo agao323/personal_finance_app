@@ -13,13 +13,31 @@
  * could drift from the rule.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Field, FormActions, MoneyInput, inputClass } from "@/components/forms/fields";
 import { apiFetch } from "@/lib/api";
-import { centsToInputValue } from "@/lib/format";
+import { centsToInputValue, formatDate } from "@/lib/format";
 import { IconButton, TrashIcon } from "./icons";
-import { CADENCE_LABELS, CADENCE_ORDER, type Cadence, type Perk } from "./types";
+import {
+  CADENCE_LABELS,
+  CADENCE_ORDER,
+  CALENDAR_LABELS,
+  type Cadence,
+  type Perk,
+  type Schedule,
+} from "./types";
+
+/**
+ * The anchor that puts any cadence on calendar boundaries. (Ticket 079)
+ *
+ * 1 January serves all four: months from the 1st, quarters at Jan/Apr/Jul/Oct, halves at
+ * Jan/Jul, and the calendar year. Plain calendar arithmetic, not period arithmetic — what
+ * that anchor *produces* is the API's answer, below.
+ */
+function calendarAnchor(): string {
+  return `${new Date().getUTCFullYear()}-01-01`;
+}
 
 export function PerkForm({
   accountId,
@@ -39,7 +57,12 @@ export function PerkForm({
   const [value, setValue] = useState(perk ? centsToInputValue(perk.value_cents) : "");
   const [valueCents, setValueCents] = useState<number | null>(perk?.value_cents ?? null);
   const [cadence, setCadence] = useState<Cadence>((perk?.cadence as Cadence) ?? "annual");
-  const [anchor, setAnchor] = useState(perk?.anchor_on ?? "");
+  // **Calendar boundaries unless you say otherwise.** The anchor used to be an empty date
+  // field, so the value people reached for was the day they added the credit here — which is
+  // correct arithmetic and almost never what was meant. A quarterly credit anchored in
+  // September genuinely resets in December.
+  const [anchor, setAnchor] = useState(perk?.anchor_on ?? calendarAnchor());
+  const [custom, setCustom] = useState(editing && perk.anchor_on !== calendarAnchor());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -127,28 +150,51 @@ export function PerkForm({
             </select>
           )}
         </Field>
-        {/* The label alone is meaningless and a wrong value here silently shifts every
-            period for this credit. The hint is doing the work.
-
-            It used to say "First period began" and invite the day you opened the card, and
-            then the grid treated that date as the beginning of history — so a credit set up
-            in August offered two months and refused the rest. Ticket 076 made the anchor a
-            phase reference only, and this copy stops implying otherwise. */}
-        <Field
-          label="Resets on"
-          hint="Any date one of this credit's periods starts — it sets where the reset falls, not when the credit began. 1 January for a credit that resets on the calendar year, or your card's anniversary if it resets on the cardmember year. Earlier periods can still be recorded."
-        >
-          {({ id, describedBy }) => (
-            <input
-              id={id}
-              type="date"
-              value={anchor}
-              aria-describedby={describedBy}
-              onChange={(event) => setAnchor(event.target.value)}
-              className={inputClass}
-            />
-          )}
-        </Field>
+        <fieldset>
+          <legend className="text-sm font-medium">Resets on</legend>
+          <p className="text-ink-muted mt-1 text-xs">
+            Most card credits run on the calendar. Choose a date only for one that resets on your
+            cardmember year.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-1.5 text-sm">
+              <input
+                type="radio"
+                name={`anchor-mode-${accountId}`}
+                checked={!custom}
+                onChange={() => {
+                  setCustom(false);
+                  setAnchor(calendarAnchor());
+                }}
+              />
+              {CALENDAR_LABELS[cadence]}
+            </label>
+            <label className="flex items-center gap-1.5 text-sm">
+              <input
+                type="radio"
+                name={`anchor-mode-${accountId}`}
+                checked={custom}
+                onChange={() => setCustom(true)}
+              />
+              A different date
+            </label>
+          </div>
+          {custom ? (
+            <span className="mt-2 block">
+              <label className="sr-only" htmlFor={`anchor-${accountId}`}>
+                Date it resets on
+              </label>
+              <input
+                id={`anchor-${accountId}`}
+                type="date"
+                value={anchor}
+                onChange={(event) => setAnchor(event.target.value)}
+                className={inputClass}
+              />
+            </span>
+          ) : null}
+          <SchedulePreview cadence={cadence} anchor={anchor} />
+        </fieldset>
       </div>
 
       {cadenceOrAnchorChanged ? (
@@ -271,5 +317,57 @@ export function PerkRemoveButton({ perk, onDone }: { perk: Perk; onDone: () => v
     >
       <TrashIcon />
     </IconButton>
+  );
+}
+
+/**
+ * The reset dates this cadence and anchor actually produce. (Ticket 079)
+ *
+ * **From the API, never computed here.** A second implementation of the period arithmetic in
+ * the browser would disagree eventually, and this one would disagree inside the form that
+ * sets it — the worst possible place.
+ *
+ * It exists because the anchor's consequence was invisible until after saving. Anchored
+ * 1 September a quarterly credit resets on 1 December, which is correct and almost never
+ * what was meant.
+ */
+function SchedulePreview({ cadence, anchor }: { cadence: Cadence; anchor: string }) {
+  // The settled-state cell this codebase uses everywhere: state written only by a response
+  // that has arrived, and the displayed value derived from whether it answers the current
+  // question. A `setState` at the top of the effect is a cascading render and the
+  // `react-hooks` rule rejects it outright.
+  const [loaded, setLoaded] = useState<{ key: string; data: Schedule | null } | null>(null);
+  const key = `${cadence}|${anchor}`;
+  const schedule = loaded?.key === key ? loaded.data : null;
+
+  useEffect(() => {
+    if (!anchor) return;
+    let live = true;
+    const requested = `${cadence}|${anchor}`;
+    apiFetch("/perks/schedule", { query: { cadence, anchor_on: anchor } })
+      .then((next) => {
+        if (live) setLoaded({ key: requested, data: next });
+      })
+      .catch(() => {
+        // A preview that cannot load says nothing rather than guessing.
+        if (live) setLoaded({ key: requested, data: null });
+      });
+    return () => {
+      live = false;
+    };
+  }, [cadence, anchor]);
+
+  if (schedule === null) return null;
+
+  return (
+    <p className="text-ink-secondary mt-2 text-xs">
+      Resets {schedule.resets_on.map((date) => formatDate(date)).join(", ")}
+      {!schedule.is_calendar_aligned ? (
+        <>
+          {" — "}
+          <span className="text-warning-text">not {CALENDAR_LABELS[cadence].toLowerCase()}</span>
+        </>
+      ) : null}
+    </p>
   );
 }

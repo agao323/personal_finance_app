@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from app.deps import CurrentUser, DbSession
 from app.models.account import Account
 from app.models.card_perk import CardPerk, PerkRedemption
-from app.models.enums import AccountSubtype
+from app.models.enums import AccountSubtype, PerkCadence
 from app.schemas.card_perk import (
     CardRead,
     HistoryRead,
@@ -34,6 +34,7 @@ from app.schemas.card_perk import (
     PerkPeriodsRead,
     PerkPeriodState,
     PerkRead,
+    PerkScheduleRead,
     PerkUpdate,
     RedemptionCreate,
     RedemptionRead,
@@ -466,6 +467,41 @@ def perk_history(
     _perk(session, perk_id)
     return _history(
         session, perk_id=perk_id, from_date=from_date, to_date=to_date, today=on or dt.date.today()
+    )
+
+
+#: How many upcoming resets the schedule preview reports.
+#:
+#: Four, because that is enough to show the shape at every cadence — a year of quarters, a
+#: third of a year of months — without the form growing a list nobody reads.
+SCHEDULE_AHEAD = 4
+
+
+@router.get("/perks/schedule", response_model=PerkScheduleRead)
+def perk_schedule(
+    session: DbSession,
+    user: CurrentUser,
+    cadence: Annotated[PerkCadence, Query()],
+    anchor_on: Annotated[dt.date, Query()],
+    on: Annotated[dt.date | None, Query()] = None,
+) -> PerkScheduleRead:
+    """What a cadence and an anchor would produce, for a credit that does not exist yet.
+
+    Reads nothing and writes nothing. It exists so the form that sets an anchor can show what
+    the anchor does before it is saved: anchored 1 September a quarterly credit genuinely
+    resets on 1 December, which is correct arithmetic and almost never what was meant.
+    """
+    today = on or dt.date.today()
+    current = perk_service.period_containing(cadence, anchor_on, today)
+    return PerkScheduleRead(
+        cadence=cadence,
+        anchor_on=anchor_on,
+        is_calendar_aligned=perk_service.is_calendar_aligned(cadence, anchor_on),
+        current_start=current.start,
+        resets_on=[
+            perk_service.period_at(cadence, anchor_on, current.index + step).end
+            for step in range(SCHEDULE_AHEAD)
+        ],
     )
 
 

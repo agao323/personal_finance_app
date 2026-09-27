@@ -923,6 +923,20 @@ export function mockCards(
     // Six calendar months, honouring `back` so "show earlier" is actually exercised rather
     // than asserted against a handler that ignores the query it was sent. `used` tracks the
     // same writes as `setUsed`, so a toggle is visible on the next read.
+    http.get("/api/perks/schedule", ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      const cadence = params.get("cadence") ?? "annual";
+      const anchor = params.get("anchor_on") ?? "2026-01-01";
+      const [, month, day] = anchor.split("-").map(Number);
+      const step = { monthly: 1, quarterly: 3, semiannual: 6, annual: 12 }[cadence] ?? 12;
+      return HttpResponse.json({
+        cadence,
+        anchor_on: anchor,
+        is_calendar_aligned: day === 1 && (month - 1) % step === 0,
+        current_start: anchor,
+        resets_on: ["2026-10-01", "2027-01-01", "2027-04-01", "2027-07-01"],
+      });
+    }),
     http.get("/api/perks/:id/periods", ({ params, request }) => {
       const back = Number(new URL(request.url).searchParams.get("back") ?? 12);
       const all = monthlyPeriods(Number(params.id));
