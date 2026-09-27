@@ -445,9 +445,10 @@ hand-reviewed migrations, the effective-dated ownership model, and the snapshot 
 - **Liveness vs readiness:** `/health` reports process liveness and touches no database.
   `/ready` reports database reachability. Fly probes `/health` only — probing `/ready` would
   let a transient database blip restart otherwise-healthy instances.
-- **Backups:** nightly encrypted `pg_dump` to Cloudflare R2, 30-day retention, with a
-  dead-man's-switch that alerts when the job *doesn't* check in. A silently-failing backup is
-  worse than no backup, because it is trusted.
+- **Backups:** Neon's own point-in-time recovery, plus `make backup` writing a full JSON
+  export to the owner's machine. Nothing we operate holds an offsite copy — see
+  [ADR 0008](adr/0008-local-backups.md). A silently-failing scheduled backup is worse than
+  no backup because it is trusted, which is why there is no schedule.
 
 ## Testing
 

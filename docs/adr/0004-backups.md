@@ -1,7 +1,14 @@
 # 0004 — Backups: encrypted nightly dumps to R2, with a dead-man's-switch
 
 Date: 2026-08-18
-Status: accepted
+Status: superseded by [0008](0008-local-backups.md)
+
+> **Superseded on 2026-09-27.** Kept as the record of what was decided and why it was
+> wrong. Two things undid it: the encryption key had to live in GitHub Actions secrets
+> to do its job, next to the R2 credentials and the database URL, so the design
+> concentrated exactly what it claimed to separate; and the data it protected turned
+> out to be mostly reconstructible, with `balance_snapshots` the only genuinely
+> irreplaceable table. See [0008](0008-local-backups.md).
 
 ## Context
 

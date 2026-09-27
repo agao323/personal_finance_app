@@ -30,10 +30,11 @@ Tickets that call for an ADR by name:
 | `0001-hosting.md` | 008 | Fly + Neon, release-command migrations, private networking | written |
 | `0002-auth.md` | 036 | Cloudflare Access + passkeys, and why the origin is private | written |
 | `0003-demo-isolation.md` | 037 | Separate Neon projects rather than branches | pending 037 |
-| `0004-backups.md` | 017 | Encrypted dumps to R2, and the restore drill | written |
+| `0004-backups.md` | 017 | Encrypted dumps to R2, and the restore drill | **superseded by 0008** |
 | `0005-request-scoped-transactions.md` | — | The request is the transaction boundary | backfilled by 039 |
 | `0006-contract-changes-during-wave-2.md` | — | Re-freezing the contract four times | backfilled by 039 |
 | `0007-drop-passkeys.md` | 047 | Access is the authentication; the passkey layer is removed | written |
+| `0008-local-backups.md` | 017 | Local exports on the owner's machine; no offsite copy | written |
 
 0007 supersedes half of 0002 rather than replacing it. The Access decision in 0002 was
 correct and still stands; the passkey decision beside it was undermined by a later

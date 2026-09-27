@@ -20,10 +20,24 @@ class ExportMeta(Schema):
 
 
 class ExportRead(Schema):
+    """Every table. **Not a selection** — see the guard test.
+
+    It used to be a selection, and the selection went stale: `institutions`, `card_perks`,
+    `perk_redemptions` and `import_mappings` were all missing, because the export was
+    written before the cards feature and nobody extended it while the ticket went on
+    claiming "the full dataset". A test now fails when a mapped table is absent from here.
+    """
+
     meta: ExportMeta
+    institutions: list[dict[str, Any]]
     accounts: list[dict[str, Any]]
     ownership_stakes: list[dict[str, Any]]
     balance_snapshots: list[dict[str, Any]]
     categories: list[dict[str, Any]]
     transactions: list[dict[str, Any]]
     categorization_rules: list[dict[str, Any]]
+    import_mappings: list[dict[str, Any]]
+    card_perks: list[dict[str, Any]]
+    perk_redemptions: list[dict[str, Any]]
+    users: list[dict[str, Any]]
+    data_marker: list[dict[str, Any]]

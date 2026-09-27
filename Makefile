@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade deploy-demo
+.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade backup restore deploy-demo
 
 # Compose merges docker-compose.override.yml automatically. PROD_COMPOSE opts out,
 # so smoke tests exercise the deploy-shaped images rather than the dev ones.
@@ -181,6 +181,17 @@ migrate: .env ## Create a migration: make migrate m="add ownership stakes"
 upgrade: .env ## Apply migrations up to head
 	@docker compose up -d --wait postgres >/dev/null
 	@cd api && ALEMBIC_DATABASE_URL="$(LOCAL_DB_URL)" uv run alembic upgrade head
+
+backup: .env ## Write the whole database to data/backups/ on this machine (ADR 0008)
+	@# Reads BACKUP_DATABASE_URL from .env — the production Neon string. Falls back to the
+	@# local database, which is useful for rehearsing but is not a backup of anything.
+	@cd api && uv run python scripts/export_local.py $(ARGS)
+
+restore: .env ## Load an export back: make restore f=data/backups/pfa-2026-09-27.json
+	@test -n "$(f)" || (echo 'usage: make restore f=data/backups/pfa-YYYY-MM-DD.json' >&2; exit 1)
+	@# Defaults to the LOCAL database, never production. Restoring over the real one is a
+	@# deliberate act that has to name its own --database-url.
+	@cd api && DATABASE_URL="$(LOCAL_DB_URL)" uv run python scripts/restore_local.py "$(CURDIR)/$(f)" $(ARGS)
 
 downgrade: .env ## Roll back one migration
 	@cd api && ALEMBIC_DATABASE_URL="$(LOCAL_DB_URL)" uv run alembic downgrade -1

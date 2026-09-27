@@ -179,17 +179,21 @@ the data model is stable.
 
 - Neon's own automatic backups and point-in-time restore are layer one, and come free with
   the platform choice.
-- Layer two is ours: automated nightly `pg_dump` to Cloudflare R2, encrypted with a key held
-  outside Neon, retention 30 days.
-- **A dead-man's-switch** (healthchecks.io or equivalent) alerts when the nightly job fails
-  to check in. A backup job that silently stops working is worse than no backup, because it
-  is trusted.
-- **Restore is tested at least once**, into a scratch database, before the app is trusted
-  with real data. An untested backup is not a backup. **No real data enters production until
-  ticket 017 is done** — the Google Sheet import runs against a local database until then.
+- Layer two is a **local** full export: `make backup` writes every table to
+  `data/backups/`, which is gitignored, and the machine's own backup carries it from there.
+  Nothing we operate stores a copy offsite — see [ADR 0008](adr/0008-local-backups.md),
+  which supersedes the encrypted-dumps-to-R2 design in [0004](adr/0004-backups.md).
+- **Restore is tested at least once** before the app is trusted with real data. An untested
+  export is a file you believe in. **No real data enters production until ticket 017 is
+  done** — the Google Sheet import runs against a local database until then.
 - Full data export from the UI (`GET /export`). The app must never become a place data can
   only go into — that's both a user-hostile design and insurance against losing interest in
   the project.
+- **Only `balance_snapshots` is genuinely irreplaceable.** Banks do not serve historical
+  balance-at-a-date, and for 401k, HSA, brokerage, property and vehicle values nobody does.
+  Everything else is bank CSVs inside their retention window or a handful of hand-typed
+  rows. Knowing which rows actually cannot be rebuilt is what made layer two small enough
+  to be worth having.
 
 This matters more than it looks: moving a financial picture out of Google Sheets (which
 Google backs up) into a self-operated database is a real downgrade in durability until
