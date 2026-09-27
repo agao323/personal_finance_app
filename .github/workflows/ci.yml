@@ -82,6 +82,11 @@ jobs:
       - name: Contract drift
         run: make types-check
 
+      # The same idea for docs/generated/: the schema and endpoint references are
+      # regenerated from the code and must match what was committed.
+      - name: Generated docs drift
+        run: make docs-check
+
       # ── architectural guards ───────────────────────────────────────────────
       # Guards are tested first: one that never fires looks exactly like one that
       # is broken.

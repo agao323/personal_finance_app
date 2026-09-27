@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade backup restore deploy-demo
+.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check docs docs-check seed migrate upgrade backup restore deploy-demo
 
 # Compose merges docker-compose.override.yml automatically. PROD_COMPOSE opts out,
 # so smoke tests exercise the deploy-shaped images rather than the dev ones.
@@ -146,6 +146,15 @@ types-check: types ## Fail if the committed types drift from the Pydantic models
 		exit 1; \
 	fi
 	@echo "contract is in sync"
+
+# ── Docs ──────────────────────────────────────────────────────────────────────
+# docs/generated/ is derived from the code, the same way api-types.ts is: `docs` writes it,
+# `docs-check` fails on drift. Neither needs a database.
+docs: ## Regenerate docs/generated/ (schema, endpoints) from the code
+	@cd api && uv run python scripts/generate_docs.py
+
+docs-check: ## Fail if docs/generated/ drifts from what the code would generate
+	@cd api && uv run python scripts/generate_docs.py --check
 
 # ── Deploy ────────────────────────────────────────────────────────────────────
 # The directory argument sets the Docker build context. Without it flyctl looks for
