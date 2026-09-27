@@ -452,7 +452,7 @@ hand-reviewed migrations, the effective-dated ownership model, and the snapshot 
 
 ## Testing
 
-Every ticket ships both unit and functional tests. See [tickets/README.md](../tickets/README.md#tests).
+Every ticket ships both unit and functional tests. See [PLANS.md](PLANS.md#tests).
 
 - **Backend unit:** pure service functions. Every aggregate (net worth, runway, spend
   rollups) gets a test with hand-computed expected values. Ownership math gets property
