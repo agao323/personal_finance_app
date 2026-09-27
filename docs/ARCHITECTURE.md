@@ -97,56 +97,27 @@ stops an account counting from that date.
 See [the design doc](design-docs/snapshots-and-carry-forward.md#closed-accounts-and-carry-forward).
 
 ### `transactions`
-```
-external_id (nullable, unique per account), account_id, posted_at, amount, merchant,
-description, category_id, category_source, transfer_group_id (nullable)
-```
 
-`external_id` + account is the idempotency key. Ingestion is **upsert, never insert**.
-Duplicate transactions after a re-sync are the single most common bug class in this category
-of app; design it out on day one rather than debugging it later.
-
-Where the source provides no id, `external_id` is derived deterministically from the row's
-content **plus an occurrence index** within `(account, posted_at, amount, merchant)`. The
-index matters: two coffees at the same shop on the same day for the same amount are two real
-transactions that a naive content hash would silently collapse into one.
-
-**Sign convention: outflows are negative, inflows positive.** Institutions disagree about
-this, so CSV import carries a per-mapping sign-normalisation step.
-
-`category_source` (`import | rule | manual`) records where a category came from — so
-re-running rules never clobbers a human decision.
+Ingestion is **upsert, never insert**: `external_id` + account is the idempotency key, and a
+row with no source id gets a content hash **plus an occurrence index**, so two identical
+coffees stay two. Outflows are negative. The CSV preview is the plan the commit executes.
+[design-docs/transactions-and-ingestion.md](design-docs/transactions-and-ingestion.md).
 
 ### Transfers
 
-A transfer from checking to brokerage is not spending. If it shows up as spending, every
-number on the dashboard loses credibility, and runway is wrong in the direction that matters.
-
-Two mechanisms:
-
-- **`categories.kind`** — `income | expense | transfer`. Spend rollups filter to `expense`.
-  Income is classified so it stays *out* of the rollups; it isn't displayed in v1.
-- **`transactions.transfer_group_id`** — nullable, links the two sides of a matched pair.
-  Set by hand in v1 from the transactions screen. Automatic pair detection is a Later ticket.
+`categories.kind` (`income | expense | transfer`) keeps transfers and income out of spend;
+`transfer_group_id` links pairs by hand. [design-docs/transfers-and-categories.md](design-docs/transfers-and-categories.md).
 
 ### `categories` + `categorization_rules`
-Imported categories are mediocre. A user-editable rule set (merchant pattern → category,
-ordered, first match wins) is what makes the spend breakdowns trustworthy enough to act on.
-Without it every spending chart is subtly wrong and the app quietly stops getting used.
 
-Manual per-transaction overrides always win over rules, and re-running rules over the whole
-history is idempotent.
-
-### `import_mappings`
-Per-account CSV column mapping and sign convention, persisted so a recurring import from the
-same institution is one click.
+Ordered rules, first match wins, idempotent, and **a manual category is never
+overwritten**. [design-docs/transfers-and-categories.md](design-docs/transfers-and-categories.md#categories-and-rules).
 
 ### `card_perks` + `perk_redemptions`
-A recurring benefit on a credit card, and one row per period it was used in. A perk stores
-`anchor_on` — the date its first period began — and every period is that date stepped by its
-cadence, so a calendar-year credit and one that resets on the cardmember anniversary are the
-same arithmetic. `period_start` is stored on the redemption rather than recomputed, because it
-is the fact being recorded. Ticket 049.
+
+A credit on a card account; one redemption row per period used, `period_start` stored.
+`anchor_on` sets the phase of the periods, not a start date. `services/perks.py` is the only
+place that decides which period a date is in. [design-docs/card-perks-period-engine.md](design-docs/card-perks-period-engine.md).
 
 ## Endpoints
 
