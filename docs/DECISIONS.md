@@ -110,12 +110,16 @@ room to spare, so the separation costs nothing.
 The one live constraint is demo compute: a publicly indexed demo that crawlers keep awake can
 burn its CU-hour budget. Handled by edge-caching the demo at Cloudflare, which also removes
 the cold start an uncached first visit would otherwise pay — see
-[ARCHITECTURE.md](ARCHITECTURE.md#demo-caching) and ticket 037.
+[design-docs/hosting.md](design-docs/hosting.md#demo-caching) and ticket 037.
 
 *Rules out:* Fly Postgres. Also rules out using two **branches** of one Neon project for
 real and demo, which is the conventional advice for dev/prod and the wrong answer here —
 branches share a project and an account, and this is a trust boundary rather than an
 environment split.
+
+> **Partly superseded 2026-09-27 by [ADR 0008](adr/0008-local-backups.md).** The second
+> backup layer is a local JSON export (`make backup`) rather than a nightly `pg_dump`.
+> Neon, and separate projects for real and demo, stand.
 
 ### Five capabilities the plan assumed but never built
 
@@ -124,6 +128,10 @@ designed for but nothing ever wrote it), **a transactions screen** (in the nav, 
 **a rules management screen** (PRODUCT.md commits to a user-editable rule set; editable by
 curl is not that), **observability** (structlog + Sentry + log redaction), and **backup
 failure alerting**.
+
+> **Backup failure alerting superseded 2026-09-27 by [ADR 0008](adr/0008-local-backups.md).**
+> There is no scheduled backup left to alert on: a manual `make backup` that is run beats a
+> schedule that silently stops.
 
 ---
 

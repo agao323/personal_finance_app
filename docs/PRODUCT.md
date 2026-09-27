@@ -118,7 +118,7 @@ is not displayed in v1.
   edit the code.
 - **Multi-currency.** `currency` is stored but constrained to USD. Summing mixed currencies
   silently produces a wrong number; a stored field the math ignores is worse than no field.
-- **Kubernetes as initial infrastructure.** See [ARCHITECTURE.md](ARCHITECTURE.md#why-not-kubernetes).
+- **Kubernetes as initial infrastructure.** See [design-docs/hosting.md](design-docs/hosting.md#why-not-kubernetes).
   Optionally revisited later as a deliberate learning exercise, after the app works.
 - **Real-time balance updates.** Not a thing that exists. Aggregators are daily batch.
   The mental model is nightly sync plus a manual refresh button.
