@@ -1,0 +1,50 @@
+Cloudflare Access — verifying the JWT at the origin
+===================================================
+
+Pinned to: Cloudflare's documentation as of the verified date (a hosted service; no version)
+Source: https://developers.cloudflare.com/cloudflare-one/identity/authorization-cookie/validating-json/
+Verified: 2026-09-27
+
+WHY THIS APP DOES IT
+Cloudflare Access authenticates at the edge; nothing unauthenticated should reach the
+origin. The origin verifies the assertion anyway, in case the Fly app is ever given a public
+address by accident (ADR 0002, ADR 0007). Since ticket 047b, Access is the whole of
+authentication, and the `users` table is the allowlist.
+
+WHAT THE SOURCE SAYS
+- The token arrives in the `Cf-Access-Jwt-Assertion` request header. The `CF_Authorization`
+  cookie carries it too, but the header is the recommended source.
+- Signing keys are published per team at
+      https://<team-name>.cloudflareaccess.com/cdn-cgi/access/certs
+  The token's `kid` selects the key. Tokens are RS256.
+- Verify the signature, the issuer (`iss`, the team domain as an https URL) and the audience
+  (`aud`, the Access application's AUD tag). Checking only that a token decodes proves
+  nothing — anyone can write a header.
+- Keys rotate roughly every six weeks; the endpoint serves the current and previous keys,
+  and a previous key stays valid for about a week after rotation. Fetch keys from the
+  endpoint dynamically (with caching) rather than hardcoding them.
+
+WHERE THIS REPO DOES IT
+- web/src/lib/access.ts — jose: createRemoteJWKSet(<team>/cdn-cgi/access/certs), jwtVerify
+  with issuer https://<team> and audience = CF_ACCESS_AUD. Used by web/src/proxy.ts.
+- api/app/services/access.py — PyJWT with PyJWKClient against the same certs URL, so the API
+  never trusts a header the web tier attached. deps.current_user resolves the verified email
+  to an active users row.
+- Config: CF_ACCESS_TEAM_DOMAIN (fly.web.toml; Cloudflare ASSIGNS it — it is not derived from
+  the app's own domain) and CF_ACCESS_AUD (a Fly secret). Both or neither: an audience with no
+  issuer accepts a token from any Access tenant, and an issuer with no audience accepts one
+  minted for a different application.
+- Unconfigured Access disables the check locally and on the demo, and a deployment
+  (https WEB_ORIGIN) without it refuses to start (api/app/main.py).
+- A rejection logs its reason and the issuer tried (`fly logs -a pfa-web`); the response stays
+  a bare refusal that does not say which check failed.
+
+RELATED CLOUDFLARE BEHAVIOUR THIS APP RELIES ON
+- Sign-out is Cloudflare's: /cdn-cgi/access/logout on the app's hostname. It fails when the
+  organisation named in the cookie no longer resolves (e.g. a renamed team); the origin then
+  clears CF_Authorization itself on a failed assertion (ticket 042).
+- Access answers an unauthenticated request with a redirect to the identity provider, which
+  fetch() cannot follow — one reason the browser only ever calls its own origin.
+- Access session duration is set to 24 hours in the dashboard (ADR 0007's condition).
+
+Runbook: docs/runbooks/access-verification.md.

@@ -1,0 +1,42 @@
+Neon — pooled and direct connections
+====================================
+
+Pinned to: Neon documentation as of the verified date (a hosted service; no version).
+           Postgres major version matches local: postgres:18-alpine (docker-compose.yml).
+Source: https://neon.com/docs/connect/connection-pooling
+Verified: 2026-09-27
+
+WHAT THE SOURCE SAYS
+- A POOLED connection string has `-pooler` appended to the endpoint id in the host
+  (ep-xxxx-pooler.<region>.aws.neon.tech) and goes through PgBouncer; it accepts up to 10,000
+  client connections. The DIRECT string has no suffix and is bounded by Postgres's
+  max_connections.
+- PgBouncer runs in TRANSACTION mode: a server connection goes back to the pool after each
+  transaction. So these do not work across statements through the pooler: session SET/RESET,
+  LISTEN/NOTIFY, SQL-level PREPARE/DEALLOCATE, temporary tables that outlive a transaction,
+  session-level advisory locks. Protocol-level prepared statements from drivers are supported.
+- Use the DIRECT string for schema migrations, pg_dump/pg_restore, logical replication,
+  anything needing SET, and long-running analytics.
+
+HOW THIS REPO USES IT
+- The API's DATABASE_URL is the POOLED string (README "Deploying"; hosting.md).
+  api/app/db.py: pool_pre_ping=True (connections that died while the compute was suspended
+  are discarded instead of failing the first query after idle), small pool (5 + 5 overflow;
+  PgBouncer already pools), pool_recycle=300, connect_args prepare_threshold=None (turns off
+  psycopg's implicit server-side prepared statements, a conservative choice for transaction
+  pooling).
+- The backup export reads BACKUP_DATABASE_URL, the DIRECT string, from .env: one long read
+  (api/scripts/restore.md, going-live §C).
+- Migrations run as a Fly release command (`alembic upgrade head`). They use the app's
+  configured URL unless ALEMBIC_DATABASE_URL is set; per the source, migrations are safer on
+  the direct string. Check which one the release command uses before a migration that relies
+  on session state.
+- Real and demo are separate Neon PROJECTS. scripts/check_demo_isolation.sh compares endpoint
+  ids after stripping `-pooler`, so a pooled and a direct URL of one project read as the same
+  project.
+
+NOT VERIFIED HERE (from the repo's own measurements and earlier notes, not this source)
+- Neon's free plan allowances (0.5 GB storage, 100 CU-hours/month, 5 GB egress, 10 branches,
+  per project) were confirmed in DECISIONS.md (2026-08-14). Re-check before relying on them.
+- Autosuspend after 5 minutes idle; a cold connect measured 287 ms and a pooled one 43 ms
+  (ticket 048, 2026-08-26).

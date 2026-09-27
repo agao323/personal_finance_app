@@ -1,0 +1,56 @@
+Next.js 16 — what this app runs into
+====================================
+
+Pinned version: next 16.3.1 (web/package.json), React 19.2
+Source: web/node_modules/next/dist/docs/01-app/02-guides/upgrading/version-16.md
+        (shipped inside the installed package, so it matches the version exactly)
+        Upstream: https://nextjs.org/docs/app/guides/upgrading/version-16
+Verified: 2026-09-27, against the bundled guide for 16.3.1
+Read before writing Next code: the full guides live in web/node_modules/next/dist/docs/.
+web/AGENTS.md carries the same warning in a block `next dev` regenerates — leave it alone.
+
+WHY THIS NOTE EXISTS
+Most training data describes Next 13-15. Several things that were true there are errors now.
+
+BREAKING CHANGES THAT TOUCH THIS REPO
+
+1. middleware.ts is now proxy.ts
+   - The `middleware` file name and named export are deprecated; the file is `proxy.ts` and
+     the function is `proxy`. Config flags renamed too (skipMiddlewareUrlNormalize ->
+     skipProxyUrlNormalize).
+   - proxy runs on the Node.js runtime only; the edge runtime is not supported there.
+   - In this repo: web/src/proxy.ts verifies the Cloudflare Access JWT before rendering.
+     It is NOT the API proxy. The API proxy is the route handler
+     web/src/app/api/[...path]/route.ts. Two things called "proxy"; do not confuse them.
+
+2. Request-time APIs are async only
+   - cookies(), headers(), draftMode(), and `params` / `searchParams` in pages, layouts,
+     route handlers and metadata images must be awaited. The synchronous compatibility of
+     v15 is gone.
+   - In this repo: the proxy route does `const { path } = await context.params`.
+   - `next typegen` generates global helpers — PageProps, LayoutProps, RouteContext — which
+     the route handler uses as `RouteContext<"/api/[...path]">`. `pnpm typecheck` runs
+     `next typegen && tsc --noEmit`; typecheck fails without the generated types.
+
+3. `next lint` is removed, and `next build` no longer lints
+   - Lint runs ESLint directly: `pnpm lint` -> `eslint` with web/eslint.config.mjs, a flat
+     config composing eslint-config-next's core-web-vitals and typescript presets.
+
+4. Turbopack is the default for `next dev` and `next build`.
+
+5. Parallel route slots need an explicit default.js (the app has none today).
+
+6. serverRuntimeConfig / publicRuntimeConfig are removed — use environment variables.
+   In this repo only the server reads INTERNAL_API_URL and CF_ACCESS_*; the only
+   NEXT_PUBLIC_* variable is NEXT_PUBLIC_DEMO, and it is a build arg.
+
+7. Minimums: Node 20.9+, TypeScript 5.1+. CI uses Node 22.
+
+8. next/image defaults changed (minimumCacheTTL, imageSizes, qualities, local IP
+   restriction). The app does not use next/image today; read the guide before it does.
+
+NOT CHANGED, BUT EASY TO GET WRONG HERE
+- A new route directory under web/src/app is often missed by the dev server's watcher
+  through the Docker bind mount and 404s until `docker compose restart web`.
+- Server-side code may know INTERNAL_API_URL; client code must know no API URL at all
+  (scripts/check_no_public_api_url.sh fails the build otherwise).
