@@ -888,6 +888,10 @@ export function mockCards(
       }));
       return new HttpResponse(null, { status: 204 });
     }),
+    http.post("/api/accounts", async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({ id: 99, ...body }, { status: 201 });
+    }),
     http.patch("/api/accounts/:id", async ({ params, request }) => {
       const body = (await request.json()) as { name?: string };
       const id = Number(params.id);

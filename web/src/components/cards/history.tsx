@@ -28,7 +28,14 @@ function isoMonthsAgo(months: number): string {
   return target.toISOString().slice(0, 10);
 }
 
-export function HistoryPanel({ revision }: { revision: number }) {
+export function HistoryPanel({
+  revision,
+  accountId,
+}: {
+  revision: number;
+  /** Scope to one card. Omitted means the whole wallet. */
+  accountId?: number;
+}) {
   const [months, setMonths] = useState(0);
   const [loaded, setLoaded] = useState<{
     key: string;
@@ -37,16 +44,19 @@ export function HistoryPanel({ revision }: { revision: number }) {
   } | null>(null);
 
   // Derived, not a flag set at the top of the effect — see the note in `upcoming.tsx`.
-  const key = `${months}|${revision}`;
+  const key = `${months}|${revision}|${accountId ?? "all"}`;
   const data = loaded?.key === key && !loaded.error ? loaded.data : null;
   const pending = loaded?.key !== key;
   const error = loaded?.key === key ? loaded.error : null;
 
   useEffect(() => {
     let live = true;
-    const requested = `${months}|${revision}`;
+    const requested = `${months}|${revision}|${accountId ?? "all"}`;
     apiFetch("/cards/history", {
-      query: months === 0 ? {} : { from: isoMonthsAgo(months) },
+      query: {
+        ...(months === 0 ? {} : { from: isoMonthsAgo(months) }),
+        ...(accountId === undefined ? {} : { account_id: accountId }),
+      },
     })
       .then((next) => {
         if (live) setLoaded({ key: requested, data: next, error: null });
@@ -62,7 +72,7 @@ export function HistoryPanel({ revision }: { revision: number }) {
     return () => {
       live = false;
     };
-  }, [months, revision]);
+  }, [months, revision, accountId]);
 
   return (
     <section className="border-hairline bg-surface-1 mt-4 rounded-xl border p-4">

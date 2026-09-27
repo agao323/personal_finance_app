@@ -335,3 +335,40 @@ def test_the_mortgage_and_the_home_it_is_against_are_shared_together(
     ).scalars()
 
     assert {"Mortgage", "Primary residence"} <= set(shared)
+
+
+def test_the_seeded_cards_have_credits_to_look_at(db_session: Session) -> None:
+    """A fresh clone should open the cards screen on something real.
+
+    Without this the screen loads empty, which says nothing about whether it works — and
+    the spread of cadences is the point: a monthly credit is urgent for most of its life
+    under a fixed threshold and calm under a per-cadence one, so only a mixture shows the
+    difference.
+    """
+    seed(db_session, today=dt.date(2026, 6, 15))
+
+    rows = db_session.execute(
+        text(
+            "SELECT a.name, p.cadence FROM card_perks p "
+            "JOIN accounts a ON a.id = p.account_id ORDER BY a.name"
+        )
+    ).all()
+
+    assert len(rows) >= 5
+    assert len({name for name, _ in rows}) == 2, "both seeded cards carry credits"
+    assert len({cadence for _, cadence in rows}) >= 3, "a spread of cadences, not all monthly"
+
+
+def test_one_seeded_card_has_a_fee_and_one_does_not(db_session: Session) -> None:
+    """Absent must not read as zero, and only a card without a fee proves that."""
+    seed(db_session, today=dt.date(2026, 6, 15))
+
+    fees = [
+        row[1]
+        for row in db_session.execute(
+            text("SELECT name, annual_fee FROM accounts WHERE subtype = 'credit_card'")
+        ).all()
+    ]
+
+    assert any(fee is not None for fee in fees)
+    assert any(fee is None for fee in fees)

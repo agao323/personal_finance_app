@@ -25,7 +25,8 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.models.account import Account, BalanceSnapshot, Institution, OwnershipStake
-from app.models.enums import AccountKind, AccountSubtype, CategorySource, DataSource
+from app.models.card_perk import CardPerk, PerkRedemption
+from app.models.enums import AccountKind, AccountSubtype, CategorySource, DataSource, PerkCadence
 from app.models.system import DataMarker
 from app.models.transaction import CategorizationRule, Category, Transaction
 from app.models.user import User
@@ -145,7 +146,76 @@ def seed(session: Session, seed_value: int = DEFAULT_SEED, today: dt.date | None
     _build_snapshots(session, accounts, starts, rng)
     _build_transactions(session, accounts, categories, starts, rng, today)
     _build_rules(session, categories)
+    _build_card_perks(session, accounts, today)
     session.flush()
+
+
+def _build_card_perks(session: Session, accounts: dict[str, Account], today: dt.date) -> None:
+    """Credits on the seeded cards, and a fee on one of them.
+
+    Without this the cards screen opens empty on a fresh clone, which says nothing about
+    whether it works. The spread of cadences is the point: a monthly credit is urgent for
+    most of its life under a fixed threshold and calm under a per-cadence one, and only a
+    mixture shows that.
+
+    Anchored to the start of the current calendar year so the data stays meaningful
+    whenever it is seeded, rather than drifting into "has not started yet".
+    """
+    year_start = dt.date(today.year, 1, 1)
+
+    perks = {
+        "Credit card": [
+            ("Dining credit", Decimal("25.00"), PerkCadence.MONTHLY),
+            ("Travel credit", Decimal("300.00"), PerkCadence.ANNUAL),
+            ("Streaming credit", Decimal("15.00"), PerkCadence.MONTHLY),
+        ],
+        "Travel Rewards": [
+            ("Airline fee credit", Decimal("200.00"), PerkCadence.ANNUAL),
+            ("Hotel credit", Decimal("100.00"), PerkCadence.SEMIANNUAL),
+            ("Rideshare credit", Decimal("10.00"), PerkCadence.MONTHLY),
+            ("Lounge day passes", Decimal("50.00"), PerkCadence.QUARTERLY),
+        ],
+    }
+
+    for account_name, rows in perks.items():
+        account = accounts.get(account_name)
+        if account is None:
+            continue
+        for name, value, cadence in rows:
+            session.add(
+                CardPerk(
+                    account_id=account.id,
+                    name=name,
+                    value=value,
+                    cadence=cadence,
+                    anchor_on=year_start,
+                )
+            )
+
+    # One card carries a fee so the net-value figures have something to measure against;
+    # the other deliberately does not, because absent must not read as zero.
+    travel = accounts.get("Travel Rewards")
+    if travel is not None:
+        travel.annual_fee = Decimal("395.00")
+        travel.fee_renews_on = dt.date(today.year, 3, 1)
+
+    session.flush()
+
+    # A couple of uses already recorded, so history is not empty either.
+    first = (
+        session.execute(select(CardPerk).where(CardPerk.name == "Dining credit").limit(1))
+        .scalars()
+        .first()
+    )
+    if first is not None:
+        for month in (1, 2):
+            session.add(
+                PerkRedemption(
+                    perk_id=first.id,
+                    period_start=dt.date(today.year, month, 1),
+                    amount=None,
+                )
+            )
 
 
 def _build_accounts(
@@ -209,6 +279,15 @@ def _build_accounts(
             None,
         ),
         ("Mortgage", "Meridian Bank", AccountKind.LIABILITY, AccountSubtype.MORTGAGE, None),
+        # A second card, so the cards screen has more than one row to choose between —
+        # a master-detail list of one proves nothing about the layout.
+        (
+            "Travel Rewards",
+            "Cordova Brokerage",
+            AccountKind.LIABILITY,
+            AccountSubtype.CREDIT_CARD,
+            None,
+        ),
     ]
 
     accounts: dict[str, Account] = {}
@@ -313,6 +392,7 @@ def _build_snapshots(
         "Rental property": (410_000, 900, 2_000),
         "Old car": (14_500, -240, 120),
         "Credit card": (2_400, 15, 700),
+        "Travel Rewards": (1_150, 10, 480),
         "Mortgage": (318_000, -740, 0),
     }
 

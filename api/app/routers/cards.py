@@ -344,6 +344,7 @@ def _history(
     session: Session,
     *,
     perk_id: int | None,
+    account_id: int | None = None,
     from_date: dt.date | None,
     to_date: dt.date | None,
     today: dt.date,
@@ -361,6 +362,8 @@ def _history(
     )
     if perk_id is not None:
         query = query.where(CardPerk.id == perk_id)
+    if account_id is not None:
+        query = query.where(CardPerk.account_id == account_id)
     if from_date is not None:
         query = query.where(PerkRedemption.period_start >= from_date)
     if to_date is not None:
@@ -401,6 +404,8 @@ def _history(
     perks_query = select(CardPerk).where(CardPerk.is_active.is_(True))
     if perk_id is not None:
         perks_query = perks_query.where(CardPerk.id == perk_id)
+    if account_id is not None:
+        perks_query = perks_query.where(CardPerk.account_id == account_id)
     for perk in session.execute(perks_query).scalars():
         recorded = {
             row.period_start
@@ -435,15 +440,25 @@ def wallet_history(
     user: CurrentUser,
     from_date: Annotated[dt.date | None, Query(alias="from")] = None,
     to_date: Annotated[dt.date | None, Query(alias="to")] = None,
+    account_id: Annotated[int | None, Query()] = None,
     on: Annotated[dt.date | None, Query()] = None,
 ) -> HistoryRead:
-    """Every redemption across every card, newest first.
+    """Every redemption, newest first — across the wallet, or for one card.
 
     **No default window.** The request this answers is "show me everything I have ever
     marked", and a silent cut-off would hide exactly the old entries being asked for.
+
+    `account_id` scopes it to one card. Filtering in the browser would work today and grow
+    without bound, and `missed_periods` could not be filtered that way at all — it is
+    counted by walking each perk's periods, not derived from the rows returned.
     """
     return _history(
-        session, perk_id=None, from_date=from_date, to_date=to_date, today=on or dt.date.today()
+        session,
+        perk_id=None,
+        account_id=account_id,
+        from_date=from_date,
+        to_date=to_date,
+        today=on or dt.date.today(),
     )
 
 
