@@ -77,3 +77,17 @@ def test_the_total_ignores_the_page(db_session: Session, ledger: dict[str, int])
 
     assert [t.id for t, _ in result.rows] == [ledger["fuel"]]
     assert result.total == 4
+
+
+def test_magnitude_bounds_ignore_the_sign(db_session: Session, ledger: dict[str, int]) -> None:
+    """A $52.30 purchase is stored as -52.30; "about fifty dollars" must still find it."""
+    from decimal import Decimal
+
+    result = search(
+        db_session,
+        TransactionFilters(magnitude_min=Decimal("50.00"), magnitude_max=Decimal("62.00")),
+        limit=50,
+        offset=0,
+    )
+
+    assert {t.id for t, _ in result.rows} == {ledger["grocer"], ledger["fuel"]}

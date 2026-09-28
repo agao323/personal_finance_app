@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import dataclass
+from decimal import Decimal
 
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -30,6 +31,10 @@ class TransactionFilters:
     uncategorised: bool | None = None
     #: Case-insensitive substring of the merchant **or** the description.
     search: str | None = None
+    #: Bounds on the amount's size, ignoring its sign: "a charge of about $130" is a
+    #: question about magnitude, and outflows are stored negative.
+    magnitude_min: Decimal | None = None
+    magnitude_max: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +59,10 @@ def _conditions(filters: TransactionFilters) -> list[ColumnElement[bool]]:
         conditions.append(Transaction.category_id.is_(None))
     elif filters.uncategorised is False:
         conditions.append(Transaction.category_id.isnot(None))
+    if filters.magnitude_min is not None:
+        conditions.append(func.abs(Transaction.amount) >= filters.magnitude_min)
+    if filters.magnitude_max is not None:
+        conditions.append(func.abs(Transaction.amount) <= filters.magnitude_max)
     if filters.search:
         pattern = f"%{filters.search}%"
         conditions.append(
