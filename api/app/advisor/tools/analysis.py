@@ -17,14 +17,16 @@ from sqlalchemy.orm import Session
 from app.advisor.tools import (
     REGISTRY,
     Id,
+    NoArgs,
     PeriodArg,
     ToolArgs,
     ToolContext,
     ToolInputError,
     ToolResult,
 )
+from app.models.account import Account
 from app.schemas.common import to_cents
-from app.services.analysis import cashflow, recurring, spend_trends
+from app.services.analysis import cashflow, data_quality, recurring, spend_trends
 from app.services.analysis.numbers import quantize_money
 from app.services.analysis.periods import Window
 
@@ -357,4 +359,101 @@ def cashflow_get(args: CashflowArgs, session: Session, ctx: ToolContext) -> Cash
         total_spend_cents=to_cents(flow.spend),
         total_net_cents=to_cents(flow.net),
         savings_rate_bps=flow.savings_rate_bps,
+    )
+
+
+# ── data_health ───────────────────────────────────────────────────────────────
+
+#: The most unmarked pairs one call lists.
+MAX_PAIRS = 20
+
+
+class AccountHealthRow(BaseModel):
+    account_id: int
+    name_text: str
+    kind: str
+    balance_as_of: dt.date | None
+    balance_stale: bool = Field(description="The latest balance is more than 90 days old.")
+    imports_transactions: bool
+    last_transaction_on: dt.date | None
+    days_since_transaction: int | None
+
+
+class UncategorisedMonth(BaseModel):
+    month: str
+    count: int
+    spend_cents: int
+    share_bps: int | None
+
+
+class TransferPairRow(BaseModel):
+    outflow_transaction_id: int
+    inflow_transaction_id: int
+    amount_cents: int = Field(description="The size of each side.")
+    from_account_name_text: str
+    to_account_name_text: str
+    outflow_on: dt.date
+    inflow_on: dt.date
+
+
+class DataHealthResult(ToolResult):
+    history_starts_on: dt.date | None
+    stale_balance_count: int
+    accounts: list[AccountHealthRow]
+    uncategorised_last_month: UncategorisedMonth
+    possible_unmarked_transfers: list[TransferPairRow]
+
+
+@REGISTRY.tool(
+    "data_health",
+    description=(
+        "How far the numbers can be trusted: each account's latest balance date and whether it "
+        "is stale, when transactions were last imported, how much of last month's spending is "
+        "uncategorised, and pairs of transactions that look like a transfer nobody marked. Call "
+        "it before recommending anything that depends on a balance or a month's spending, and "
+        "say so when data is stale or missing. The pairs are suggestions for the owner to mark "
+        "on the Transactions screen."
+    ),
+    label=lambda args: "Data health",
+)
+def data_health(args: NoArgs, session: Session, ctx: ToolContext) -> DataHealthResult:
+    result = data_quality.health(session, ctx.today)
+    return DataHealthResult(
+        as_of=ctx.today,
+        stale=result.stale_balance_count > 0,
+        history_starts_on=result.earliest_snapshot,
+        stale_balance_count=result.stale_balance_count,
+        accounts=[
+            AccountHealthRow(
+                account_id=a.account.id,
+                name_text=a.account.name,
+                kind=a.account.kind.value,
+                balance_as_of=a.last_snapshot,
+                balance_stale=a.balance_stale,
+                imports_transactions=a.imports_transactions,
+                last_transaction_on=a.last_transaction,
+                days_since_transaction=(
+                    (ctx.today - a.last_transaction).days if a.last_transaction else None
+                ),
+            )
+            for a in result.accounts
+        ],
+        uncategorised_last_month=UncategorisedMonth(
+            month=result.month.strftime("%Y-%m"),
+            count=result.uncategorised_count,
+            spend_cents=to_cents(result.uncategorised_spend),
+            share_bps=result.uncategorised_share_bps,
+        ),
+        possible_unmarked_transfers=[
+            TransferPairRow(
+                outflow_transaction_id=p.outflow.id,
+                inflow_transaction_id=p.inflow.id,
+                amount_cents=to_cents(p.inflow.amount),
+                from_account_name_text=session.get_one(Account, p.outflow.account_id).name,
+                to_account_name_text=session.get_one(Account, p.inflow.account_id).name,
+                outflow_on=p.outflow.posted_at,
+                inflow_on=p.inflow.posted_at,
+            )
+            for p in result.pairs[:MAX_PAIRS]
+        ],
     )
