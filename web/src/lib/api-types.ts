@@ -843,6 +843,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/planning/assumptions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Assumptions
+     * @description Every version, newest first. The first is the one in force.
+     */
+    get: operations["list_assumptions_planning_assumptions_get"];
+    put?: never;
+    /**
+     * Add Assumptions
+     * @description State a new version. The previous ones stay, unchanged.
+     */
+    post: operations["add_assumptions_planning_assumptions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/planning/profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Profile
+     * @description Your birth year and target retirement year.
+     */
+    get: operations["get_profile_planning_profile_get"];
+    /**
+     * Put Profile
+     * @description Set your birth year and target retirement year. Only the year: nothing finer is needed.
+     */
+    put: operations["put_profile_planning_profile_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/ready": {
     parameters: {
       query?: never;
@@ -1432,6 +1480,93 @@ export interface components {
        */
       type: "answer";
     };
+    /**
+     * AssumptionsCreate
+     * @description A new version. Every field is stated; the previous version stays, unchanged.
+     */
+    AssumptionsCreate: {
+      /**
+       * Expected Real Return Bps
+       * @description After inflation.
+       */
+      expected_real_return_bps: number;
+      /** Inflation Bps */
+      inflation_bps: number;
+      /**
+       * Pre65 Healthcare Annual Cents
+       * @description A year of healthcare before Medicare. Null: not stated.
+       */
+      pre65_healthcare_annual_cents?: number | null;
+      risk_tolerance: components["schemas"]["RiskTolerance"];
+      /** Target Bonds Bps */
+      target_bonds_bps: number;
+      /** Target Cash Bps */
+      target_cash_bps: number;
+      /** Target Intl Equity Bps */
+      target_intl_equity_bps: number;
+      /** Target Other Bps */
+      target_other_bps: number;
+      /** Target Us Equity Bps */
+      target_us_equity_bps: number;
+      /**
+       * Tax Deferred Withdrawal Tax Bps
+       * @description A flat effective rate — a simplification, stated as one.
+       */
+      tax_deferred_withdrawal_tax_bps: number;
+      /** Withdrawal High Bps */
+      withdrawal_high_bps: number;
+      /** Withdrawal Low Bps */
+      withdrawal_low_bps: number;
+    };
+    /** AssumptionsRead */
+    AssumptionsRead: {
+      /** Created By User Id */
+      created_by_user_id?: number | null;
+      /**
+       * Effective From
+       * Format: date-time
+       */
+      effective_from: string;
+      /**
+       * Expected Real Return Bps
+       * @description After inflation.
+       */
+      expected_real_return_bps: number;
+      /** Id */
+      id: number;
+      /** Inflation Bps */
+      inflation_bps: number;
+      /**
+       * Is Default
+       * @description The defaults the app started with; nobody set these.
+       */
+      is_default: boolean;
+      /**
+       * Pre65 Healthcare Annual Cents
+       * @description A year of healthcare before Medicare. Null: not stated.
+       */
+      pre65_healthcare_annual_cents?: number | null;
+      risk_tolerance: components["schemas"]["RiskTolerance"];
+      /** Target Bonds Bps */
+      target_bonds_bps: number;
+      /** Target Cash Bps */
+      target_cash_bps: number;
+      /** Target Intl Equity Bps */
+      target_intl_equity_bps: number;
+      /** Target Other Bps */
+      target_other_bps: number;
+      /** Target Us Equity Bps */
+      target_us_equity_bps: number;
+      /**
+       * Tax Deferred Withdrawal Tax Bps
+       * @description A flat effective rate — a simplification, stated as one.
+       */
+      tax_deferred_withdrawal_tax_bps: number;
+      /** Withdrawal High Bps */
+      withdrawal_high_bps: number;
+      /** Withdrawal Low Bps */
+      withdrawal_low_bps: number;
+    };
     /** BalanceCreate */
     BalanceCreate: {
       /**
@@ -1885,6 +2020,10 @@ export interface components {
       institutions: {
         [key: string]: unknown;
       }[];
+      /** Member Profiles */
+      member_profiles: {
+        [key: string]: unknown;
+      }[];
       meta: components["schemas"]["ExportMeta"];
       /** Ownership Stakes */
       ownership_stakes: {
@@ -1892,6 +2031,10 @@ export interface components {
       }[];
       /** Perk Redemptions */
       perk_redemptions: {
+        [key: string]: unknown;
+      }[];
+      /** Planning Assumptions */
+      planning_assumptions: {
         [key: string]: unknown;
       }[];
       /** Transactions */
@@ -2366,6 +2509,23 @@ export interface components {
       /** Email */
       email: string;
     };
+    /**
+     * MemberProfileRead
+     * @description The signed-in member's own profile. Nobody reads anyone else's.
+     */
+    MemberProfileRead: {
+      /** Birth Year */
+      birth_year?: number | null;
+      /** Target Retirement Year */
+      target_retirement_year?: number | null;
+    };
+    /** MemberProfileUpdate */
+    MemberProfileUpdate: {
+      /** Birth Year */
+      birth_year?: number | null;
+      /** Target Retirement Year */
+      target_retirement_year?: number | null;
+    };
     /** MemberRead */
     MemberRead: {
       /** Display Name */
@@ -2756,6 +2916,11 @@ export interface components {
        */
       type: "regenerating";
     };
+    /**
+     * RiskTolerance
+     * @enum {string}
+     */
+    RiskTolerance: "conservative" | "moderate" | "aggressive";
     /** RuleApplyRequest */
     RuleApplyRequest: {
       /**
@@ -4942,6 +5107,166 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_assumptions_planning_assumptions_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssumptionsRead"][];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  add_assumptions_planning_assumptions_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AssumptionsCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssumptionsRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_profile_planning_profile_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MemberProfileRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  put_profile_planning_profile_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MemberProfileUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MemberProfileRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };
