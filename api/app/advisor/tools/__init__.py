@@ -583,7 +583,7 @@ def lint_tool(spec: ToolSpec) -> list[str]:
 REGISTRY = Registry()
 
 #: Every module that registers tools. Each ticket that adds tools adds its module here.
-TOOL_MODULES: tuple[str, ...] = ()
+TOOL_MODULES: tuple[str, ...] = ("app.advisor.tools.balances",)
 
 
 def load_all() -> Registry:
