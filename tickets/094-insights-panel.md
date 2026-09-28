@@ -41,8 +41,8 @@ endpoint as soon as 093 merges — semantic mismatches (an empty list where the 
 missing field) are what the mocks cannot catch.
 
 The owner uses this on a phone, in short visits. A panel that flashes to a spinner every time the
-toggle moves costs him his place, and an action that lives in a header rather than on its finding
-is one he will not find.
+toggle moves costs the owner their place, and an action that lives in a header rather than on its
+finding is one they will not find.
 
 ## Done — 2026-09-27
 
