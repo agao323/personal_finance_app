@@ -24,7 +24,7 @@ from app.advisor.tools import (
     ToolResult,
 )
 from app.schemas.common import to_cents
-from app.services.analysis import spend_trends
+from app.services.analysis import recurring, spend_trends
 from app.services.analysis.numbers import quantize_money
 from app.services.analysis.periods import Window
 
@@ -226,5 +226,78 @@ def spend_top_merchants(
                 share_bps=r.share_bps,
             )
             for r in rows
+        ],
+    )
+
+
+# ── spend_recurring ───────────────────────────────────────────────────────────
+
+
+class RecurringArgs(ToolArgs):
+    lookback_months: int = Field(
+        default=12, ge=6, le=24, description="How far back to look. Annual charges need 13 or more."
+    )
+
+
+class RecurringRow(BaseModel):
+    merchant_text: str
+    category_name_text: str | None
+    cadence: Literal["weekly", "fortnightly", "monthly", "quarterly", "annual"]
+    charges_seen: int
+    typical_cents: int
+    fixed_amount: bool
+    last_charge_on: dt.date
+    last_amount_cents: int
+    next_expected_on: dt.date
+    annualised_cents: int = Field(description="A year at the current price.")
+    price_increase_cents: int | None
+    price_increase_bps: int | None
+    status: Literal["active", "lapsed"]
+    confidence: Literal["high", "medium"]
+
+
+class RecurringResult(ToolResult):
+    active_annual_total_cents: int
+    lapsed_count: int
+    charges: list[RecurringRow]
+
+
+@REGISTRY.tool(
+    "spend_recurring",
+    description=(
+        "Recurring charges — subscriptions, memberships, regular services — found from the "
+        "rhythm of past charges: cadence, typical amount, next expected charge, what a year "
+        "costs at the current price, and any recent price increase. A charge overdue by more "
+        "than one interval is lapsed, not active. Use it for 'what subscriptions do I have' or "
+        "'what went up'. It cannot tell whether a subscription is used; only the owner can."
+    ),
+    label=lambda args: f"Recurring charges, last {args.lookback_months} months",
+)
+def spend_recurring(args: RecurringArgs, session: Session, ctx: ToolContext) -> RecurringResult:
+    charges = recurring.find(session, ctx.today, args.lookback_months)
+    return RecurringResult(
+        as_of=ctx.today,
+        active_annual_total_cents=to_cents(recurring.active_annual_total(charges)),
+        lapsed_count=sum(1 for c in charges if c.status == "lapsed"),
+        charges=[
+            RecurringRow(
+                merchant_text=c.merchant,
+                category_name_text=c.category,
+                cadence=c.cadence.name,
+                charges_seen=c.charges,
+                typical_cents=to_cents(c.typical),
+                fixed_amount=c.fixed_amount,
+                last_charge_on=c.last_charge,
+                last_amount_cents=to_cents(c.last_amount),
+                next_expected_on=c.next_expected,
+                annualised_cents=to_cents(c.annualised),
+                price_increase_cents=(
+                    to_cents(c.price_increase) if c.price_increase is not None else None
+                ),
+                price_increase_bps=c.price_increase_bps,
+                status=c.status,
+                confidence=c.confidence,
+            )
+            for c in charges
         ],
     )
