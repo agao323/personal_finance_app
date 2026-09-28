@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade backup restore eval eval-label eval-examples eval-fixtures advisor-purge deploy-demo
+.PHONY: help dev advisor-local down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade backup restore eval eval-label eval-examples eval-fixtures advisor-purge deploy-demo
 
 # Compose merges docker-compose.override.yml automatically. PROD_COMPOSE opts out,
 # so smoke tests exercise the deploy-shaped images rather than the dev ones.
@@ -34,6 +34,26 @@ dev: .env ## Start postgres + api + web in Docker with hot reload
 	@# under web/src/app is often missed by the dev server's watcher through the
 	@# bind mount, and the route 404s until `docker compose restart web`.
 	@docker compose up --build
+
+LOCAL_MODEL_NAME := $(or $(model),gpt-oss:20b)
+
+advisor-local: .env ## Start the stack with the advisor on a free local model (Ollama): model=
+	@# The model runs on this Mac, outside Docker, so it can use the GPU. The download is
+	@# about 13 GB and is yours to start; this only checks it is there.
+	@if ! curl -fsS http://localhost:11434/api/tags >/dev/null 2>&1; then \
+		echo "No local model server answering on localhost:11434. To set one up:"; \
+		echo "  1. Install Ollama:  brew install ollama   (or https://ollama.com/download)"; \
+		echo "  2. Start it:        ollama serve"; \
+		echo "  3. Pull the model:  ollama pull $(LOCAL_MODEL_NAME)   # about 13 GB"; \
+		exit 1; \
+	fi
+	@if ! curl -fsS http://localhost:11434/api/tags | grep -q '"$(LOCAL_MODEL_NAME)"'; then \
+		echo "The model server is up but $(LOCAL_MODEL_NAME) is not pulled:"; \
+		echo "  ollama pull $(LOCAL_MODEL_NAME)   # about 13 GB"; \
+		exit 1; \
+	fi
+	@echo "Local model $(LOCAL_MODEL_NAME) is ready. Starting the stack with the advisor on it."
+	@ADVISOR_ENABLED=true ADVISOR_PROVIDER=local LOCAL_MODEL=$(LOCAL_MODEL_NAME) docker compose up --build
 
 down: ## Stop everything (add v=1 to also drop the database volume)
 	@docker compose down $(if $(v),--volumes,)

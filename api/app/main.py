@@ -71,6 +71,14 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             'CF_ACCESS_TEAM_DOMAIN="<team>.cloudflareaccess.com" CF_ACCESS_AUD="<aud tag>"'
         )
 
+    # The local model is for a laptop (ticket 120). A deployment pointed at one would either
+    # fail every question or, worse, reach a machine that is not the production API's.
+    if settings.is_deployment and settings.advisor_provider == "local":
+        raise RuntimeError(
+            "ADVISOR_PROVIDER=local on a deployed environment. The local model is for "
+            "development only: set ADVISOR_PROVIDER=anthropic, or unset it."
+        )
+
     yield
 
 

@@ -145,9 +145,8 @@ def turn_context(today: dt.date, view: ViewScope) -> str:
 
 
 def configured(settings: Settings) -> bool:
-    """Whether the configured provider can be called: for Anthropic, a key is present."""
-    key = settings.anthropic_api_key
-    return key is not None and bool(key.get_secret_value())
+    """Whether the configured provider can be called: see `Settings.advisor_provider_ready`."""
+    return settings.advisor_provider_ready
 
 
 def refusal(settings: Settings, *, configured: bool) -> AdvisorErrorCode | None:

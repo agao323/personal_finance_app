@@ -84,7 +84,14 @@ class Settings(BaseSettings):
     # switch is on, a key is present, and this is not the demo. The key lives only on this
     # service — never in the web app's environment, never `NEXT_PUBLIC_*`.
     advisor_enabled: bool = False
+    #: Who answers. `local` is a free open-weight model on the owner's laptop, for
+    #: development and evals (ticket 120) — **refused on any deployment**. `scripted` is the
+    #: tests' fake and is never configured from the environment in earnest.
+    advisor_provider: Literal["anthropic", "local", "scripted"] = "anthropic"
     anthropic_api_key: SecretStr | None = None
+    #: The local model server's OpenAI-compatible base URL, and the model it serves.
+    local_model_url: str = "http://localhost:11434/v1"
+    local_model: str = "gpt-oss:20b"
     advisor_model: str = "claude-opus-5"
     advisor_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
     advisor_max_tokens: int = Field(default=6000, gt=0)
@@ -100,10 +107,22 @@ class Settings(BaseSettings):
         The demo never calls a model: its data is synthetic but its visitors are not the
         household, and the household's key must not answer them.
         """
-        has_key = self.anthropic_api_key is not None and bool(
-            self.anthropic_api_key.get_secret_value()
-        )
-        return self.advisor_enabled and has_key and not self.demo_mode
+        return self.advisor_enabled and self.advisor_provider_ready and not self.demo_mode
+
+    @property
+    def advisor_provider_ready(self) -> bool:
+        """Whether the configured provider can be called at all.
+
+        Anthropic needs its key. The local model is never ready on a deployment: production
+        pointed at a laptop is ADR 0009's network argument, enforced rather than remembered.
+        """
+        if self.advisor_provider == "anthropic":
+            return self.anthropic_api_key is not None and bool(
+                self.anthropic_api_key.get_secret_value()
+            )
+        if self.advisor_provider == "local":
+            return not self.is_deployment
+        return False
 
 
 @lru_cache

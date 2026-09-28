@@ -22,7 +22,6 @@ import argparse
 import asyncio
 import datetime as dt
 import hashlib
-import importlib
 import json
 import os
 import statistics
@@ -50,6 +49,7 @@ from app.advisor.model import (
     TextDelta,
     Usage,
 )
+from app.advisor.model_local import LocalModelClient
 from app.advisor.store import Store
 from app.advisor.tools import SessionScope, load_all
 from app.config import Settings
@@ -240,12 +240,10 @@ def make_client(provider: str, model: str, effort: Effort, max_tokens: int) -> M
             )
         return AnthropicModelClient(api_key=key, model=model, effort=effort, max_tokens=max_tokens)
     if provider == "local":
-        try:
-            local = importlib.import_module("app.advisor.local")
-        except ModuleNotFoundError:
-            raise SystemExit("provider=local needs the local model adapter (ticket 120).") from None
-        client: ModelClient = local.LocalModelClient.from_environment()
-        return client
+        settings = Settings(database_url=os.environ.get("DATABASE_URL", "postgresql://unused"))
+        return LocalModelClient(
+            base_url=settings.local_model_url, model=settings.local_model, max_tokens=max_tokens
+        )
     raise SystemExit(f"unknown provider {provider!r}: use local or anthropic")
 
 

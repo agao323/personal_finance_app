@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from app.advisor import policy, sse
 from app.advisor.loop import MESSAGES, TurnDeps, configured, refusal, run_turn
 from app.advisor.model import AnthropicModelClient, Effort, ModelClient
+from app.advisor.model_local import LocalModelClient
 from app.advisor.pricing import display_cents
 from app.advisor.sse import stream_events
 from app.advisor.store import Store, fresh_transaction, nested_in, next_month
@@ -98,17 +99,27 @@ def _anthropic(api_key: str, model: str, effort: Effort, max_tokens: int) -> Mod
     return AnthropicModelClient(api_key=api_key, model=model, effort=effort, max_tokens=max_tokens)
 
 
+@functools.cache
+def _local(base_url: str, model: str, max_tokens: int) -> ModelClient:
+    return LocalModelClient(base_url=base_url, model=model, max_tokens=max_tokens)
+
+
 def advisor_client() -> ModelClient | None:
-    """The configured model, or None when there is no key to call it with."""
+    """The configured model, or None when it cannot be called — no key, or a local model on
+    a deployment, which is refused here as well as at startup."""
     settings = get_settings()
-    if not configured(settings) or settings.anthropic_api_key is None:
+    if not configured(settings):
         return None
-    return _anthropic(
-        settings.anthropic_api_key.get_secret_value(),
-        settings.advisor_model,
-        settings.advisor_effort,
-        settings.advisor_max_tokens,
-    )
+    if settings.advisor_provider == "local":
+        return _local(settings.local_model_url, settings.local_model, settings.advisor_max_tokens)
+    if settings.advisor_provider == "anthropic" and settings.anthropic_api_key is not None:
+        return _anthropic(
+            settings.anthropic_api_key.get_secret_value(),
+            settings.advisor_model,
+            settings.advisor_effort,
+            settings.advisor_max_tokens,
+        )
+    return None
 
 
 def purge_expired(session: DbSession) -> None:
@@ -155,11 +166,12 @@ def get_status(session: DbSession, user: CurrentUser) -> AdvisorStatus:
     reason = refusal(settings, configured=configured(settings))
     if reason is None and spent >= cap:
         reason = AdvisorErrorCode.MONTHLY_CAP
+    local = settings.advisor_provider == "local"
     return AdvisorStatus(
         enabled=reason is None,
         reason=reason,
-        provider=AdvisorProvider.ANTHROPIC,
-        model=settings.advisor_model,
+        provider=AdvisorProvider(settings.advisor_provider),
+        model=settings.local_model if local else settings.advisor_model,
         month_spent_cents=display_cents(spent),
         month_cap_cents=cap,
         resets_on=next_month(today),

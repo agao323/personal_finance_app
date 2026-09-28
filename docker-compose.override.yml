@@ -16,6 +16,16 @@ services:
   api:
     volumes:
       - ./api/app:/app/app:ro
+    # The advisor, on a free model on this Mac (ticket 120). The model runs on the host,
+    # not in a container, because containers on macOS cannot use its GPU; the API reaches
+    # it through host.docker.internal. Off unless `make advisor-local` switches it on.
+    environment:
+      ADVISOR_PROVIDER: ${ADVISOR_PROVIDER:-local}
+      ADVISOR_ENABLED: ${ADVISOR_ENABLED:-false}
+      LOCAL_MODEL_URL: http://host.docker.internal:11434/v1
+      LOCAL_MODEL: ${LOCAL_MODEL:-gpt-oss:20b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Migrations run here rather than as a separate step so `make dev` gives a
     # working database from a clean clone. Production keeps the release-command
     # shape instead — there, two starting machines would race this. In dev there is
