@@ -90,6 +90,7 @@ guards: ## Run the architectural guards and their self-tests
 	@./scripts/check_no_public_api_url.sh
 	@./scripts/check_fly_api_private.sh
 	@./scripts/check_fly_api_private.sh fly.demo-api.toml
+	@./scripts/check_no_model_key_outside_api.sh
 
 test-api: .env
 	@# The suite runs against real Postgres, not SQLite — see api/tests/conftest.py.

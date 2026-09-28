@@ -176,6 +176,48 @@ expect 1 "fails on a pooled/unpooled pair from one project" \
       DEMO_DATABASE_URL="$real" \
       "$here/check_demo_isolation.sh"
 
+# ── check_no_model_key_outside_api ────────────────────────────────────────────
+echo "check_no_model_key_outside_api.sh"
+
+mkdir -p "$work/key_dirty/web/src"
+cat >"$work/key_dirty/web/src/advisor.ts" <<'TS'
+export const key = process.env.ANTHROPIC_API_KEY;
+TS
+expect 1 "fails on a key read in the web app" "$here/check_no_model_key_outside_api.sh" "$work/key_dirty"
+
+mkdir -p "$work/key_sdk/web"
+cat >"$work/key_sdk/web/package.json" <<'JSON'
+{ "dependencies": { "@anthropic-ai/sdk": "1.0.0" } }
+JSON
+expect 1 "fails on the SDK in the web app" "$here/check_no_model_key_outside_api.sh" "$work/key_sdk"
+
+mkdir -p "$work/key_demo"
+cat >"$work/key_demo/fly.demo-api.toml" <<'TOML'
+[env]
+  ANTHROPIC_API_KEY = "not-a-real-key"
+TOML
+expect 1 "fails on a key in the demo's Fly config" "$here/check_no_model_key_outside_api.sh" "$work/key_demo"
+
+mkdir -p "$work/key_clean/web/src"
+cat >"$work/key_clean/web/src/advisor.ts" <<'TS'
+// The ANTHROPIC_API_KEY never reaches this app: the API holds it.
+/* Nor does @anthropic-ai/sdk — the browser talks only to our own origin. */
+export const provider: "anthropic" | "local" = "anthropic";
+export const docs = "https://example.invalid/path"; // a URL must survive comment stripping
+TS
+cat >"$work/key_clean/fly.demo-api.toml" <<'TOML'
+# The demo never holds an ANTHROPIC_API_KEY (ADR 0014).
+[env]
+  DEMO_MODE = "true"
+TOML
+cat >"$work/key_clean/web/NOTES.md" <<'MD'
+Set ANTHROPIC_API_KEY on pfa-api only.
+MD
+expect 0 "passes when the key is only mentioned in comments and prose" \
+  "$here/check_no_model_key_outside_api.sh" "$work/key_clean"
+
+expect 0 "passes on this repository" "$here/check_no_model_key_outside_api.sh" "$here/.."
+
 # ── result ────────────────────────────────────────────────────────────────────
 echo ""
 echo "guards: $passed passed, $failed failed"

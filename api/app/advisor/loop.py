@@ -59,6 +59,7 @@ from app.advisor.tools import (
 )
 from app.config import Settings
 from app.logging import get_logger
+from app.observability import report_advisor_failure
 from app.schemas.advisor import (
     AdvisorErrorCode,
     Answer,
@@ -450,6 +451,15 @@ async def run_turn(
                     )
                     outcomes.append(outcome)
                     evidence.add(outcome.content)
+                    # Ids, the tool, and counts. Never arguments, results or the question.
+                    logger.info(
+                        "advisor_tool_call",
+                        turn_id=str(turn.turn_id),
+                        tool=outcome.tool,
+                        status=outcome.status.value,
+                        latency_ms=outcome.latency_ms,
+                        row_count=outcome.row_count,
+                    )
                     yield ToolCallEvent(type="tool_call", lookup=answer_module.lookup(outcome))
                     results.append(
                         {
@@ -519,6 +529,7 @@ async def run_turn(
         )
         finished = True
     except _TurnError as stop:
+        status = stop.status
         store.finish_turn(
             turn.turn_id, status=stop.status, now=deps.now(), error=stop.code, model=served
         )
@@ -539,6 +550,7 @@ async def run_turn(
     except Exception as exc:
         # The provider's errors, and ours. The class, never the message.
         logger.warning("advisor_turn_failed", turn_id=str(turn.turn_id), error=type(exc).__name__)
+        report_advisor_failure("turn", type(exc).__name__, turn_id=str(turn.turn_id))
         store.finish_turn(
             turn.turn_id,
             status=TurnStatus.FAILED,
@@ -552,6 +564,13 @@ async def run_turn(
         if not finished:
             store.finish_turn(turn.turn_id, status=TurnStatus.FAILED, now=deps.now(), model=served)
 
+    logger.info(
+        "advisor_turn_finished",
+        turn_id=str(turn.turn_id),
+        status=status.value,
+        grounding=checked_as.value,
+        tool_calls=len(outcomes),
+    )
     yield TurnCompleteEvent(
         type="turn_complete",
         turn_id=turn.turn_id,

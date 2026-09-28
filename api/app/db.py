@@ -33,6 +33,7 @@ def get_engine() -> Engine:
       error.
     - The pool stays small because PgBouncer is already doing the pooling, and this
       app serves one household.
+    - ``hide_parameters`` keeps values out of error messages; see below.
     """
     settings = get_settings()
     return create_engine(
@@ -42,6 +43,10 @@ def get_engine() -> Engine:
         max_overflow=5,
         pool_recycle=300,
         connect_args={"prepare_threshold": None},
+        # A failed statement's error message would otherwise include its parameters — the
+        # balance being inserted, the tool's arguments — and that message is what reaches
+        # a log line or an error report.
+        hide_parameters=True,
     )
 
 

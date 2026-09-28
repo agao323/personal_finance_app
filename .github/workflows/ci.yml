@@ -97,6 +97,9 @@ jobs:
       - name: API declares no public Fly service
         run: ./scripts/check_fly_api_private.sh
 
+      - name: No model key outside the private API
+        run: ./scripts/check_no_model_key_outside_api.sh
+
       # ── secrets ────────────────────────────────────────────────────────────
       # --redact so a finding never prints the secret into a build log, which would
       # turn a near-miss into an actual disclosure.

@@ -37,6 +37,7 @@ from sqlalchemy.orm import Session
 
 from app.advisor import render as render_module
 from app.logging import get_logger
+from app.observability import report_advisor_failure
 from app.schemas.advisor import LookupStatus
 from app.schemas.common import ViewScope
 from app.services.analysis.periods import MAX_DAYS, PeriodError, PeriodPreset, Window
@@ -428,6 +429,7 @@ class Registry:
             # The tool, the call and the exception class. Never arguments or a message,
             # either of which can hold a figure.
             logger.warning("advisor_tool_failed", tool=name, call_id=call_id, error=error)
+            report_advisor_failure("tool", error, tool=name, call_id=call_id)
             return finish(
                 LookupStatus.ERROR,
                 "The lookup failed. Answer without it and say so.",
