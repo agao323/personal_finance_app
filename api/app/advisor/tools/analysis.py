@@ -25,9 +25,9 @@ from app.advisor.tools import (
     ToolResult,
 )
 from app.models.account import Account
-from app.schemas.common import to_cents
-from app.services.analysis import cashflow, data_quality, recurring, spend_trends
-from app.services.analysis.numbers import quantize_money
+from app.schemas.common import ViewScope, to_cents
+from app.services.analysis import cashflow, data_quality, networth_change, recurring, spend_trends
+from app.services.analysis.numbers import change_bps, quantize_money
 from app.services.analysis.periods import Window
 
 
@@ -456,4 +456,109 @@ def data_health(args: NoArgs, session: Session, ctx: ToolContext) -> DataHealthR
             )
             for p in result.pairs[:MAX_PAIRS]
         ],
+    )
+
+
+# ── networth_explain_change ───────────────────────────────────────────────────
+
+
+class ExplainChangeArgs(ToolArgs):
+    view: ViewScope | None = Field(
+        default=None, description="mine or household. Omit to use the conversation's view."
+    )
+    from_date: dt.date
+    to_date: dt.date | None = Field(default=None, description="Defaults to today.")
+
+
+class KindChange(BaseModel):
+    kind: str
+    change_cents: int
+
+
+class AccountChangeRow(BaseModel):
+    account_id: int
+    name_text: str
+    kind: str
+    before_cents: int | None = Field(
+        description="Its share at from_date; none if not counted then."
+    )
+    after_cents: int | None
+    change_cents: int = Field(description="Effect on net worth; a larger debt is negative.")
+    reasons: list[
+        Literal["opened", "closed", "stake_changed", "not_updated", "stale", "value_changed"]
+    ]
+    transfers_in_out_cents: int | None = Field(description="Money moved in (+) or out (-).")
+    value_change_estimate_cents: int | None = Field(
+        description="Full-balance change less transfers. An estimate."
+    )
+
+
+class ExplainChangeResult(ToolResult):
+    from_date: dt.date
+    to_date: dt.date
+    net_worth_before_cents: int
+    net_worth_after_cents: int
+    change_cents: int
+    change_bps: int | None
+    by_kind: list[KindChange]
+    accounts: list[AccountChangeRow]
+    history_reaches_from_date: bool = Field(
+        description="False: balances before the first recorded one are unknown, not zero."
+    )
+
+
+@REGISTRY.tool(
+    "networth_explain_change",
+    description=(
+        "Why net worth changed between two dates: the total change and each account's part in "
+        "it, which add up exactly, with the reason for each — opened, closed, ownership stake "
+        "changed, not updated (a flat carried-forward balance), stale, or value changed. Where "
+        "transfers are imported it separates money moved in or out from the change in value, as "
+        "an estimate. Use it for 'why did net worth drop in March'."
+    ),
+    label=lambda args: f"Net worth change from {args.from_date}",
+)
+def networth_explain_change(
+    args: ExplainChangeArgs, session: Session, ctx: ToolContext
+) -> ExplainChangeResult:
+    to_date = args.to_date or ctx.today
+    if to_date > ctx.today:
+        raise ToolInputError(f"to_date is after today ({ctx.today.isoformat()}).")
+    if args.from_date >= to_date:
+        raise ToolInputError("from_date must be before to_date.")
+    view = args.view or ctx.view
+    result = networth_change.explain(session, args.from_date, to_date, ctx.viewer_id(view))
+    return ExplainChangeResult(
+        as_of=to_date,
+        view=view,
+        stale=any("stale" in a.reasons for a in result.accounts),
+        from_date=args.from_date,
+        to_date=to_date,
+        net_worth_before_cents=to_cents(result.start.net_worth),
+        net_worth_after_cents=to_cents(result.end.net_worth),
+        change_cents=to_cents(result.change),
+        change_bps=change_bps(result.end.net_worth, result.start.net_worth),
+        by_kind=[
+            KindChange(kind=kind.value, change_cents=to_cents(total))
+            for kind, total in sorted(result.by_kind.items())
+        ],
+        accounts=[
+            AccountChangeRow(
+                account_id=a.account_id,
+                name_text=a.name,
+                kind=a.kind.value,
+                before_cents=to_cents(a.before) if a.before is not None else None,
+                after_cents=to_cents(a.after) if a.after is not None else None,
+                change_cents=to_cents(a.change),
+                reasons=a.reasons,
+                transfers_in_out_cents=to_cents(a.flows) if a.flows is not None else None,
+                value_change_estimate_cents=(
+                    to_cents(a.value_change_estimate)
+                    if a.value_change_estimate is not None
+                    else None
+                ),
+            )
+            for a in result.accounts
+        ],
+        history_reaches_from_date=result.history_reaches_start,
     )
