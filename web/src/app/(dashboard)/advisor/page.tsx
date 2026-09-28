@@ -10,21 +10,26 @@
  *
  * **Settled lists stay on screen.** Deleting a conversation removes that row and nothing
  * else; nothing here ever collapses to a skeleton once it has loaded.
+ *
+ * On the public demo this screen is replaced by recorded examples (ADR 0014).
  */
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { ConversationList } from "@/components/advisor/conversation-list";
+import { DemoExamples } from "@/components/advisor/demo-examples";
 import { QuestionBox } from "@/components/advisor/question-box";
 import { StatusLine } from "@/components/advisor/status-line";
 import { ErrorState, Skeleton } from "@/components/states";
 import { ViewToggle, useViewScope } from "@/components/view-toggle";
 import { stashQuestion, type AdvisorStatus, type ConversationSummary } from "@/lib/advisor";
 import { apiFetch } from "@/lib/api";
+import { IS_DEMO } from "@/lib/demo";
 
 export default function AdvisorPage() {
-  return <AdvisorScreen />;
+  // Inlined at build time: the demo bundle has no path to the live screen at all.
+  return IS_DEMO ? <DemoExamples /> : <AdvisorScreen />;
 }
 
 export function AdvisorScreen() {

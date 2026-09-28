@@ -1,0 +1,66 @@
+[
+  {
+    "id": "lookup-nw-household",
+    "question": "What's our net worth?",
+    "answer": {
+      "text": "Household net worth is **$794,345.45**: $1,103,655.02 in assets against $309,309.57 owed. Balances are all current. You can review each account on [[screen:accounts]].",
+      "figures": [
+        {
+          "start": 25,
+          "end": 36,
+          "status": "verified",
+          "source": {
+            "call_id": "c1",
+            "path": "net_worth"
+          },
+          "reason": null
+        },
+        {
+          "start": 40,
+          "end": 53,
+          "status": "verified",
+          "source": {
+            "call_id": "c1",
+            "path": "assets"
+          },
+          "reason": null
+        },
+        {
+          "start": 72,
+          "end": 83,
+          "status": "verified",
+          "source": {
+            "call_id": "c1",
+            "path": "liabilities"
+          },
+          "reason": null
+        }
+      ],
+      "citations": [
+        {
+          "call_id": "c1",
+          "tool": "networth_get",
+          "label": "Net worth",
+          "as_of": "2026-09-27",
+          "view": "household",
+          "stale": false
+        }
+      ],
+      "limitations": [],
+      "policy_notes": [],
+      "truncated": false
+    },
+    "lookups": [
+      {
+        "call_id": "c1",
+        "tool": "networth_get",
+        "label": "Net worth",
+        "arguments": "view=household, detail=full",
+        "status": "ok",
+        "row_count": 0,
+        "latency_ms": 24,
+        "as_of": "2026-09-27"
+      }
+    ]
+  }
+]

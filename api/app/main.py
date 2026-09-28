@@ -74,7 +74,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="Personal finance API", lifespan=lifespan)
+# `redirect_slashes=False`: FastAPI's default answers `/path/` with a 307 to an absolute URL
+# built from the request's host — which, behind the web proxy, is the private API's. A
+# browser sent there leaves this origin, and a same-origin path that redirects elsewhere is
+# exactly what would turn the web app's `img-src 'self'` into a way out (EchoLeak; ticket 106).
+app = FastAPI(title="Personal finance API", lifespan=lifespan, redirect_slashes=False)
 app.add_middleware(RequestContextMiddleware)
 app.add_middleware(DemoReadOnlyMiddleware)
 

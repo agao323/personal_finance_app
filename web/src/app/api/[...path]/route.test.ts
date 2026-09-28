@@ -189,3 +189,43 @@ describe("streaming through the proxy", () => {
     expect((await reader.read()).done).toBe(true);
   });
 });
+
+describe("'self' stays trustworthy", () => {
+  it.each([
+    [["https:", "", "evil.example", "x"]],
+    [["//evil.example"]],
+    [["http://evil.example"]],
+    [["@evil.example", "x"]],
+    [["..", "..", "evil.example"]],
+    [["%2F%2Fevil.example"]],
+    [["advisor", "..", "..", "..", "evil.example"]],
+  ])("forwards %j only to the internal API", async (segments) => {
+    const spy = vi.fn().mockResolvedValue(Response.json({}));
+    vi.stubGlobal("fetch", spy);
+
+    await GET(
+      request(`http://localhost:3000/api/x?next=https://evil.example`),
+      context(...segments),
+    );
+
+    const target = new URL(spy.mock.calls[0][0] as string);
+    expect(target.origin).toBe(INTERNAL);
+    expect(spy.mock.calls[0][1]).toMatchObject({ redirect: "manual" });
+  });
+
+  it.each([301, 302, 303, 307, 308])("refuses to pass on a %i redirect", async (status) => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(null, { status, headers: { location: "https://evil.example/p.png" } }),
+        ),
+    );
+
+    const response = await GET(request("http://localhost:3000/api/x"), context("x"));
+
+    expect(response.status).toBe(502);
+    expect(response.headers.get("location")).toBeNull();
+  });
+});

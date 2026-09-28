@@ -372,3 +372,23 @@ def test_openapi_exports_without_a_database(tmp_path: Path) -> None:
 
     output = export(tmp_path / "openapi.json")
     assert output.exists()
+
+
+# ── no redirects ──────────────────────────────────────────────────────────────
+
+
+def test_no_route_redirects_anywhere(client: TestClient) -> None:
+    """The web app's `img-src 'self'` holds only while no same-origin path redirects elsewhere.
+
+    FastAPI's default answers `/path/` with a 307 to an absolute URL on the request's host —
+    the private API's, behind the proxy. `redirect_slashes=False` turns that off; this walks
+    every GET route with and without a trailing slash and fails on any 3xx (ticket 106).
+    """
+    paths = sorted(path for path, methods in _openapi()["paths"].items() if "get" in methods)
+    assert paths
+    for template in paths:
+        concrete = template.replace("{conversation_id}", _A_UUID).replace("{turn_id}", _A_UUID)
+        concrete = re.sub(r"\{[^}]+\}", "1", concrete)
+        for path in (concrete, f"{concrete}/"):
+            response = client.get(path, follow_redirects=False)
+            assert not 300 <= response.status_code < 400, (path, response.headers.get("location"))

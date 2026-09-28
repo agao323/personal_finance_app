@@ -88,6 +88,13 @@ async function proxy(
     return Response.json({ detail: "Upstream API unreachable" }, { status: 502 });
   }
 
+  // Never pass a redirect on. The API has none (it runs with `redirect_slashes=False`), and
+  // a same-origin path that redirected to another host would let `img-src 'self'` and
+  // `connect-src 'self'` reach the outside world — the EchoLeak lesson (ticket 106).
+  if (upstream.status >= 300 && upstream.status < 400) {
+    return Response.json({ detail: "Upstream redirect refused" }, { status: 502 });
+  }
+
   // `upstream.body` is passed through as a stream, never buffered: a server-sent event
   // reaches the browser when the API writes it. `content-type` and `cache-control` go
   // through unchanged — `no-transform` is what keeps a compressing hop from holding it.

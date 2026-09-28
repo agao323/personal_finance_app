@@ -1,5 +1,33 @@
 import type { NextConfig } from "next";
 
+/**
+ * The content security policy, as directives. Exported for the test that checks it.
+ *
+ * The third of three layers against exfiltration through the browser (docs/ADVISOR.md
+ * #prompt-injection): the API strips images and links from answers, the renderer has no way
+ * to draw one, and this makes the browser refuse to fetch anything that got past both.
+ *
+ * - `img-src` and `connect-src` are this origin only. Every API call already goes through
+ *   the same-origin proxy, and Sentry reports from the server, so nothing else is needed —
+ *   and `'self'` stays trustworthy only because nothing on this origin redirects elsewhere
+ *   (the proxy refuses upstream redirects; the API has none).
+ * - `frame-ancestors 'none'` is the CSP form of `X-Frame-Options: DENY`.
+ * - **`script-src` is not tightened here.** Next's inline scripts need per-request nonces,
+ *   which is its own piece of work; with no `default-src`, scripts are unrestricted as before.
+ */
+export const CSP_DIRECTIVES: Record<string, string> = {
+  "img-src": "'self' data: blob:",
+  "connect-src": "'self'",
+  "frame-ancestors": "'none'",
+  "object-src": "'none'",
+  "base-uri": "'self'",
+  "form-action": "'self'",
+};
+
+export const CONTENT_SECURITY_POLICY = Object.entries(CSP_DIRECTIVES)
+  .map(([directive, value]) => `${directive} ${value}`)
+  .join("; ");
+
 const nextConfig: NextConfig = {
   // Emits .next/standalone with a self-contained server.js, so the runtime image
   // carries only traced dependencies instead of the full node_modules. See
@@ -44,6 +72,7 @@ const nextConfig: NextConfig = {
           // No third-party embeds anywhere in this app, so the strictest value is
           // also the correct one.
           { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY },
         ],
       },
     ];
