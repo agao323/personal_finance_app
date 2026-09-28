@@ -26,6 +26,7 @@ from app.advisor.tools import (
 )
 from app.models.account import Account
 from app.schemas.common import ViewScope, to_cents
+from app.services.analysis import cards_value as cards_value_service
 from app.services.analysis import cashflow, data_quality, networth_change, recurring, spend_trends
 from app.services.analysis.numbers import change_bps, quantize_money
 from app.services.analysis.periods import Window
@@ -561,4 +562,66 @@ def networth_explain_change(
             for a in result.accounts
         ],
         history_reaches_from_date=result.history_reaches_start,
+    )
+
+
+# ── cards_value ───────────────────────────────────────────────────────────────
+
+
+class CardValueArgs(ToolArgs):
+    year: int | None = Field(
+        default=None, ge=2000, le=2100, description="A calendar year. Defaults to this year."
+    )
+
+
+class CardValueRow(BaseModel):
+    account_id: int
+    name_text: str
+    annual_fee_cents: int | None = Field(description="None: no fee recorded — unknown, not free.")
+    realised_cents: int = Field(description="Value actually used, never merely available.")
+    available_cents: int = Field(description="Face value of every period begun so far this year.")
+    utilisation_bps: int | None
+    missed_periods: int
+    net_value_cents: int = Field(description="Realised less the fee.")
+
+
+class CardValueResult(ToolResult):
+    year: int
+    through: dt.date
+    cards: list[CardValueRow]
+
+
+@REGISTRY.tool(
+    "cards_value",
+    description=(
+        "Whether each card is earning its fee: for a calendar year so far, the annual fee, the "
+        "value of perks actually used, the value that was available, the share used, periods "
+        "missed, and net value (used less fee). Use it for 'is the Travel card worth it' or "
+        "'which card am I wasting'. Value used counts what was recorded, never what was merely "
+        "on offer."
+    ),
+    label=lambda args: f"Card value, {args.year or 'this year'}",
+)
+def cards_value(args: CardValueArgs, session: Session, ctx: ToolContext) -> CardValueResult:
+    year = args.year or ctx.today.year
+    if year > ctx.today.year:
+        raise ToolInputError(f"{year} has not started yet.")
+    through = min(ctx.today, dt.date(year, 12, 31))
+    return CardValueResult(
+        as_of=ctx.today,
+        year=year,
+        through=through,
+        cards=[
+            CardValueRow(
+                account_id=c.account.id,
+                name_text=c.account.name,
+                annual_fee_cents=to_cents(c.fee) if c.fee is not None else None,
+                realised_cents=to_cents(c.realised),
+                available_cents=to_cents(c.available),
+                utilisation_bps=c.utilisation_bps,
+                missed_periods=c.missed_periods,
+                net_value_cents=to_cents(c.net),
+            )
+            for c in cards_value_service.value(session, year, ctx.today)
+        ],
     )
