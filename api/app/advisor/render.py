@@ -85,6 +85,21 @@ def display(unit: Unit, value: int) -> str:
     return months(value)
 
 
+def _shown_key(key: str, suffix: str, unit: Unit) -> str:
+    """The key a model sees for a figure.
+
+    Money drops `_cents` — the value says `$`. Months keep `_months`: `runway_months`.
+    Percentages become `_pct`, so a change in dollars and the same change in percent —
+    `total_change_cents` and `total_change_bps` — cannot both render as `total_change`,
+    which they did until a test caught one overwriting the other.
+    """
+    if unit == "months_tenths":
+        return key.removesuffix("_tenths")
+    if unit == "bps":
+        return key.removesuffix(suffix) + "_pct"
+    return key.removesuffix(suffix)
+
+
 class _Walker:
     def __init__(self, call_id: str, tool_names: Iterable[str]) -> None:
         self.call_id = call_id
@@ -97,9 +112,7 @@ class _Walker:
             return None
         for suffix, unit in _SUFFIXES.items():
             if key.endswith(suffix) and isinstance(value, int) and not isinstance(value, bool):
-                # `runway_months_tenths` reads as `runway_months`; the others drop the
-                # whole suffix, because the rendered value carries the unit itself.
-                shown = key.removesuffix("_tenths" if unit == "months_tenths" else suffix)
+                shown = _shown_key(key, suffix, unit)
                 ref = f"{self.call_id}.{path}{shown}"
                 text = display(unit, value)
                 self.figures[ref] = Figure(ref=ref, unit=unit, value=value, display=text)
@@ -125,6 +138,8 @@ class _Walker:
             for key, item in value.items():
                 pair = self.value(key, item, path)
                 if pair is not None:
+                    if pair[0] in out:
+                        raise ValueError(f"{self.call_id}: two fields render as {pair[0]!r}")
                     out[pair[0]] = pair[1]
             return out
         if isinstance(value, list | tuple):

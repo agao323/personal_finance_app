@@ -150,7 +150,7 @@ def test_each_account_shows_its_share_and_staleness(
     rental = accounts[world["rental"]]
     assert figure(rental["balance"]) == "$420,000.00"
     assert figure(rental["share"]) == "$210,000.00"
-    assert figure(rental["stake"]) == "50.00%"
+    assert figure(rental["stake_pct"]) == "50.00%"
     assert accounts[world["brokerage"]]["stale"] is True
     assert world["car"] not in accounts
     assert body["stale"] is True
@@ -226,7 +226,7 @@ def test_accounts_list_shows_the_household_share(world: dict[str, int], ctx: Too
     }
 
     assert figure(rows[world["joint"]]["share"]) == "$20,000.00"
-    assert figure(rows[world["mortgage"]]["stake"]) == "100.00%"
+    assert figure(rows[world["mortgage"]]["stake_pct"]) == "100.00%"
 
 
 # ── accounts_history ──────────────────────────────────────────────────────────

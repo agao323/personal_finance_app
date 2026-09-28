@@ -591,6 +591,7 @@ TOOL_MODULES: tuple[str, ...] = (
     "app.advisor.tools.balances",
     "app.advisor.tools.spending",
     "app.advisor.tools.cards",
+    "app.advisor.tools.analysis",
 )
 
 

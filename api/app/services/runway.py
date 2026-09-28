@@ -114,8 +114,8 @@ def liquid_assets(session: Session, as_of: dt.date, viewer_id: int | None = None
     return total
 
 
-def _has_any_transaction(session: Session, start: dt.date, end: dt.date) -> bool:
-    """Whether the month has data at all.
+def has_any_transaction(session: Session, start: dt.date, end: dt.date) -> bool:
+    """Whether the month has data at all. Public: every analysis skips empty months too.
 
     A month with no transactions is missing data, not a month you spent nothing.
     Counting it as zero burn would drag the average down and inflate runway — the
@@ -146,7 +146,7 @@ def burn_window(
     totals: list[Decimal] = []
 
     for start, end in _complete_months_before(today, months):
-        if not _has_any_transaction(session, start, end):
+        if not has_any_transaction(session, start, end):
             continue
         totals.append(spend_by_category(session, start, end).total)
 

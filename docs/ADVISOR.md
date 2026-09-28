@@ -315,19 +315,23 @@ float. **The model never sees that result.** It sees a rendering of it:
   "scope": "household",
   "stale_accounts": 1,
   "data": {
-    "net_worth": "$412,388.14",
-    "assets": "$701,902.55",
-    "liabilities": "$289,514.41",
+    "net_worth": "$412,388.14 [c2.net_worth]",
+    "assets": "$701,902.55 [c2.assets]",
+    "liabilities": "$289,514.41 [c2.liabilities]",
     "accounts": [
       {"account_id": 6, "name_text": "Rental property", "subtype": "real_estate",
-       "stake": "50.00%", "adjusted": "$210,000.00", "balance_date": "2026-05-01", "stale": true}
+       "stake_pct": "50.00% [c2.accounts.0.stake_pct]",
+       "share": "$210,000.00 [c2.accounts.0.share]", "balance_as_of": "2026-05-01", "stale": true}
     ]
   }
 }
 ```
 
-- **Figures arrive formatted**, by one formatter (`advisor/render.py`). The model copies
-  `"$412,388.14"`; it never converts cents to dollars, because that would be arithmetic.
+- **Figures arrive formatted**, by one formatter (`advisor/render.py`), each with its
+  reference in square brackets. The model writes the reference; it never converts cents to
+  dollars, because that would be arithmetic. Money drops its `_cents` suffix, percentages
+  render as `_pct`, and months as `_months`, so a dollar change and the same change in percent
+  can never collide on one key.
 - **Untrusted text is marked by name.** Every field holding imported or user-typed text ends in
   `_text` — `merchant_text`, `description_text`, `name_text`, `note_text`, `pattern_text` — and
   has been through the [sanitizer](#prompt-injection). The system prompt says what the suffix

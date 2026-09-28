@@ -76,9 +76,9 @@ def test_the_envelope_and_references() -> None:
     assert body["data"]["net_worth"] == "$412,388.14 [c2.net_worth]"
     assert body["data"]["runway_months"] == "23.4 months [c2.runway_months]"
     assert body["data"]["accounts"][0]["adjusted"] == "$210,000.00 [c2.accounts.0.adjusted]"
-    assert body["data"]["accounts"][0]["stake"] == "50.00% [c2.accounts.0.stake]"
+    assert body["data"]["accounts"][0]["stake_pct"] == "50.00% [c2.accounts.0.stake_pct]"
     assert rendered.figures["c2.net_worth"].value == 41_238_814
-    assert rendered.figures["c2.accounts.0.stake"].unit == "bps"
+    assert rendered.figures["c2.accounts.0.stake_pct"].unit == "bps"
 
 
 def test_references_rebuild_from_the_stored_text() -> None:
@@ -119,3 +119,27 @@ def test_a_large_result_drops_rows_and_says_so() -> None:
     assert body["truncated"] is True
     assert 0 < len(body["data"]["accounts"]) < 200
     assert all(ref.startswith("c1.") for ref in rendered.figures)
+
+
+def test_two_fields_that_would_render_alike_are_refused() -> None:
+    class Clash(ToolResult):
+        change_cents: int
+        change: str
+
+    with pytest.raises(ValueError, match="two fields render as 'change'"):
+        render("x_y", "c1", Clash(change_cents=1, change="up"))
+
+
+def test_a_change_in_dollars_and_percent_render_apart() -> None:
+    class Both(ToolResult):
+        total_change_cents: int
+        total_change_bps: int
+
+    body = json.loads(
+        render("x_y", "c1", Both(total_change_cents=10_000, total_change_bps=5000)).text
+    )
+
+    assert body["data"] == {
+        "total_change": "$100.00 [c1.total_change]",
+        "total_change_pct": "50.00% [c1.total_change_pct]",
+    }
