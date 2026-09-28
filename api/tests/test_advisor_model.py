@@ -207,6 +207,17 @@ def test_tools_are_sorted_even_when_given_out_of_order() -> None:
     assert [t["name"] for t in capture.body["tools"]] == ["accounts_list", "spend_by_category"]
 
 
+def test_a_final_call_keeps_the_tools_but_may_not_call_one() -> None:
+    capture = Capture()
+    final = ModelRequest(
+        system=REQUEST.system, messages=REQUEST.messages, tools=TOOLS, tools_enabled=False
+    )
+    collect(_client(capture), final)
+
+    assert capture.body["tool_choice"] == {"type": "none"}
+    assert [t["name"] for t in capture.body["tools"]] == ["accounts_list", "spend_by_category"]
+
+
 def test_effort_and_model_come_from_configuration() -> None:
     capture = Capture()
     collect(_client(capture, model="claude-sonnet-5", effort="low", max_tokens=2000))

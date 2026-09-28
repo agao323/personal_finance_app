@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade backup restore deploy-demo
+.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade backup restore advisor-purge deploy-demo
 
 # Compose merges docker-compose.override.yml automatically. PROD_COMPOSE opts out,
 # so smoke tests exercise the deploy-shaped images rather than the dev ones.
@@ -192,6 +192,11 @@ restore: .env ## Load an export back: make restore f=data/backups/pfa-2026-09-27
 	@# Defaults to the LOCAL database, never production. Restoring over the real one is a
 	@# deliberate act that has to name its own --database-url.
 	@cd api && DATABASE_URL="$(LOCAL_DB_URL)" uv run python scripts/restore_local.py "$(CURDIR)/$(f)" $(ARGS)
+
+advisor-purge: .env ## Delete advisor transcripts, audit and usage rows past retention
+	@# The LOCAL database, like seed and restore. Production purges itself at the start
+	@# of every advisor request, so it never needs this.
+	@cd api && DATABASE_URL="$(LOCAL_DB_URL)" uv run python scripts/advisor_purge.py
 
 downgrade: .env ## Roll back one migration
 	@cd api && ALEMBIC_DATABASE_URL="$(LOCAL_DB_URL)" uv run alembic downgrade -1

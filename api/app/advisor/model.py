@@ -51,6 +51,10 @@ class ModelRequest:
     system: Sequence[str]
     messages: Sequence[dict[str, Any]]
     tools: Sequence[ToolDefinition]
+    #: False on a turn's last permitted call. The tools are still sent — they are the start
+    #: of the cached prefix, and history holds tool calls that need their definitions — but
+    #: the model may not call one.
+    tools_enabled: bool = True
 
 
 @dataclass(frozen=True)
@@ -125,7 +129,8 @@ class AnthropicModelClient:
 
         What is **not** here matters as much: no `eager_input_streaming` (it turns off the
         API's own validation of tool input), no server tools (web search and fetch are
-        egress), no sampling parameters, no `tool_choice` beyond `auto`.
+        egress), no sampling parameters, and `tool_choice` only ever `auto` or `none` — some
+        newer models reject a forced choice.
         """
         system: list[dict[str, Any]] = [{"type": "text", "text": text} for text in request.system]
         if system:
@@ -145,7 +150,7 @@ class AnthropicModelClient:
             "system": system,
             "messages": list(request.messages),
             "tools": tools,
-            "tool_choice": {"type": "auto"},
+            "tool_choice": {"type": "auto" if request.tools_enabled else "none"},
             "thinking": {"type": "adaptive", "display": "omitted"},
             "output_config": {"effort": self.effort},
             # Top-level automatic caching: a breakpoint that follows the growing tail.

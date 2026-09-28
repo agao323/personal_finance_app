@@ -18,7 +18,7 @@ export — so the guard test holds and `make backup` carries them.
       none), `model`, `prompt_version`, `error_code`, `started_at`, `finished_at`, and the owner's
       **feedback**: `feedback` (good · flagged · null), `feedback_note_text` (≤ 500),
       `feedback_at`;
-      `advisor_messages` — turn `CASCADE`, `seq`, `role`, `content` JSONB (content blocks exactly
+      `advisor_messages` — turn `CASCADE`, `seq`, `role`, `content` JSON (content blocks exactly
       as sent or received);
       `advisor_tool_calls` — conversation and turn `SET NULL`, `tool_name`, `tool_call_id`, `args` JSONB, `status`,
       `latency_ms`, `row_count`, `result_bytes`, `withheld_count`, `created_at`;
@@ -32,7 +32,7 @@ export — so the guard test holds and `make backup` carries them.
       a test asserts no `Numeric` column exists in these models.
 - [x] Revision 0007 written and reviewed by hand; upgrade and downgrade both exercised by a test.
 - [x] Registered in `models/__init__.py` so autogenerate and the schema tests see them.
-- [x] All five in `EXPORTED` and `ExportRead`; the export guard passes; a JSONB `content` survives
+- [x] All five in `EXPORTED` and `ExportRead`; the export guard passes; a JSON `content` survives
       export and restore unchanged; `make types` run and committed **in its own re-freeze commit**.
 - [x] Tests: migration round trip; deleting a conversation removes its turns and messages and
       leaves its tool-call rows with `conversation_id` null; export includes a synthetic
@@ -65,3 +65,7 @@ it in that order.
   advisor differences. (It reports three unrelated, pre-existing ones — two CHECKs and a functional
   index that autogenerate cannot see — which are not this ticket's.)
 - The re-freeze of `ExportRead` is its own commit.
+- **Amended in 097, before merge:** `advisor_messages.content` is `JSON`, not `JSONB`. JSONB
+  re-sorts object keys, so replayed tool-call arguments came back in a different order — a
+  different prompt, and a lost cache. 097's byte-for-byte replay test found it. 0007 had not been
+  applied to any lasting database (local dev was at 0006), so the revision was edited in place.

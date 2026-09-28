@@ -45,7 +45,7 @@ from sqlalchemy import (
     Uuid,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSON, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -133,6 +133,11 @@ class AdvisorMessage(Base):
 
     Prompt caching depends on it — any byte that moves invalidates the cache after it — and
     thinking blocks must be passed back unchanged.
+
+    **`JSON`, not `JSONB`.** JSONB stores objects with their keys re-sorted, so a tool call
+    stored as `{"view": …, "period": …}` came back with its keys in another order: a
+    different prompt from that point on. `JSON` keeps the text as written. Found by
+    `test_history_is_replayed_byte_for_byte`.
     """
 
     __tablename__ = "advisor_messages"
@@ -147,7 +152,7 @@ class AdvisorMessage(Base):
     )
     seq: Mapped[int] = mapped_column(Integer, nullable=False)
     role: Mapped[str] = mapped_column(String(16), nullable=False)
-    content: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    content: Mapped[Any] = mapped_column(JSON, nullable=False)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

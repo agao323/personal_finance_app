@@ -31,7 +31,6 @@ from app.main import app
 #: deletes its line; the test fails both for a stub not listed here and for a line left
 #: behind after its route went live.
 PENDING = {
-    "GET /advisor/status": "097",
     "GET /advisor/conversations": "099",
     "GET /advisor/stream-check": "099",
 }

@@ -98,7 +98,10 @@ def upgrade() -> None:
         sa.Column("turn_id", sa.Uuid(), nullable=False),
         sa.Column("seq", sa.Integer(), nullable=False),
         sa.Column("role", sa.String(length=16), nullable=False),
-        sa.Column("content", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        # JSON, not JSONB: JSONB reorders object keys, and a replayed tool call whose
+        # arguments come back in a different order is a different prompt — the cache after
+        # it is lost. JSON keeps the text as written. See models/advisor.py.
+        sa.Column("content", postgresql.JSON(astext_type=sa.Text()), nullable=False),
         _now(),
         sa.ForeignKeyConstraint(["turn_id"], ["advisor_turns.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),

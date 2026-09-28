@@ -7,16 +7,23 @@ docs/SECURITY.md#ai-agent.
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from typing import Any
 
 from fastapi import APIRouter, Response, status
 from fastapi.responses import StreamingResponse
 
+from app.advisor.loop import configured, refusal
+from app.advisor.pricing import display_cents
+from app.advisor.store import Store, nested_in, next_month
+from app.config import get_settings
 from app.deps import CurrentUser, DbSession
 from app.routers._stub import not_implemented
 from app.schemas.advisor import (
+    AdvisorErrorCode,
     AdvisorEvent,
+    AdvisorProvider,
     AdvisorStatus,
     ConversationCreate,
     ConversationDetail,
@@ -59,7 +66,25 @@ _EVENT_STREAM: dict[int | str, dict[str, Any]] = {
 @router.get("/status", response_model=AdvisorStatus)
 def get_status(session: DbSession, user: CurrentUser) -> AdvisorStatus:
     """Whether a question can be asked now and, if not, why; and this month's spend."""
-    not_implemented("097")
+    settings = get_settings()
+    store = Store(nested_in(session))
+    now = dt.datetime.now(dt.UTC)
+    store.purge(now)
+    today = now.date()
+    spent = store.month_spent(today)
+    cap = settings.advisor_monthly_cap_cents
+    reason = refusal(settings, configured=configured(settings))
+    if reason is None and spent >= cap:
+        reason = AdvisorErrorCode.MONTHLY_CAP
+    return AdvisorStatus(
+        enabled=reason is None,
+        reason=reason,
+        provider=AdvisorProvider.ANTHROPIC,
+        model=settings.advisor_model,
+        month_spent_cents=display_cents(spent),
+        month_cap_cents=cap,
+        resets_on=next_month(today),
+    )
 
 
 @router.get("/conversations", response_model=list[ConversationSummary])

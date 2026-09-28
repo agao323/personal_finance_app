@@ -67,6 +67,7 @@ LIVE_PATHS = {
     "/perks/{perk_id}/periods",  # 068
     "/perks/schedule",  # 079
     "/insights",  # 093
+    "/advisor/status",  # 097
 }
 
 
