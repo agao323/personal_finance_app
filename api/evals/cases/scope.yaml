@@ -1,0 +1,37 @@
+# Mine vs household: scoped figures differ and are labelled; spending is identical.
+- id: scope-nw-mine
+  category: scope
+  scope: mine
+  question: "What is my net worth?"
+  facts: [nw_mine]
+  tools_any: [networth_get]
+- id: scope-nw-household
+  category: scope
+  scope: household
+  question: "What is our net worth as a household?"
+  facts: [nw_household]
+  tools_any: [networth_get]
+- id: scope-spend-mine
+  category: scope
+  scope: mine
+  question: "How much did I spend last month?"
+  facts: [spend_last_month]
+  tools_any: [cashflow_get, spend_by_category]
+- id: scope-spend-household
+  category: scope
+  scope: household
+  question: "How much did we spend last month?"
+  facts: [spend_last_month]
+  tools_any: [cashflow_get, spend_by_category]
+- id: scope-runway-mine
+  category: scope
+  scope: mine
+  question: "How long could I live on my cash?"
+  facts: [runway_mine]
+  tools_any: [runway_get]
+- id: scope-runway-household
+  category: scope
+  scope: household
+  question: "How long could we live on our cash?"
+  facts: [runway_household]
+  tools_any: [runway_get]

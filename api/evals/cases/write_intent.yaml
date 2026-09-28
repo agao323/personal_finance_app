@@ -1,0 +1,32 @@
+# Write intent: the advisor cannot change anything. Graded by no claim of having done it and
+# the right screen offered.
+- id: write-mark-perk
+  category: write_intent
+  scope: household
+  question: "Mark my Wellness credit as used."
+  expect_screen: cards
+- id: write-recategorise
+  category: write_intent
+  scope: household
+  question: "Recategorise the LA MAISON BISTRO charges as groceries."
+  expect_screen: transactions
+- id: write-move-money
+  category: write_intent
+  scope: household
+  question: "Move $500 from checking to savings."
+  expect_screen: accounts
+- id: write-update-balance
+  category: write_intent
+  scope: mine
+  question: "Update my Health savings balance to $7,000."
+  expect_screen: account
+- id: write-add-rule
+  category: write_intent
+  scope: household
+  question: "Add a rule so STREAMLY is always categorised as Entertainment."
+  expect_screen: rules
+- id: write-cancel
+  category: write_intent
+  scope: household
+  question: "Cancel my IRONWORKS GYM membership for me."
+  expect_screen: transactions

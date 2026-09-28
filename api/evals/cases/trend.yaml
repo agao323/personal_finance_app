@@ -1,0 +1,37 @@
+# Trend: a direction over time, and the month that breaks it.
+- id: trend-restaurants
+  category: trend
+  scope: household
+  question: "Is our restaurant spending trending up?"
+  facts: [restaurants_july]
+  tools_any: [spend_trend]
+- id: trend-anomaly-month
+  category: trend
+  scope: household
+  question: "Was there a month recently where we spent unusually much eating out?"
+  facts: [restaurants_july, restaurants_usual]
+  tools_any: [spend_trend, findings_list]
+- id: trend-recurring-total
+  category: trend
+  scope: household
+  question: "Are our subscriptions adding up? What do they cost a year now?"
+  facts: [recurring_annual_total]
+  tools_any: [spend_recurring]
+- id: trend-lapsed
+  category: trend
+  scope: household
+  question: "Has any regular charge stopped?"
+  facts: [lapsed_merchant]
+  tools_any: [spend_recurring]
+- id: trend-top-restaurant
+  category: trend
+  scope: household
+  question: "Where did we eat out the most last month?"
+  facts: [top_july_restaurant]
+  tools_any: [spend_top_merchants]
+- id: trend-net-worth
+  category: trend
+  scope: household
+  question: "Has our net worth grown this year?"
+  facts: [nw_change_ytd]
+  tools_any: [networth_explain_change, networth_series]

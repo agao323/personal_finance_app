@@ -1,0 +1,134 @@
+{
+  "facts": {
+    "assets_household": {
+      "unit": "cents",
+      "value": 111264502
+    },
+    "assets_mine": {
+      "unit": "cents",
+      "value": 88963136
+    },
+    "dining_last_quarter": {
+      "unit": "cents",
+      "value": 73731
+    },
+    "dining_quarter_change": {
+      "unit": "cents",
+      "value": 66552
+    },
+    "dining_this_quarter": {
+      "unit": "cents",
+      "value": 140283
+    },
+    "income_last_month": {
+      "unit": "cents",
+      "value": 801600
+    },
+    "lapsed_merchant": {
+      "unit": "text",
+      "value": "IRONWORKS GYM"
+    },
+    "liabilities_household": {
+      "unit": "cents",
+      "value": 30930957
+    },
+    "liquid_household": {
+      "unit": "cents",
+      "value": 15019207
+    },
+    "liquid_mine": {
+      "unit": "cents",
+      "value": 14964120
+    },
+    "net_last_month": {
+      "unit": "cents",
+      "value": 200004
+    },
+    "newsdaily_price": {
+      "unit": "cents",
+      "value": 12000
+    },
+    "nw_change_ytd": {
+      "unit": "cents",
+      "value": 7019740
+    },
+    "nw_household": {
+      "unit": "cents",
+      "value": 80333545
+    },
+    "nw_mine": {
+      "unit": "cents",
+      "value": 69864179
+    },
+    "recurring_annual_total": {
+      "unit": "cents",
+      "value": 7132428
+    },
+    "restaurants_july": {
+      "unit": "cents",
+      "value": 121090
+    },
+    "restaurants_usual": {
+      "unit": "cents",
+      "value": 39083
+    },
+    "runway_household": {
+      "unit": "months_tenths",
+      "value": 271
+    },
+    "runway_mine": {
+      "unit": "months_tenths",
+      "value": 270
+    },
+    "spend_last_month": {
+      "unit": "cents",
+      "value": 601596
+    },
+    "stale_account": {
+      "unit": "text",
+      "value": "Health savings"
+    },
+    "stale_count": {
+      "unit": "count",
+      "value": 1
+    },
+    "stale_days": {
+      "unit": "count",
+      "value": 120
+    },
+    "streamly_increase": {
+      "unit": "cents",
+      "value": 200
+    },
+    "streamly_merchant": {
+      "unit": "text",
+      "value": "STREAMLY"
+    },
+    "streamly_price": {
+      "unit": "cents",
+      "value": 1799
+    },
+    "top_july_restaurant": {
+      "unit": "text",
+      "value": "LA MAISON BISTRO 4"
+    },
+    "transfer_amount": {
+      "unit": "cents",
+      "value": 150000
+    },
+    "urgent_perk": {
+      "unit": "text",
+      "value": "Wellness credit"
+    },
+    "urgent_perk_days": {
+      "unit": "count",
+      "value": 2
+    },
+    "urgent_perk_value": {
+      "unit": "cents",
+      "value": 2000
+    }
+  },
+  "seed": 20260818,
+  "today": "2026-08-18"
+}

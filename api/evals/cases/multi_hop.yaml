@@ -1,0 +1,37 @@
+# Multi-hop: facts from two lookups, put together without arithmetic.
+- id: mh-spike-merchants
+  category: multi_hop
+  scope: household
+  question: "What drove July's restaurant spike, and where did we eat?"
+  facts: [restaurants_july, top_july_restaurant]
+  tools_any: [spend_top_merchants]
+- id: mh-transfer
+  category: multi_hop
+  scope: household
+  question: "Is anything in last month's spending that isn't really spending?"
+  facts: [transfer_amount]
+  tools_any: [data_health]
+- id: mh-runway-stale
+  category: multi_hop
+  scope: household
+  question: "How long would our cash last, and is any of it out of date?"
+  facts: [runway_household, stale_account]
+  tools_any: [runway_get]
+- id: mh-perk-first
+  category: multi_hop
+  scope: household
+  question: "Which card credit should I use first, and how many days do I have?"
+  facts: [urgent_perk, urgent_perk_days]
+  tools_any: [cards_upcoming_perks]
+- id: mh-subscriptions-save
+  category: multi_hop
+  scope: household
+  question: "Which subscriptions could I cancel, and what do they cost in total a year?"
+  facts: [recurring_annual_total, lapsed_merchant]
+  tools_any: [spend_recurring]
+- id: mh-cashflow-dining
+  category: multi_hop
+  scope: household
+  question: "Of what we spent last month, how much was eating out?"
+  facts: [spend_last_month, restaurants_july]
+  tools_any: [cashflow_get, spend_by_category, spend_trend]

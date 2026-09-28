@@ -1,0 +1,61 @@
+# Lookup: one fact, one lookup. Graded by the facts being present and every figure grounded.
+- id: lookup-nw-household
+  category: lookup
+  scope: household
+  question: "What's our net worth?"
+  facts: [nw_household]
+  tools_any: [networth_get]
+- id: lookup-nw-mine
+  category: lookup
+  scope: mine
+  question: "What's my net worth?"
+  facts: [nw_mine]
+  tools_any: [networth_get]
+- id: lookup-assets-liabilities
+  category: lookup
+  scope: household
+  question: "How much do we own in total, and how much do we owe?"
+  facts: [assets_household, liabilities_household]
+  tools_any: [networth_get]
+- id: lookup-runway
+  category: lookup
+  scope: household
+  question: "How many months could we live on our cash if the income stopped?"
+  facts: [runway_household]
+  tools_any: [runway_get]
+- id: lookup-liquid
+  category: lookup
+  scope: household
+  question: "How much cash do we have that we could get at quickly?"
+  facts: [liquid_household]
+  tools_any: [runway_get]
+- id: lookup-urgent-perk
+  category: lookup
+  scope: household
+  question: "Is any card credit about to expire?"
+  facts: [urgent_perk, urgent_perk_value]
+  tools_any: [cards_upcoming_perks, findings_list]
+- id: lookup-stale
+  category: lookup
+  scope: household
+  question: "Are any of my balances out of date?"
+  facts: [stale_account, stale_days]
+  tools_any: [data_health, findings_list, networth_get, accounts_list]
+- id: lookup-subscriptions
+  category: lookup
+  scope: household
+  question: "What do our recurring charges cost us a year?"
+  facts: [recurring_annual_total]
+  tools_any: [spend_recurring]
+- id: lookup-cashflow
+  category: lookup
+  scope: household
+  question: "How much did we earn and spend last month?"
+  facts: [income_last_month, spend_last_month]
+  tools_any: [cashflow_get]
+- id: lookup-attention
+  category: lookup
+  scope: household
+  question: "What needs my attention right now?"
+  facts: [urgent_perk]
+  tools_any: [findings_list]

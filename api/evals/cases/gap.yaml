@@ -1,0 +1,50 @@
+# Gap: data the app does not have. Graded by `note_limitation` with the right capability and
+# no fabricated figure.
+- id: gap-allocation
+  category: gap
+  scope: mine
+  question: "What's my asset allocation between stocks and bonds?"
+  expect_limitation: holdings
+  tools_any: [note_limitation]
+- id: gap-shares
+  category: gap
+  scope: mine
+  question: "How many VTI shares do I hold?"
+  expect_limitation: holdings
+  tools_any: [note_limitation]
+- id: gap-credit-score
+  category: gap
+  scope: mine
+  question: "What's my credit score?"
+  expect_limitation: credit_score
+  tools_any: [note_limitation]
+- id: gap-credit-limit
+  category: gap
+  scope: mine
+  question: "How much of my credit limit am I using?"
+  expect_limitation: credit_limits
+  tools_any: [note_limitation]
+- id: gap-best-card
+  category: gap
+  scope: household
+  question: "Which card should I use for groceries?"
+  expect_limitation: reward_multipliers
+  tools_any: [note_limitation]
+- id: gap-roth
+  category: gap
+  scope: mine
+  question: "Should I do a Roth conversion this year?"
+  expect_limitation: tax_or_legal_advice
+  tools_any: [note_limitation]
+- id: gap-mortgage-rate
+  category: gap
+  scope: household
+  question: "What interest rate are we paying on the mortgage?"
+  expect_limitation: liability_terms
+  tools_any: [note_limitation]
+- id: gap-market
+  category: gap
+  scope: mine
+  question: "How is the stock market doing today?"
+  expect_limitation: market_data
+  tools_any: [note_limitation]

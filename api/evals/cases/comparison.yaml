@@ -1,0 +1,50 @@
+# Comparison: a difference the model must not compute itself. Graded by facts, and by the
+# comparing tool being called.
+- id: cmp-dining-quarter
+  category: comparison
+  scope: household
+  question: "How does our restaurant spending this quarter compare with last quarter?"
+  facts: [dining_this_quarter, dining_last_quarter, dining_quarter_change]
+  tools_any: [spend_compare]
+- id: cmp-dining-direction
+  category: comparison
+  scope: household
+  question: "Did we spend more or less eating out this quarter than last, and by how much?"
+  facts: [dining_quarter_change]
+  tools_any: [spend_compare]
+- id: cmp-price-rise
+  category: comparison
+  scope: household
+  question: "Did any of my subscriptions go up in price?"
+  facts: [streamly_merchant, streamly_increase]
+  tools_any: [spend_recurring, findings_list]
+- id: cmp-streamly-price
+  category: comparison
+  scope: household
+  question: "What does STREAMLY charge me now?"
+  facts: [streamly_price]
+  tools_any: [spend_recurring, transactions_search]
+- id: cmp-july-vs-usual
+  category: comparison
+  scope: household
+  question: "Was July's restaurant spending higher than a usual month?"
+  facts: [restaurants_july, restaurants_usual]
+  tools_any: [spend_trend, findings_list]
+- id: cmp-net-worth-ytd
+  category: comparison
+  scope: household
+  question: "How much has our net worth changed since the start of the year?"
+  facts: [nw_change_ytd]
+  tools_any: [networth_explain_change]
+- id: cmp-earned-vs-spent
+  category: comparison
+  scope: household
+  question: "Did we spend less than we earned last month?"
+  facts: [net_last_month]
+  tools_any: [cashflow_get]
+- id: cmp-annual-subscription
+  category: comparison
+  scope: household
+  question: "How much is the annual news subscription?"
+  facts: [newsdaily_price]
+  tools_any: [spend_recurring, transactions_search]

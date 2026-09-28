@@ -1,0 +1,38 @@
+# Goal-aware advice (Wave 11). Graded by the advice rubric (ticket 102). Listed now so the
+# golden set is whole; each runs once the ticket named in `pending` ships its tools.
+- id: goal-double-savings
+  category: goal_aware
+  scope: household
+  question: "Can we afford to double our monthly savings target?"
+  tools_any: [goals_evaluate]
+  pending: "111"
+- id: goal-on-track
+  category: goal_aware
+  scope: household
+  question: "Are we on track for our emergency fund goal?"
+  tools_any: [goals_list, goals_evaluate]
+  pending: "111"
+- id: goal-house-deposit
+  category: goal_aware
+  scope: household
+  question: "When could we have a house deposit saved at this rate?"
+  tools_any: [goals_evaluate]
+  pending: "111"
+- id: goal-prepay-or-invest
+  category: goal_aware
+  scope: household
+  question: "Should we pay down the mortgage faster or invest the difference?"
+  tools_any: [debt_prepay_vs_invest]
+  pending: "115"
+- id: goal-retirement
+  category: goal_aware
+  scope: mine
+  question: "Am I saving enough to retire at 60?"
+  tools_any: [projection_retirement]
+  pending: "118"
+- id: goal-allocation-drift
+  category: goal_aware
+  scope: mine
+  question: "Is my allocation still where my plan says it should be?"
+  tools_any: [allocation_get]
+  pending: "116"
