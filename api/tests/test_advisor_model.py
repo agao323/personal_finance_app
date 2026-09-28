@@ -218,6 +218,14 @@ def test_a_final_call_keeps_the_tools_but_may_not_call_one() -> None:
     assert [t["name"] for t in capture.body["tools"]] == ["accounts_list", "spend_by_category"]
 
 
+def test_a_request_without_tools_sends_no_tool_fields() -> None:
+    capture = Capture()
+    collect(_client(capture), ModelRequest(system=["Grade this."], messages=[], tools=[]))
+
+    assert "tools" not in capture.body
+    assert "tool_choice" not in capture.body
+
+
 def test_effort_and_model_come_from_configuration() -> None:
     capture = Capture()
     collect(_client(capture, model="claude-sonnet-5", effort="low", max_tokens=2000))

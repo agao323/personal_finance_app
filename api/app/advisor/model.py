@@ -144,13 +144,19 @@ class AnthropicModelClient:
             }
             for tool in sorted(request.tools, key=lambda t: t.name)
         ]
-        return {
+        body: dict[str, Any] = {
             "model": self.model,
             "max_tokens": self.max_tokens,
             "system": system,
             "messages": list(request.messages),
-            "tools": tools,
-            "tool_choice": {"type": "auto" if request.tools_enabled else "none"},
+        }
+        # A request with no tools (the eval rubric grader) sends neither field: a
+        # `tool_choice` without tools is an error.
+        if tools:
+            body["tools"] = tools
+            body["tool_choice"] = {"type": "auto" if request.tools_enabled else "none"}
+        return {
+            **body,
             "thinking": {"type": "adaptive", "display": "omitted"},
             "output_config": {"effort": self.effort},
             # Top-level automatic caching: a breakpoint that follows the growing tail.

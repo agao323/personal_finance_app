@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade backup restore eval-fixtures advisor-purge deploy-demo
+.PHONY: help dev down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade backup restore eval eval-label eval-examples eval-fixtures advisor-purge deploy-demo
 
 # Compose merges docker-compose.override.yml automatically. PROD_COMPOSE opts out,
 # so smoke tests exercise the deploy-shaped images rather than the dev ones.
@@ -205,6 +205,19 @@ eval-fixtures: .env ## Recompute api/evals/expected.json from the eval world (no
 	@# Builds the eval world inside a transaction on the LOCAL database and rolls it back:
 	@# the database is borrowed, not changed. Refuses one marked as holding real data.
 	@cd api && DATABASE_URL="$(LOCAL_DB_URL)" uv run python -m evals.fixtures
+
+eval: .env ## Ask the golden questions of a model and grade them: provider=local|anthropic n= only= max_cost=
+	@# provider=anthropic spends real money on the pfa-eval workspace's key
+	@# (EVAL_ANTHROPIC_API_KEY), never the production one. Never run in CI.
+	@docker compose up -d --wait postgres >/dev/null
+	@cd api && uv run python -m evals.run --provider $(or $(provider),local) --n $(or $(n),1) \
+		--max-cost $(or $(max_cost),10) $(if $(only),--only $(only))
+
+eval-label: ## Mark recorded advice answers pass or fail, to calibrate the rubric grader
+	@cd api && uv run python -m evals.label
+
+eval-examples: ## Export chosen eval transcripts for the demo (review the diff before committing)
+	@cd api && uv run python -m evals.examples
 
 advisor-purge: .env ## Delete advisor transcripts, audit and usage rows past retention
 	@# The LOCAL database, like seed and restore. Production purges itself at the start
