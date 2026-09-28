@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.deps import CurrentUser, DbSession
 from app.models.account import Account
-from app.models.enums import AccountKind, DataSource
+from app.models.enums import AccountKind, AssetClass, DataSource
 from app.models.liability_terms import LiabilityTerms
 from app.models.user import User
 from app.schemas.account import (
@@ -440,9 +440,13 @@ def _allocation_read(session: Session, account: Account) -> AllocationRead:
     current = allocations.allocation_for(session, account, dt.date.today())
     return AllocationRead(
         status=current.status,
+        # In the enum's order, as the history is: US stocks before bonds, not alphabetically.
         shares=[
-            AllocationShare(asset_class=asset_class, percentage_bps=to_bps(pct))
-            for asset_class, pct in sorted(current.shares.items())
+            AllocationShare(
+                asset_class=asset_class, percentage_bps=to_bps(current.shares[asset_class])
+            )
+            for asset_class in AssetClass
+            if asset_class in current.shares
         ],
         history=[
             AllocationRow(

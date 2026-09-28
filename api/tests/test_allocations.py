@@ -254,10 +254,10 @@ def test_an_allocation_is_set_and_read_back(client: TestClient, brokerage: int) 
     body = client.get(f"/accounts/{brokerage}/allocations").json()
     if TODAY >= JUL:
         assert body["status"] == "recorded"
-        assert {s["asset_class"]: s["percentage_bps"] for s in body["shares"]} == {
-            "us_equity": 7000,
-            "bonds": 3000,
-        }
+        assert [(s["asset_class"], s["percentage_bps"]) for s in body["shares"]] == [
+            ("us_equity", 7000),  # the enum's order, as the history is
+            ("bonds", 3000),
+        ]
     assert [(r["asset_class"], r["effective_to"]) for r in body["history"]] == [
         ("us_equity", None),  # newest first, then in the enum's order
         ("bonds", None),

@@ -206,6 +206,36 @@ describe("AccountForm", () => {
     );
   });
 
+  it("names the type's default tax treatment and sends one only when chosen", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    server.use(
+      http.post("/api/accounts", async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json({ ...accountDetail, id: 42 }, { status: 201 });
+      }),
+    );
+    render(<AccountForm onCreated={() => {}} />);
+
+    await userEvent.type(screen.getByLabelText("Name"), "Old 401k");
+    await userEvent.selectOptions(screen.getByLabelText("Kind"), "illiquid_asset");
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "401k");
+
+    const tax = screen.getByLabelText("Tax treatment");
+    expect(within(tax).getByRole("option", { selected: true })).toHaveTextContent(
+      "Default for this type (Tax-deferred)",
+    );
+    expect(screen.getByText(/Roth portion is two accounts/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Create account" }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).not.toHaveProperty("tax_treatment");
+
+    await userEvent.selectOptions(tax, "roth");
+    await userEvent.click(screen.getByRole("button", { name: "Create account" }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).toMatchObject({ tax_treatment: "roth" });
+  });
+
   it("surfaces the server's rejection rather than swallowing it", async () => {
     // A form that believes it validated everything is how a 422 becomes a no-op.
     server.use(

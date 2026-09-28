@@ -7,7 +7,9 @@ import { AccountDetailView, stakeRange } from "./page";
 import {
   accountDetail,
   mockAccountDetail,
+  mockAllocations,
   mockFailure,
+  mockTerms,
   mockTransactions,
   server,
 } from "@/test/msw";
@@ -259,5 +261,106 @@ describe("account management actions", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Change ownership" }));
 
     expect(screen.getByRole("option", { name: "Partner" })).toBeInTheDocument();
+  });
+});
+
+describe("account facts, each in its own panel", () => {
+  const brokerage = {
+    kind: "liquid_asset" as const,
+    subtype: "brokerage" as const,
+    name: "Brokerage",
+    tax_treatment: "taxable" as const,
+  };
+
+  /** Counts reloads of the account itself, so a test can say a save did not cause one. */
+  function countAccountLoads() {
+    const loads = { count: 0 };
+    server.use(
+      http.get("/api/accounts/:id", () => {
+        loads.count += 1;
+        return HttpResponse.json({ ...accountDetail, ...brokerage });
+      }),
+    );
+    return loads;
+  }
+
+  it("gives a debt a Terms panel and no allocation or tax line", async () => {
+    mockAccountDetail({
+      kind: "liability",
+      subtype: "credit_card",
+      name: "Card",
+      tax_treatment: "none",
+    });
+    mockTerms();
+
+    render(<AccountDetailView accountId="3" />);
+
+    expect(await screen.findByRole("region", { name: "Terms" })).toBeInTheDocument();
+    expect(await screen.findByText("24.990%")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Allocation" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Tax treatment")).not.toBeInTheDocument();
+  });
+
+  it("gives an investment account an Allocation panel and its tax treatment", async () => {
+    mockAccountDetail(brokerage);
+    mockAllocations();
+
+    render(<AccountDetailView accountId="3" />);
+
+    expect(await screen.findByRole("region", { name: "Allocation" })).toBeInTheDocument();
+    expect(screen.getByText("Taxable")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Terms" })).not.toBeInTheDocument();
+  });
+
+  it("shows no Allocation panel where the allocation follows from the type", async () => {
+    mockAccountDetail(); // real estate
+
+    render(<AccountDetailView accountId="3" />);
+
+    expect(await screen.findByText("Not taxed as an investment")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Allocation" })).not.toBeInTheDocument();
+  });
+
+  it("saves an allocation without reloading the account or touching the other panels", async () => {
+    const user = userEvent.setup();
+    mockAccountDetail(brokerage);
+    mockAllocations();
+    const loads = countAccountLoads();
+    render(<AccountDetailView accountId="3" />);
+    const panel = await screen.findByRole("region", { name: "Allocation" });
+    await waitFor(() => expect(loads.count).toBe(1));
+
+    await user.click(within(panel).getByRole("button", { name: "Change allocation" }));
+    await user.click(within(panel).getByRole("button", { name: "100% cash" }));
+    await user.click(within(panel).getByRole("button", { name: "Save allocation" }));
+
+    expect(await within(panel).findByText("Cash")).toBeInTheDocument();
+    expect(loads.count).toBe(1);
+    expect(screen.getByText("Taxable")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ownership" })).toBeInTheDocument();
+  });
+
+  it("changes the tax treatment in place", async () => {
+    const user = userEvent.setup();
+    mockAccountDetail(brokerage);
+    mockAllocations();
+    const loads = countAccountLoads();
+    let patched: unknown = null;
+    server.use(
+      http.patch("/api/accounts/:id", async ({ request }) => {
+        patched = await request.json();
+        return HttpResponse.json({ ...accountDetail, ...brokerage, tax_treatment: "roth" });
+      }),
+    );
+    render(<AccountDetailView accountId="3" />);
+
+    await user.click(await screen.findByRole("button", { name: "Change" }));
+    await user.selectOptions(screen.getByLabelText("Tax treatment"), "roth");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Roth")).toBeInTheDocument();
+    expect(patched).toEqual({ tax_treatment: "roth" });
+    expect(loads.count).toBe(1);
+    expect(screen.getByRole("region", { name: "Allocation" })).toBeInTheDocument();
   });
 });

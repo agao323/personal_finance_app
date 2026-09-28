@@ -469,6 +469,113 @@ export function mockAccountDetail(
   );
 }
 
+/** A credit card's terms, checked recently: 24.99% on a $5,000 limit. */
+export const liabilityTerms: NonNullable<ResponseOf<"/accounts/{account_id}/terms", "get">> = {
+  account_id: 3,
+  apr_pct_thousandths: 24_990,
+  effective_apr_pct_thousandths: 24_990,
+  minimum_payment_cents: 3_500,
+  credit_limit_cents: 500_000,
+  promo_apr_pct_thousandths: null,
+  promo_ends_on: null,
+  term_months: null,
+  maturity_on: null,
+  as_of: "2026-08-01",
+  stale: false,
+};
+
+/**
+ * Terms for one debt. A `PUT` answers as the server would — the saved terms, stale false — and
+ * is recorded in `puts`, so a test can check the body without reaching into the handler.
+ */
+export function mockTerms(
+  initial: ResponseOf<"/accounts/{account_id}/terms", "get"> = liabilityTerms,
+) {
+  const puts: Record<string, unknown>[] = [];
+  let current = structuredClone(initial);
+  server.use(
+    http.get("/api/accounts/:id/terms", () => HttpResponse.json(current)),
+    http.put("/api/accounts/:id/terms", async ({ params, request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      puts.push(body);
+      current = {
+        ...liabilityTerms,
+        ...body,
+        account_id: Number(params.id),
+        effective_apr_pct_thousandths: body.apr_pct_thousandths as number,
+        as_of: (body.as_of as string | null) ?? "2026-08-18",
+        stale: false,
+      };
+      return HttpResponse.json(current);
+    }),
+  );
+  return { puts };
+}
+
+/** A brokerage account's allocation: 60/40 since January, after 100% cash last year. */
+export const allocation: ResponseOf<"/accounts/{account_id}/allocations", "get"> = {
+  status: "recorded",
+  shares: [
+    { asset_class: "us_equity", percentage_bps: 6000 },
+    { asset_class: "bonds", percentage_bps: 4000 },
+  ],
+  history: [
+    {
+      asset_class: "us_equity",
+      percentage_bps: 6000,
+      effective_from: "2026-01-01",
+      effective_to: null,
+    },
+    {
+      asset_class: "bonds",
+      percentage_bps: 4000,
+      effective_from: "2026-01-01",
+      effective_to: null,
+    },
+    {
+      asset_class: "cash",
+      percentage_bps: 10_000,
+      effective_from: "2025-03-01",
+      effective_to: "2026-01-01",
+    },
+  ],
+};
+
+/** An account's allocation. A `POST` is recorded in `posts` and answered as the new current one. */
+export function mockAllocations(
+  initial: ResponseOf<"/accounts/{account_id}/allocations", "get"> = allocation,
+) {
+  const posts: {
+    effective_from: string;
+    shares: { asset_class: string; percentage_bps: number }[];
+  }[] = [];
+  let current = structuredClone(initial);
+  server.use(
+    http.get("/api/accounts/:id/allocations", () => HttpResponse.json(current)),
+    http.post("/api/accounts/:id/allocations", async ({ request }) => {
+      const body = (await request.json()) as (typeof posts)[number];
+      posts.push(body);
+      current = {
+        status: "recorded",
+        shares: body.shares as typeof current.shares,
+        history: [
+          ...(body.shares as typeof current.shares).map((share) => ({
+            ...share,
+            effective_from: body.effective_from,
+            effective_to: null,
+          })),
+          ...current.history.map((row) => ({
+            ...row,
+            effective_to: row.effective_to ?? body.effective_from,
+          })),
+        ],
+      };
+      return HttpResponse.json(current, { status: 201 });
+    }),
+  );
+  return { posts };
+}
+
 /**
  * The category taxonomy, in the API's order: parents before their own children.
  *

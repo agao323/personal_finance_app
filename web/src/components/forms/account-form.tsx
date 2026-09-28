@@ -9,6 +9,10 @@
  * being swallowed, because a form that believes it validated everything is how a 422
  * becomes a silent no-op.
  *
+ * Tax treatment defaults from the type, exactly as the API's does, so "Default" names the
+ * treatment it stands for. A 401(k) with a Roth portion is two accounts, and the hint says so:
+ * one account with a split treatment would need a table of its own.
+ *
  * The subtype list narrows by kind. That pairing is a UI affordance, not a rule the
  * API enforces: nothing server-side stops a mortgage being filed as a liquid asset,
  * and it is not worth a migration to prevent something a picker can simply not offer.
@@ -22,6 +26,42 @@ import type { BodyOf } from "@/lib/api";
 import { apiFetch } from "@/lib/api";
 
 type Subtype = Account["subtype"];
+export type TaxTreatment = Account["tax_treatment"];
+
+export const TAX_TREATMENT_LABELS: Record<TaxTreatment, string> = {
+  taxable: "Taxable",
+  tax_deferred: "Tax-deferred",
+  roth: "Roth",
+  hsa: "HSA",
+  education: "Education (529)",
+  none: "Not taxed as an investment",
+};
+
+/** The API's `DEFAULT_TAX_TREATMENT`, so the form can name what "Default" means. */
+export const DEFAULT_TAX_TREATMENT: Record<Subtype, TaxTreatment> = {
+  checking: "taxable",
+  savings: "taxable",
+  money_market: "taxable",
+  cd: "taxable",
+  brokerage: "taxable",
+  ira: "tax_deferred",
+  "401k": "tax_deferred",
+  roth_ira: "roth",
+  hsa: "hsa",
+  "529": "education",
+  real_estate: "none",
+  vehicle: "none",
+  other_asset: "none",
+  credit_card: "none",
+  mortgage: "none",
+  auto_loan: "none",
+  student_loan: "none",
+  personal_loan: "none",
+  other_liability: "none",
+};
+
+export const ROTH_SPLIT_HINT =
+  "A 401(k) with a Roth portion is two accounts: add the pre-tax and the Roth parts separately.";
 
 export const SUBTYPES_BY_KIND: Record<AccountKind, Subtype[]> = {
   liquid_asset: ["checking", "savings", "money_market", "cd", "brokerage"],
@@ -59,6 +99,8 @@ export interface AccountFormValues {
   balance: string;
   balanceAsOf: string;
   stakePercent: string;
+  /** Empty means the type's default. */
+  taxTreatment: TaxTreatment | "";
 }
 
 export function emptyAccountForm(today = new Date()): AccountFormValues {
@@ -70,6 +112,7 @@ export function emptyAccountForm(today = new Date()): AccountFormValues {
     balance: "",
     balanceAsOf: today.toISOString().slice(0, 10),
     stakePercent: "100",
+    taxTreatment: "",
   };
 }
 
@@ -153,6 +196,7 @@ export function AccountForm({
       kind: values.kind,
       subtype: values.subtype,
       ownership_percentage_bps: percentToBps(values.stakePercent),
+      ...(values.taxTreatment ? { tax_treatment: values.taxTreatment } : {}),
       ...(values.institution.trim() ? { institution_name: values.institution.trim() } : {}),
       ...(values.balance.trim() && cents !== null
         ? { opening_balance_cents: cents, opening_balance_as_of: values.balanceAsOf }
@@ -220,6 +264,27 @@ export function AccountForm({
             {SUBTYPES_BY_KIND[values.kind].map((subtype) => (
               <option key={subtype} value={subtype}>
                 {SUBTYPE_LABELS[subtype]}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+
+      <Field label="Tax treatment" hint={ROTH_SPLIT_HINT}>
+        {({ id, describedBy }) => (
+          <select
+            id={id}
+            value={values.taxTreatment}
+            aria-describedby={describedBy}
+            onChange={(event) => update({ taxTreatment: event.target.value as TaxTreatment | "" })}
+            className={inputClass}
+          >
+            <option value="">
+              Default for this type ({TAX_TREATMENT_LABELS[DEFAULT_TAX_TREATMENT[values.subtype]]})
+            </option>
+            {Object.entries(TAX_TREATMENT_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
               </option>
             ))}
           </select>

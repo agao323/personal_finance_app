@@ -13,12 +13,23 @@
  * takes no view scope, and a line silently drawn at 50% under a heading that does not
  * say so is the kind of quiet wrongness this app is built to avoid. The heading says
  * so.
+ *
+ * A debt carries a **Terms** panel and an investment account an **Allocation** panel (ticket
+ * 114). Each fetches and saves on its own, so saving one leaves the balance, the stakes and the
+ * other panel exactly as they were. The tax treatment is edited in place, on its own line.
  */
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { KIND_LABELS, SUBTYPE_LABELS, isSplit, type Account } from "@/components/account-row";
+import { AllocationPanel } from "@/components/accounts/allocation-panel";
+import { TermsPanel } from "@/components/accounts/terms-panel";
+import {
+  ROTH_SPLIT_HINT,
+  TAX_TREATMENT_LABELS,
+  type TaxTreatment,
+} from "@/components/forms/account-form";
 import { BalanceForm } from "@/components/forms/balance-form";
 import { StakeForm } from "@/components/forms/stake-form";
 import { Sparkline } from "@/components/charts/sparkline";
@@ -32,6 +43,16 @@ import { formatBps, formatCurrency, formatDate } from "@/lib/format";
 type Detail = ResponseOf<"/accounts/{account_id}", "get">;
 type History = ResponseOf<"/accounts/{account_id}/history", "get">;
 type Stake = Detail["stakes"][number];
+
+/** Accounts whose allocation follows from what they are: nothing to record, nothing to show. */
+const DERIVED_ALLOCATION = new Set<Detail["subtype"]>([
+  "checking",
+  "savings",
+  "money_market",
+  "cd",
+  "real_estate",
+  "vehicle",
+]);
 
 /**
  * A stake's date range in prose.
@@ -174,6 +195,21 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
           setRevision((current) => current + 1);
         }}
       />
+
+      {account.kind === "liability" ? (
+        <TermsPanel accountId={account.id} isCard={account.subtype === "credit_card"} />
+      ) : (
+        <TaxTreatmentLine
+          // Re-initialised when the server's value changes, not on every refetch.
+          key={account.tax_treatment}
+          accountId={account.id}
+          treatment={account.tax_treatment}
+        />
+      )}
+
+      {account.kind !== "liability" && !DERIVED_ALLOCATION.has(account.subtype) ? (
+        <AllocationPanel accountId={account.id} />
+      ) : null}
 
       <StakeTable stakes={account.stakes} />
 
@@ -550,5 +586,98 @@ function CloseAccount({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * How the account is taxed, with Change beside it. Saving updates this line and nothing else.
+ */
+function TaxTreatmentLine({
+  accountId,
+  treatment,
+}: {
+  accountId: number;
+  treatment: TaxTreatment;
+}) {
+  const [current, setCurrent] = useState(treatment);
+  const [draft, setDraft] = useState<TaxTreatment | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  async function save() {
+    if (draft === null) return;
+    setSubmitting(true);
+    setFailure(null);
+    try {
+      const saved = await apiFetch("/accounts/{account_id}", {
+        method: "patch",
+        params: { account_id: accountId },
+        body: { tax_treatment: draft },
+      });
+      setCurrent(saved.tax_treatment);
+      setDraft(null);
+    } catch (cause: unknown) {
+      setFailure(cause instanceof Error ? cause.message : "The tax treatment was not saved.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="border-hairline bg-surface-1 mt-4 rounded-xl border p-4">
+      {draft === null ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span className="text-ink-secondary">Tax treatment</span>
+          <span>{TAX_TREATMENT_LABELS[current]}</span>
+          <button
+            type="button"
+            onClick={() => setDraft(current)}
+            className="text-accent text-sm underline underline-offset-4"
+          >
+            Change
+          </button>
+        </div>
+      ) : (
+        <div>
+          <label className="text-ink-secondary block text-sm">
+            Tax treatment
+            <select
+              value={draft}
+              onChange={(event) => setDraft(event.target.value as TaxTreatment)}
+              className="border-hairline bg-surface-1 text-ink ml-2 rounded-md border px-2 py-1"
+            >
+              {Object.entries(TAX_TREATMENT_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="text-ink-muted mt-1 text-xs">{ROTH_SPLIT_HINT}</p>
+          {failure ? (
+            <p role="alert" className="text-critical-text mt-2 text-sm">
+              {failure}
+            </p>
+          ) : null}
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={save}
+              disabled={submitting}
+              className="bg-accent-bg text-accent-strong rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+            >
+              {submitting ? "Saving…" : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDraft(null)}
+              className="text-ink-secondary hover:text-ink text-sm underline underline-offset-4"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
