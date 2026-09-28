@@ -82,7 +82,9 @@ def net_worth(session: Session, as_of: dt.date, viewer_id: int | None = None) ->
     """
     contributions: list[AccountContribution] = []
 
-    for account in session.execute(select(Account)).scalars():
+    # By id, as the series path loads them: without an order Postgres returns rows in
+    # physical order, which an UPDATE changes, and the two paths then disagree on order.
+    for account in session.execute(select(Account).order_by(Account.id)).scalars():
         contribution = _contribution(session, account, as_of, viewer_id)
         if contribution is not None:
             contributions.append(contribution)

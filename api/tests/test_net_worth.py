@@ -12,6 +12,7 @@ from collections.abc import Callable
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models.enums import AccountKind
@@ -318,3 +319,20 @@ def test_account_with_no_stake_rows_contributes_nothing(
 
     assert result.contributions == []
     assert result.net_worth == _money("0.00")
+
+
+def test_contributions_come_in_account_order_whatever_the_table_order(
+    db_session: Session, make_account: Callable[..., int], owner_id: int
+) -> None:
+    """An UPDATE moves a row to the end of the table; the order must not follow it."""
+    first, second = make_account(name="First"), make_account(name="Second")
+    for account_id in (first, second):
+        create_initial_stake(db_session, account_id, owner_id, JAN)
+        record_balance(db_session, account_id, JAN, _money("100.00"))
+    db_session.execute(
+        text("UPDATE accounts SET name = 'First, renamed' WHERE id = :i"), {"i": first}
+    )
+
+    result = net_worth(db_session, MAR, owner_id)
+
+    assert [c.account_id for c in result.contributions] == [first, second]
