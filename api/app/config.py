@@ -5,7 +5,9 @@ than surfacing later as a confusing connection error.
 """
 
 from functools import lru_cache
+from typing import Literal
 
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -75,6 +77,33 @@ class Settings(BaseSettings):
     # Observability (ticket 007). Sentry stays disabled while the DSN is unset.
     sentry_dsn: str | None = None
     log_level: str = "INFO"
+
+    # The advisor (ticket 096; docs/ADVISOR.md#model-configuration, #cost).
+    #
+    # Off by default, and off unless all three of `advisor_active`'s conditions hold: the
+    # switch is on, a key is present, and this is not the demo. The key lives only on this
+    # service — never in the web app's environment, never `NEXT_PUBLIC_*`.
+    advisor_enabled: bool = False
+    anthropic_api_key: SecretStr | None = None
+    advisor_model: str = "claude-opus-5"
+    advisor_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
+    advisor_max_tokens: int = Field(default=6000, gt=0)
+    # Caps, in cents, enforced before each model call from a worst-case estimate.
+    advisor_turn_cap_cents: int = Field(default=50, gt=0)
+    advisor_conversation_cap_cents: int = Field(default=200, gt=0)
+    advisor_monthly_cap_cents: int = Field(default=2000, gt=0)
+
+    @property
+    def advisor_active(self) -> bool:
+        """Whether a question may reach a model at all.
+
+        The demo never calls a model: its data is synthetic but its visitors are not the
+        household, and the household's key must not answer them.
+        """
+        has_key = self.anthropic_api_key is not None and bool(
+            self.anthropic_api_key.get_secret_value()
+        )
+        return self.advisor_enabled and has_key and not self.demo_mode
 
 
 @lru_cache

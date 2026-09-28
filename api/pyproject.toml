@@ -17,6 +17,8 @@ dependencies = [
     "python-multipart>=0.0.32",
     "webauthn>=2.5",
     "pyjwt[crypto]>=2.10",
+    "anthropic==1.8.0",
+    "httpx2==2.13.1",
 ]
 
 [dependency-groups]

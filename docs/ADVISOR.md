@@ -211,7 +211,7 @@ Verified against Anthropic's documentation on 2026-09-27.
 | Per-turn context | A mid-conversation system message after the user turn | Today's date and the scope change per turn; putting them in the system prompt would invalidate the cache every day. It is also the operator channel for the grounding retry. Opus 5 supports it; on a model that does not (Sonnet 5), prepend it to the user turn |
 | Refusal fallbacks | `fallbacks: "default"` with beta `server-side-fallback-2026-07-01` | A refusal re-routes to another Claude model instead of dead-ending. `usage` names the model that served, and the price table must cover it |
 | Server tools | **None, ever** | Web search and web fetch are egress. A test asserts the request's `tools` is exactly the registry |
-| SDK | `anthropic`, pinned | The Python SDK has a 0.x → 1.x major version in flight; pin and upgrade deliberately |
+| SDK | `anthropic==1.8.0`, pinned exactly | Upgrades are deliberate. The 1.x SDK sends over `httpx2`, not `httpx`, and refuses an `httpx` client — tests pass an `httpx2.MockTransport` |
 
 ## Tools
 
