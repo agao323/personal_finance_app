@@ -5,7 +5,6 @@
   scope: household
   question: "Should we pay down the mortgage faster or invest the difference?"
   tools_any: [debt_prepay_vs_invest]
-  pending: "115"
 - id: goal-retirement
   category: goal_aware
   scope: mine

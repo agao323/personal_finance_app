@@ -39,6 +39,7 @@ from app.models.enums import (
     PerkCadence,
 )
 from app.models.goal import Goal, GoalAccount
+from app.models.liability_terms import LiabilityTerms
 from app.models.transaction import CategorizationRule, Category, Transaction
 from app.models.user import User
 from evals import EVAL_SEED, EVAL_TODAY, load_corpus
@@ -87,6 +88,7 @@ def apply(session: Session) -> None:
     _stale_account(session, owner)
     _corpus(session, accounts, categories, owner)
     _goals(session, accounts, categories, owner)
+    _liability_terms(session, accounts)
     session.flush()
 
 
@@ -260,6 +262,30 @@ def _goals(
                 target_date=dt.date(2028, 6, 30),
                 created_at=created,
                 links=[GoalAccount(account_id=accounts["Savings"].id)],
+            ),
+        ]
+    )
+
+
+def _liability_terms(session: Session, accounts: dict[str, Account]) -> None:
+    """Terms for the mortgage and one card (ticket 115). Travel Rewards has none, on purpose:
+    a debt without terms is a limitation the advisor names, never a rate it assumes."""
+    session.add_all(
+        [
+            LiabilityTerms(
+                account_id=accounts["Mortgage"].id,
+                apr=Decimal("6.125"),
+                minimum_payment=Decimal("2150.00"),
+                term_months=360,
+                maturity_on=dt.date(2052, 4, 1),
+                as_of=dt.date(2026, 6, 1),
+            ),
+            LiabilityTerms(
+                account_id=accounts["Credit card"].id,
+                apr=Decimal("22.990"),
+                minimum_payment=Decimal("35.00"),
+                credit_limit=Decimal("12000.00"),
+                as_of=dt.date(2026, 6, 1),
             ),
         ]
     )

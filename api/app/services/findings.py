@@ -40,11 +40,13 @@ from app.schemas.advisor import (
 )
 from app.schemas.common import ViewScope, to_cents
 from app.services import cards as card_service
+from app.services import liability_terms as terms_service
 from app.services import net_worth as net_worth_service
 from app.services import runway as runway_service
 from app.services.analysis import cards_value, data_quality, recurring, spend_trends
+from app.services.analysis import debt as debt_analysis
 from app.services.analysis import goals as goal_analysis
-from app.services.analysis.numbers import change_bps, quantize_money, tenths
+from app.services.analysis.numbers import change_bps, quantize_money, ratio_bps, tenths
 from app.services.analysis.periods import PeriodPreset, resolve
 from app.services.perks import add_months
 
@@ -69,6 +71,11 @@ SPEND_INCREASE_BPS = 2000
 SPEND_INCREASE_MIN = Decimal("100.00")
 #: The most transfer pairs, stale accounts or spikes reported at once.
 MAX_PER_KIND = 5
+#: A debt charging at least this APR today, on at least this balance (ticket 115).
+HIGH_INTEREST_APR = Decimal("8")
+HIGH_INTEREST_MIN_BALANCE = Decimal("500.00")
+#: A card using more than this share of its limit.
+UTILISATION_HIGH_BPS = 3000
 
 _SEVERITY_ORDER = {Severity.URGENT: 0, Severity.WARNING: 1, Severity.NOTICE: 2, Severity.INFO: 3}
 _KIND_ORDER = {kind: index for index, kind in enumerate(FindingKind)}
@@ -582,6 +589,77 @@ def _spend_increase(session: Session, today: dt.date) -> list[Finding]:
 # ── the engine ────────────────────────────────────────────────────────────────
 
 
+def _high_interest_debt(session: Session, today: dt.date, viewer_id: int | None) -> list[Finding]:
+    """Debts charging 8% or more today on $500 or more, the costliest first (ticket 115).
+
+    The whole balance, as the lender charges it; a promotional rate counts while it lasts.
+    """
+    worth = net_worth_service.net_worth(session, today, viewer_id)
+    found = []
+    for c in worth.contributions:
+        if c.kind is not AccountKind.LIABILITY or c.raw_balance < HIGH_INTEREST_MIN_BALANCE:
+            continue
+        terms = terms_service.get(session, c.account_id)
+        if terms is None:
+            continue
+        apr = terms_service.effective_apr(terms, today)
+        if apr < HIGH_INTEREST_APR:
+            continue
+        name = session.get_one(Account, c.account_id).name
+        yearly = c.raw_balance * apr / Decimal(100)
+        found.append(
+            _finding(
+                FindingKind.HIGH_INTEREST_DEBT,
+                f"acct{c.account_id}",
+                Severity.NOTICE,
+                f"{name} charges {apr.normalize():f}% on {_money(c.raw_balance)}",
+                f"About {_money(quantize_money(yearly))} a year in interest at this balance. "
+                "Paying it down earns that rate, with no risk.",
+                today,
+                [
+                    _evidence(
+                        "Balance", EvidenceUnit.CENTS, c.raw_balance, today, "net_worth", c.is_stale
+                    ),
+                    # Evidence carries basis points; an APR to three decimals rounds here, once.
+                    _evidence(
+                        "APR", EvidenceUnit.BPS, ratio_bps(apr, Decimal(100)) or 0, today, "terms"
+                    ),
+                    _evidence("A year's interest", EvidenceUnit.CENTS, yearly, today, "terms"),
+                ],
+                _action(ActionKind.OPEN, Screen.ACCOUNT, account_id=c.account_id),
+                impact=yearly,
+            )
+        )
+    found.sort(key=lambda f: -(f.impact_cents or 0))
+    return found[:MAX_PER_KIND]
+
+
+def _utilisation_high(session: Session, today: dt.date, viewer_id: int | None) -> list[Finding]:
+    """Cards using more than 30% of their limit (ticket 115)."""
+    found = []
+    for card in debt_analysis.utilisation(session, today, viewer_id).cards:
+        if card.bps <= UTILISATION_HIGH_BPS:
+            continue
+        found.append(
+            _finding(
+                FindingKind.CREDIT_UTILISATION_HIGH,
+                f"acct{card.account_id}",
+                Severity.NOTICE,
+                f"{card.name} is using {Decimal(card.bps).scaleb(-2).normalize():f}% of its limit",
+                "Above 30% of a card's limit can weigh on a credit score, whether or not it is "
+                "paid in full each month.",
+                today,
+                [
+                    _evidence("Balance", EvidenceUnit.CENTS, card.balance, today, "net_worth"),
+                    _evidence("Credit limit", EvidenceUnit.CENTS, card.limit, today, "terms"),
+                    _evidence("Utilisation", EvidenceUnit.BPS, card.bps, today, "terms"),
+                ],
+                _action(ActionKind.OPEN, Screen.ACCOUNT, account_id=card.account_id),
+            )
+        )
+    return found[:MAX_PER_KIND]
+
+
 def _visible_goals(session: Session, user_id: int) -> list[Goal]:
     """Active goals the person sees: the household's, and their own."""
     return list(
@@ -727,6 +805,8 @@ def findings(session: Session, today: dt.date, view: ViewScope, user_id: int) ->
         lambda: _fees_uncovered(session, today),
         lambda: _net_worth_drop(session, today, viewer_id),
         lambda: _spend_increase(session, today),
+        lambda: _high_interest_debt(session, today, viewer_id),
+        lambda: _utilisation_high(session, today, viewer_id),
     ]
     found = [finding for produce in producers for finding in produce()]
     found.sort(

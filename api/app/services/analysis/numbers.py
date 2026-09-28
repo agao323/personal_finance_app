@@ -9,6 +9,10 @@ even count, a percentage change, a share, runway months, a projection. Those are
 at full `Decimal` precision and rounded **once, here, at the edge**, half-up, like the rest
 of the app. A second rounding site would be how two screens came to disagree by a cent.
 
+**One stated exception: debt amortisation** (`debt.py`, ticket 115) rounds interest to cents
+every month, half-up, because that is what a lender's statement does, and a schedule that
+disagreed with the statement would be wrong in the way that matters.
+
 See docs/ADVISOR.md#numbers.
 """
 
