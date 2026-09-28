@@ -53,3 +53,4 @@ class ExportRead(Schema):
     goal_accounts: list[dict[str, Any]]
     member_profiles: list[dict[str, Any]]
     planning_assumptions: list[dict[str, Any]]
+    liability_terms: list[dict[str, Any]]

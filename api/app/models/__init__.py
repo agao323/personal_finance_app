@@ -33,6 +33,7 @@ from app.models.enums import (
     RiskTolerance,
 )
 from app.models.goal import Goal, GoalAccount
+from app.models.liability_terms import LiabilityTerms
 from app.models.planning import MemberProfile, PlanningAssumptions
 from app.models.system import DataMarker, ImportMapping
 from app.models.transaction import CategorizationRule, Category, Transaction
@@ -62,6 +63,7 @@ __all__ = [
     "GoalStatus",
     "ImportMapping",
     "Institution",
+    "LiabilityTerms",
     "MatchType",
     "MemberProfile",
     "OwnershipStake",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.models.enums import AccountKind, AccountSubtype, DataSource
 from app.schemas.common import Bps, Cents, Schema
@@ -162,3 +162,46 @@ class AccountDetail(AccountRead):
 class AccountHistory(Schema):
     account_id: int
     points: list[BalanceRead]
+
+
+#: A rate in thousandths of a percent: 6875 means 6.875%. APR is kept to three decimals.
+PctThousandths = int
+
+
+class LiabilityTermsRead(Schema):
+    """What a loan or card costs to carry. Liability accounts only."""
+
+    account_id: int
+    apr_pct_thousandths: PctThousandths = Field(description="6875 means 6.875%.")
+    effective_apr_pct_thousandths: PctThousandths = Field(
+        description="The rate that applies today: a promotional rate through its end date."
+    )
+    minimum_payment_cents: Cents | None = None
+    credit_limit_cents: Cents | None = Field(default=None, description="Revolving credit only.")
+    term_months: int | None = None
+    maturity_on: dt.date | None = None
+    promo_apr_pct_thousandths: PctThousandths | None = None
+    promo_ends_on: dt.date | None = Field(
+        default=None, description="The promotional rate applies through this day."
+    )
+    as_of: dt.date = Field(description="When these were last checked.")
+    stale: bool = Field(description="Last checked more than 365 days ago.")
+
+
+class LiabilityTermsUpdate(Schema):
+    """Every term at once. `as_of` defaults to today."""
+
+    apr_pct_thousandths: PctThousandths = Field(ge=0, le=100_000)
+    minimum_payment_cents: Cents | None = Field(default=None, ge=0)
+    credit_limit_cents: Cents | None = Field(default=None, gt=0)
+    term_months: int | None = Field(default=None, gt=0, le=1200)
+    maturity_on: dt.date | None = None
+    promo_apr_pct_thousandths: PctThousandths | None = Field(default=None, ge=0, le=100_000)
+    promo_ends_on: dt.date | None = None
+    as_of: dt.date | None = None
+
+    @model_validator(mode="after")
+    def _promo_has_an_end(self) -> LiabilityTermsUpdate:
+        if (self.promo_apr_pct_thousandths is None) != (self.promo_ends_on is None):
+            raise ValueError("A promotional rate needs its end date, and an end date its rate.")
+        return self

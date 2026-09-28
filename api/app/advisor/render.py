@@ -36,10 +36,16 @@ from app.advisor.sanitize import sanitize
 #: The most a single tool result may occupy, rendered. Rows past it are dropped.
 MAX_BYTES = 8_000
 
-Unit = Literal["cents", "bps", "months_tenths"]
+Unit = Literal["cents", "bps", "months_tenths", "pct_thousandths"]
 
 #: Field suffix → (unit, what the rendered key drops).
-_SUFFIXES: dict[str, Unit] = {"_cents": "cents", "_bps": "bps", "_months_tenths": "months_tenths"}
+_SUFFIXES: dict[str, Unit] = {
+    "_cents": "cents",
+    "_bps": "bps",
+    "_months_tenths": "months_tenths",
+    # An APR to three decimals (ticket 112): 6875 is 6.875%.
+    "_pct_thousandths": "pct_thousandths",
+}
 
 
 @dataclass(frozen=True)
@@ -77,11 +83,18 @@ def months(tenths: int) -> str:
     return f"{Decimal(tenths).scaleb(-1):.1f} months"
 
 
+def rate(thousandths: int) -> str:
+    """`6875` → `6.875%`. A rate kept to three decimals, shown with all three."""
+    return f"{Decimal(thousandths).scaleb(-3):.3f}%"
+
+
 def display(unit: Unit, value: int) -> str:
     if unit == "cents":
         return money(value)
     if unit == "bps":
         return percent(value)
+    if unit == "pct_thousandths":
+        return rate(value)
     return months(value)
 
 
@@ -95,6 +108,8 @@ def _shown_key(key: str, suffix: str, unit: Unit) -> str:
     """
     if unit == "months_tenths":
         return key.removesuffix("_tenths")
+    if unit == "pct_thousandths":
+        return key.removesuffix("_thousandths")  # apr_pct_thousandths → apr_pct
     if unit == "bps":
         return key.removesuffix(suffix) + "_pct"
     return key.removesuffix(suffix)
@@ -188,7 +203,7 @@ def render(
 
 #: A rendered figure and its reference, as `render` writes them.
 _FIGURE = re.compile(
-    r"(?P<display>-?\$[\d,]+\.\d{2}|-?\d+\.\d{2}%|-?\d+\.\d months) \[(?P<ref>c\d+(?:\.[\w]+)+)\]"
+    r"(?P<display>-?\$[\d,]+\.\d{2}|-?\d+\.\d{2,3}%|-?\d+\.\d months) \[(?P<ref>c\d+(?:\.[\w]+)+)\]"
 )
 
 
@@ -201,8 +216,11 @@ def figures_in(text: str) -> dict[str, Figure]:
     found: dict[str, Figure] = {}
     for match in _FIGURE.finditer(text):
         shown = match["display"]
-        if shown.endswith("%"):
-            unit: Unit = "bps"
+        if shown.endswith("%") and len(shown[:-1].rpartition(".")[2]) == 3:
+            unit: Unit = "pct_thousandths"
+            value = int(Decimal(shown[:-1]).scaleb(3))
+        elif shown.endswith("%"):
+            unit = "bps"
             value = int(Decimal(shown[:-1]).scaleb(2))
         elif shown.endswith("months"):
             unit = "months_tenths"

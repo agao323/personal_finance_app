@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.deps import CurrentUser, DbSession
 from app.models.account import Account
 from app.models.enums import AccountKind, DataSource
+from app.models.liability_terms import LiabilityTerms
 from app.models.user import User
 from app.schemas.account import (
     AccountCreate,
@@ -27,10 +28,13 @@ from app.schemas.account import (
     BalanceRead,
     DeletionPreview,
     InstitutionRead,
+    LiabilityTermsRead,
+    LiabilityTermsUpdate,
     StakeCreate,
     StakeRead,
 )
 from app.schemas.common import ErrorResponse, ViewScope, from_bps, from_cents, to_bps, to_cents
+from app.services import liability_terms as terms_service
 from app.services.accounts import (
     AccountView,
     create_account,
@@ -339,3 +343,81 @@ def set_stake(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
 
     return _to_stake(session, stake)
+
+
+# ── liability terms (ticket 112) ──────────────────────────────────────────────
+
+
+def _thousandths(pct: Decimal) -> int:
+    return int(pct.scaleb(3))
+
+
+def _from_thousandths(value: int) -> Decimal:
+    return Decimal(value).scaleb(-3)
+
+
+def _terms_read(terms: LiabilityTerms, today: dt.date) -> LiabilityTermsRead:
+    return LiabilityTermsRead(
+        account_id=terms.account_id,
+        apr_pct_thousandths=_thousandths(terms.apr),
+        effective_apr_pct_thousandths=_thousandths(terms_service.effective_apr(terms, today)),
+        minimum_payment_cents=(
+            to_cents(terms.minimum_payment) if terms.minimum_payment is not None else None
+        ),
+        credit_limit_cents=to_cents(terms.credit_limit) if terms.credit_limit is not None else None,
+        term_months=terms.term_months,
+        maturity_on=terms.maturity_on,
+        promo_apr_pct_thousandths=(
+            _thousandths(terms.promo_apr) if terms.promo_apr is not None else None
+        ),
+        promo_ends_on=terms.promo_ends_on,
+        as_of=terms.as_of,
+        stale=terms_service.is_stale(terms, today),
+    )
+
+
+@router.get("/{account_id}/terms", response_model=LiabilityTermsRead | None)
+def get_terms(session: DbSession, user: CurrentUser, account_id: int) -> LiabilityTermsRead | None:
+    """A loan's or card's rate, minimum payment and limit. Null until they are recorded."""
+    _get(session, account_id)
+    terms = terms_service.get(session, account_id)
+    return None if terms is None else _terms_read(terms, dt.date.today())
+
+
+@router.put("/{account_id}/terms", response_model=LiabilityTermsRead)
+def put_terms(
+    session: DbSession, user: CurrentUser, account_id: int, payload: LiabilityTermsUpdate
+) -> LiabilityTermsRead:
+    """Record a liability's terms. Only loans and cards have them."""
+    account = _get(session, account_id)
+    try:
+        terms_service.require_liability(account)
+    except terms_service.NotALiabilityError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+    today = dt.date.today()
+    terms = terms_service.get(session, account_id)
+    if terms is None:
+        terms = LiabilityTerms(account_id=account_id)
+        session.add(terms)
+    terms.apr = _from_thousandths(payload.apr_pct_thousandths)
+    terms.minimum_payment = (
+        Decimal(payload.minimum_payment_cents).scaleb(-2)
+        if payload.minimum_payment_cents is not None
+        else None
+    )
+    terms.credit_limit = (
+        Decimal(payload.credit_limit_cents).scaleb(-2)
+        if payload.credit_limit_cents is not None
+        else None
+    )
+    terms.term_months = payload.term_months
+    terms.maturity_on = payload.maturity_on
+    terms.promo_apr = (
+        _from_thousandths(payload.promo_apr_pct_thousandths)
+        if payload.promo_apr_pct_thousandths is not None
+        else None
+    )
+    terms.promo_ends_on = payload.promo_ends_on
+    terms.as_of = payload.as_of or today
+    session.flush()
+    return _terms_read(terms, today)

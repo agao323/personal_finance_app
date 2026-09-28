@@ -302,9 +302,10 @@ def _match(kind: str, match: re.Match[str], evidence: Evidence) -> Figure | bool
                 return figure
         return False
     if kind == "percent":
-        for figure in (f for f in figures if f.unit == "bps"):
-            pct = Decimal(abs(figure.value)).scaleb(-2)
-            if decimals <= 2 and _round(pct, decimals) == amount:
+        for figure in (f for f in figures if f.unit in {"bps", "pct_thousandths"}):
+            places = 3 if figure.unit == "pct_thousandths" else 2
+            pct = Decimal(abs(figure.value)).scaleb(-places)
+            if decimals <= places and _round(pct, decimals) == amount:
                 return figure
         return False
     if kind == "months":

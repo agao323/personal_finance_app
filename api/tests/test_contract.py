@@ -77,6 +77,7 @@ LIVE_PATHS = {
     "/goals/{goal_id}",  # 108
     "/planning/profile",  # 109
     "/planning/assumptions",  # 109
+    "/accounts/{account_id}/terms",  # 112
 }
 
 

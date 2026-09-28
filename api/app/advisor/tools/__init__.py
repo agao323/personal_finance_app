@@ -606,6 +606,7 @@ TOOL_MODULES: tuple[str, ...] = (
     "app.advisor.tools.analysis",
     "app.advisor.tools.meta",
     "app.advisor.tools.goals",
+    "app.advisor.tools.debt",
 )
 
 

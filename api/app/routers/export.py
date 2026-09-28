@@ -76,6 +76,7 @@ EXPORTED = (
     "goal_accounts",
     "member_profiles",
     "planning_assumptions",
+    "liability_terms",
 )
 
 
