@@ -76,6 +76,30 @@ export interface paths {
     patch: operations["update_accounts__account_id__patch"];
     trace?: never;
   };
+  "/accounts/{account_id}/allocations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Allocations
+     * @description What the account holds by asset class today, and its history.
+     */
+    get: operations["get_allocations_accounts__account_id__allocations_get"];
+    put?: never;
+    /**
+     * Set Allocations
+     * @description Record a new allocation from a date, closing the one in force on that date.
+     */
+    post: operations["set_allocations_accounts__account_id__allocations_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/accounts/{account_id}/balances": {
     parameters: {
       query?: never;
@@ -1214,6 +1238,8 @@ export interface components {
       ownership_percentage_bps?: number | null;
       source?: components["schemas"]["DataSource"] | null;
       subtype: components["schemas"]["AccountSubtype"];
+      /** @description Defaults from the subtype. A 401k with a Roth portion is two accounts. */
+      tax_treatment?: components["schemas"]["TaxTreatment"] | null;
     };
     /**
      * AccountDelete
@@ -1262,6 +1288,8 @@ export interface components {
       /** Stakes */
       stakes: components["schemas"]["StakeRead"][];
       subtype: components["schemas"]["AccountSubtype"];
+      /** @description How the account is taxed; the subtype's default until someone sets it. */
+      tax_treatment: components["schemas"]["TaxTreatment"];
     };
     /**
      * AccountGroup
@@ -1354,6 +1382,8 @@ export interface components {
       name: string;
       source: components["schemas"]["DataSource"];
       subtype: components["schemas"]["AccountSubtype"];
+      /** @description How the account is taxed; the subtype's default until someone sets it. */
+      tax_treatment: components["schemas"]["TaxTreatment"];
     };
     /**
      * AccountSubtype
@@ -1392,6 +1422,7 @@ export interface components {
       /** Name */
       name?: string | null;
       subtype?: components["schemas"]["AccountSubtype"] | null;
+      tax_treatment?: components["schemas"]["TaxTreatment"] | null;
     };
     /**
      * ActionKind
@@ -1475,6 +1506,66 @@ export interface components {
       resets_on: string;
     };
     /**
+     * AllocationCreate
+     * @description A new allocation from a date. The one in force closes on that date.
+     */
+    AllocationCreate: {
+      /**
+       * Effective From
+       * Format: date
+       */
+      effective_from: string;
+      /** Shares */
+      shares: components["schemas"]["AllocationShare"][];
+    };
+    /**
+     * AllocationRead
+     * @description What an account holds by asset class today, and every allocation it has had.
+     */
+    AllocationRead: {
+      /** History */
+      history: components["schemas"]["AllocationRow"][];
+      /**
+       * Shares
+       * @description Totals exactly 100% when known.
+       */
+      shares: components["schemas"]["AllocationShare"][];
+      /**
+       * Status
+       * @description derived: follows from the subtype (cash, property, vehicles). unknown: an investment account with nothing recorded. not_applicable: a debt.
+       * @enum {string}
+       */
+      status: "recorded" | "derived" | "unknown" | "not_applicable";
+    };
+    /** AllocationRow */
+    AllocationRow: {
+      asset_class: components["schemas"]["AssetClass"];
+      /**
+       * Effective From
+       * Format: date
+       */
+      effective_from: string;
+      /**
+       * Effective To
+       * @description Null: still in force.
+       */
+      effective_to?: string | null;
+      /**
+       * Percentage Bps
+       * @description 4000 means 40.00%.
+       */
+      percentage_bps: number;
+    };
+    /** AllocationShare */
+    AllocationShare: {
+      asset_class: components["schemas"]["AssetClass"];
+      /**
+       * Percentage Bps
+       * @description 4000 means 40.00%.
+       */
+      percentage_bps: number;
+    };
+    /**
      * Answer
      * @description The checked answer: text, the proof for each figure, and its sources.
      *
@@ -1504,6 +1595,12 @@ export interface components {
        */
       type: "answer";
     };
+    /**
+     * AssetClass
+     * @description What an account holds, at the level allocation is recorded — never holdings (ADR 0013).
+     * @enum {string}
+     */
+    AssetClass: "us_equity" | "intl_equity" | "bonds" | "cash" | "real_estate" | "other";
     /**
      * AssumptionsCreate
      * @description A new version. Every field is stated; the previous version stays, unchanged.
@@ -1984,6 +2081,10 @@ export interface components {
      *     claiming "the full dataset". A test now fails when a mapped table is absent from here.
      */
     ExportRead: {
+      /** Account Allocations */
+      account_allocations: {
+        [key: string]: unknown;
+      }[];
       /** Accounts */
       accounts: {
         [key: string]: unknown;
@@ -3267,6 +3368,12 @@ export interface components {
       percentage_bps: number;
     };
     /**
+     * TaxTreatment
+     * @description How an account is taxed (ticket 113). A 401k with a Roth portion is two accounts.
+     * @enum {string}
+     */
+    TaxTreatment: "taxable" | "tax_deferred" | "roth" | "hsa" | "education" | "none";
+    /**
      * TextDeltaEvent
      * @description Streamed text. References are already resolved; statuses arrive with `answer`.
      */
@@ -3682,6 +3789,90 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AccountRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_allocations_accounts__account_id__allocations_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AllocationRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  set_allocations_accounts__account_id__allocations_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AllocationCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AllocationRead"];
         };
       };
       /** @description Not Found */
