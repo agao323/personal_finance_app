@@ -162,6 +162,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/accounts/{account_id}/terms": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Terms
+     * @description A loan's or card's rate, minimum payment and limit. Null until they are recorded.
+     */
+    get: operations["get_terms_accounts__account_id__terms_get"];
+    /**
+     * Put Terms
+     * @description Record a liability's terms. Only loans and cards have them.
+     */
+    put: operations["put_terms_accounts__account_id__terms_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/advisor/conversations": {
     parameters: {
       query?: never;
@@ -2020,6 +2044,10 @@ export interface components {
       institutions: {
         [key: string]: unknown;
       }[];
+      /** Liability Terms */
+      liability_terms: {
+        [key: string]: unknown;
+      }[];
       /** Member Profiles */
       member_profiles: {
         [key: string]: unknown;
@@ -2445,6 +2473,75 @@ export interface components {
        * @description Amount in integer cents. 1234 means $12.34.
        */
       total_cents: number;
+    };
+    /**
+     * LiabilityTermsRead
+     * @description What a loan or card costs to carry. Liability accounts only.
+     */
+    LiabilityTermsRead: {
+      /** Account Id */
+      account_id: number;
+      /**
+       * Apr Pct Thousandths
+       * @description 6875 means 6.875%.
+       */
+      apr_pct_thousandths: number;
+      /**
+       * As Of
+       * Format: date
+       * @description When these were last checked.
+       */
+      as_of: string;
+      /**
+       * Credit Limit Cents
+       * @description Revolving credit only.
+       */
+      credit_limit_cents?: number | null;
+      /**
+       * Effective Apr Pct Thousandths
+       * @description The rate that applies today: a promotional rate through its end date.
+       */
+      effective_apr_pct_thousandths: number;
+      /** Maturity On */
+      maturity_on?: string | null;
+      /** Minimum Payment Cents */
+      minimum_payment_cents?: number | null;
+      /** Promo Apr Pct Thousandths */
+      promo_apr_pct_thousandths?: number | null;
+      /**
+       * Promo Ends On
+       * @description The promotional rate applies through this day.
+       */
+      promo_ends_on?: string | null;
+      /**
+       * Stale
+       * @description Last checked more than 365 days ago.
+       */
+      stale: boolean;
+      /** Term Months */
+      term_months?: number | null;
+    };
+    /**
+     * LiabilityTermsUpdate
+     * @description Every term at once. `as_of` defaults to today.
+     */
+    LiabilityTermsUpdate: {
+      /** Apr Pct Thousandths */
+      apr_pct_thousandths: number;
+      /** As Of */
+      as_of?: string | null;
+      /** Credit Limit Cents */
+      credit_limit_cents?: number | null;
+      /** Maturity On */
+      maturity_on?: string | null;
+      /** Minimum Payment Cents */
+      minimum_payment_cents?: number | null;
+      /** Promo Apr Pct Thousandths */
+      promo_apr_pct_thousandths?: number | null;
+      /** Promo Ends On */
+      promo_ends_on?: string | null;
+      /** Term Months */
+      term_months?: number | null;
     };
     /**
      * LimitationKind
@@ -3753,6 +3850,90 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["StakeRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_terms_accounts__account_id__terms_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LiabilityTermsRead"] | null;
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  put_terms_accounts__account_id__terms_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LiabilityTermsUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LiabilityTermsRead"];
         };
       };
       /** @description Not Found */
