@@ -85,6 +85,10 @@ class ToolArgs(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class NoArgs(ToolArgs):
+    """For a tool that takes no arguments."""
+
+
 class ToolResult(BaseModel):
     """Base for every tool's result. `as_of`, `view` and `stale` become the envelope.
 
@@ -586,6 +590,7 @@ REGISTRY = Registry()
 TOOL_MODULES: tuple[str, ...] = (
     "app.advisor.tools.balances",
     "app.advisor.tools.spending",
+    "app.advisor.tools.cards",
 )
 
 

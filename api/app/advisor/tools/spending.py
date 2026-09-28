@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.advisor.tools import (
     REGISTRY,
     Id,
+    NoArgs,
     PeriodArg,
     ToolArgs,
     ToolContext,
@@ -247,10 +248,6 @@ def transactions_search(
 
 
 # ── categories_list ───────────────────────────────────────────────────────────
-
-
-class NoArgs(ToolArgs):
-    pass
 
 
 class CategoryRow(BaseModel):
