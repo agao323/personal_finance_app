@@ -21,10 +21,13 @@ import datetime as dt
 from collections.abc import Callable
 from decimal import Decimal
 
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models.account import Account
-from app.models.enums import AccountKind
+from app.models.enums import AccountKind, GoalKind, GoalStatus
+from app.models.goal import Goal
+from app.models.transaction import Category
 from app.schemas.advisor import (
     ActionKind,
     Evidence,
@@ -40,6 +43,7 @@ from app.services import cards as card_service
 from app.services import net_worth as net_worth_service
 from app.services import runway as runway_service
 from app.services.analysis import cards_value, data_quality, recurring, spend_trends
+from app.services.analysis import goals as goal_analysis
 from app.services.analysis.numbers import change_bps, quantize_money, tenths
 from app.services.analysis.periods import PeriodPreset, resolve
 from app.services.perks import add_months
@@ -578,17 +582,146 @@ def _spend_increase(session: Session, today: dt.date) -> list[Finding]:
 # ── the engine ────────────────────────────────────────────────────────────────
 
 
+def _visible_goals(session: Session, user_id: int) -> list[Goal]:
+    """Active goals the person sees: the household's, and their own."""
+    return list(
+        session.execute(
+            select(Goal)
+            .where(
+                Goal.status == GoalStatus.ACTIVE,
+                or_(Goal.owner_user_id.is_(None), Goal.owner_user_id == user_id),
+            )
+            .order_by(Goal.id)
+        ).scalars()
+    )
+
+
+def _goal_findings(session: Session, today: dt.date, goals: list[Goal]) -> list[Finding]:
+    """Goals off track (ticket 111). Each goal is measured in its own scope, whoever asks."""
+    found: list[Finding] = []
+    for goal in goals:
+        result = goal_analysis.progress(session, goal, today)
+        subject = f"goal{goal.id}"
+        goals_action = _action(ActionKind.OPEN, Screen.GOALS)
+        if goal.kind is GoalKind.SPENDING_LIMIT:
+            assert goal.target_amount is not None and result.month_to_date is not None
+            category = session.get(Category, goal.category_id)
+            name = category.name if category else goal.name
+            limit, spent = goal.target_amount, result.month_to_date
+            evidence = [
+                _evidence("This month", EvidenceUnit.CENTS, spent, today, "goals.spending"),
+                _evidence("Monthly limit", EvidenceUnit.CENTS, limit, today, "goals"),
+            ]
+            action = _action(ActionKind.OPEN, Screen.SPENDING, category_id=goal.category_id)
+            if spent > limit:
+                found.append(
+                    _finding(
+                        FindingKind.SPENDING_LIMIT_EXCEEDED,
+                        f"{subject}:{today:%Y-%m}",
+                        Severity.WARNING,
+                        f"{name} is over its {_money(limit)} monthly limit",
+                        f"{_money(spent)} spent this month so far.",
+                        today,
+                        evidence,
+                        action,
+                        impact=spent - limit,
+                    )
+                )
+            elif not result.on_track:
+                found.append(
+                    _finding(
+                        FindingKind.GOAL_OFF_TRACK,
+                        f"{subject}:{today:%Y-%m}",
+                        Severity.NOTICE,
+                        f"{name} is on pace to pass its {_money(limit)} monthly limit",
+                        f"{_money(spent)} spent this month so far, ahead of the month's pace.",
+                        today,
+                        evidence,
+                        action,
+                    )
+                )
+        elif goal.kind is GoalKind.EMERGENCY_FUND:
+            assert goal.target_months is not None
+            if result.on_track or result.runway_months_tenths is None:
+                continue
+            target = tenths(goal.target_months)
+            found.append(
+                _finding(
+                    FindingKind.EMERGENCY_FUND_BELOW_TARGET,
+                    subject,
+                    Severity.WARNING,
+                    f"Cash covers {Decimal(result.runway_months_tenths).scaleb(-1)} of the "
+                    f"{Decimal(target).scaleb(-1)} months your emergency fund aims for",
+                    "At the last six months' average spending, with no income.",
+                    today,
+                    [
+                        _evidence(
+                            "Runway",
+                            EvidenceUnit.MONTHS_TENTHS,
+                            result.runway_months_tenths,
+                            today,
+                            "goals.emergency_fund",
+                            result.stale,
+                        ),
+                        _evidence("Target", EvidenceUnit.MONTHS_TENTHS, target, today, "goals"),
+                    ],
+                    goals_action,
+                )
+            )
+        else:
+            assert goal.target_amount is not None and result.saved is not None
+            if result.on_track:
+                continue
+            evidence = [
+                _evidence(
+                    "Saved", EvidenceUnit.CENTS, result.saved, today, "goals.savings", result.stale
+                ),
+                _evidence("Target", EvidenceUnit.CENTS, goal.target_amount, today, "goals"),
+            ]
+            if result.monthly_needed is not None:
+                evidence.append(
+                    _evidence(
+                        "Needed each month",
+                        EvidenceUnit.CENTS,
+                        result.monthly_needed,
+                        today,
+                        "goals.savings",
+                        result.stale,
+                    )
+                )
+            found.append(
+                _finding(
+                    FindingKind.GOAL_OFF_TRACK,
+                    subject,
+                    Severity.NOTICE,
+                    f"{goal.name} is behind: {_money(result.saved)} of "
+                    f"{_money(goal.target_amount)}",
+                    "Behind the straight line from when the goal was set to its date.",
+                    today,
+                    evidence,
+                    goals_action,
+                    impact=result.monthly_needed,
+                )
+            )
+    return found
+
+
 def findings(session: Session, today: dt.date, view: ViewScope, user_id: int) -> list[Finding]:
     """Every finding for today, in one view, ranked: severity, then money at stake, then kind.
 
     Spend-based findings are the same in both views — spend is never split by ownership.
     """
     viewer_id = None if view is ViewScope.HOUSEHOLD else user_id
+    goals = _visible_goals(session, user_id)
+    # An emergency-fund goal sets the household's own threshold, so the default one stands
+    # down: `emergency_fund_below_target` replaces `runway_low` whenever such a goal exists.
+    has_fund = any(goal.kind is GoalKind.EMERGENCY_FUND for goal in goals)
     producers: list[Callable[[], list[Finding]]] = [
         lambda: _perks_expiring(session, today),
         lambda: _health_findings(session, today),
         lambda: _stale_balances(session, today, viewer_id),
-        lambda: _runway_low(session, today, viewer_id),
+        lambda: [] if has_fund else _runway_low(session, today, viewer_id),
+        lambda: _goal_findings(session, today, goals),
         lambda: _spend_spikes(session, today),
         lambda: _recurring(session, today),
         lambda: _fees_uncovered(session, today),

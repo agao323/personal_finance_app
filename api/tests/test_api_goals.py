@@ -88,7 +88,9 @@ def test_each_kind_is_created_and_listed(
     assert fund.json()["target_months_tenths"] == 60
     assert target.json()["account_ids"] == [savings]
     assert target.json()["view"] == "mine"
-    assert all(r.json()["progress"] is None for r in (limit, fund, target))
+    # Progress is computed on read (ticket 111): here, nothing spent and nothing saved yet.
+    assert limit.json()["progress"]["month_to_date_cents"] == 0
+    assert target.json()["progress"]["saved_cents"] == 0
     listed = client.get("/goals").json()
     assert [g["name"] for g in listed] == ["House deposit", "Six months", "Dining under $400"]
 

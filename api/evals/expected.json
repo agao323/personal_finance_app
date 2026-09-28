@@ -8,9 +8,17 @@
       "unit": "cents",
       "value": 88963136
     },
+    "assumed_return": {
+      "unit": "bps",
+      "value": 500
+    },
     "dining_last_quarter": {
       "unit": "cents",
       "value": 73731
+    },
+    "dining_limit_mtd": {
+      "unit": "cents",
+      "value": 19193
     },
     "dining_quarter_change": {
       "unit": "cents",
@@ -19,6 +27,18 @@
     "dining_this_quarter": {
       "unit": "cents",
       "value": 140283
+    },
+    "fund_runway": {
+      "unit": "months_tenths",
+      "value": 271
+    },
+    "house_monthly_needed": {
+      "unit": "cents",
+      "value": 76635
+    },
+    "house_saved": {
+      "unit": "cents",
+      "value": 4314023
     },
     "income_last_month": {
       "unit": "cents",

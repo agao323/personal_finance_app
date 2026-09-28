@@ -186,6 +186,18 @@ def _urgent_perk_name(s: Session, t: dt.date) -> str:
     return str(row.perk_name_text)
 
 
+def _goal(name: str, field: str) -> Callable[[Session, dt.date], Any]:
+    def compute(s: Session, t: dt.date) -> Any:
+        result = run_tool(s, t, "goals_evaluate", {})
+        return getattr(next(r for r in result.goals if r.goal.name_text == name), field)
+
+    return compute
+
+
+def _assumption(field: str) -> Callable[[Session, dt.date], Any]:
+    return lambda s, t: getattr(run_tool(s, t, "planning_profile", {}).assumptions, field)
+
+
 H, M = ViewScope.HOUSEHOLD, ViewScope.MINE
 
 FACTS: dict[str, Fact] = {
@@ -247,6 +259,24 @@ FACTS: dict[str, Fact] = {
     "urgent_perk": Fact("text", _urgent_perk_name, "The urgent perk"),
     "urgent_perk_value": Fact("cents", _urgent_perk("value_cents"), "Urgent perk value"),
     "urgent_perk_days": Fact("count", _urgent_perk("days_remaining"), "Urgent perk days left"),
+    # goals and assumptions (ticket 111)
+    "dining_limit_mtd": Fact(
+        "cents", _goal(overlay.DINING_GOAL, "month_to_date_cents"), "Dining this month vs limit"
+    ),
+    "fund_runway": Fact(
+        "months_tenths",
+        _goal(overlay.FUND_GOAL, "runway_months_tenths"),
+        "Emergency fund: months covered",
+    ),
+    "house_saved": Fact("cents", _goal(overlay.HOUSE_GOAL, "saved_cents"), "House deposit saved"),
+    "house_monthly_needed": Fact(
+        "cents",
+        _goal(overlay.HOUSE_GOAL, "monthly_needed_cents"),
+        "House deposit: needed each month",
+    ),
+    "assumed_return": Fact(
+        "bps", _assumption("expected_real_return_bps"), "The stated real return (the default)"
+    ),
 }
 
 

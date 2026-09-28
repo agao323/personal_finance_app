@@ -56,7 +56,7 @@ from app.config import Settings
 from app.models.advisor import AdvisorUsage
 from app.models.user import User
 from app.schemas.common import ViewScope
-from evals import EVAL_TODAY, Case, load_cases, load_expected
+from evals import EVAL_TODAY, Case, database, load_cases, load_expected
 from evals.graders import (
     ADVICE_MEAN_TENTHS,
     CALIBRATION_MIN_PCT,
@@ -75,7 +75,6 @@ from evals.graders import (
 REPO = Path(__file__).resolve().parents[2]
 REPORTS = REPO / "data" / "evals"
 LABELS = REPORTS / "labels.json"
-DEFAULT_EVAL_DB = "postgresql+psycopg://pfa:pfa_local_dev@localhost:5432/pfa_eval"
 ADVICE = "goal_aware"
 TOKEN_CLASSES = (
     "input_tokens",
@@ -179,30 +178,12 @@ def _format_cents(cents: Decimal) -> str:
 
 
 def prepare_database(url: str) -> None:
-    """Create `pfa_eval` if needed, migrate it, and rebuild the world in it."""
-    from alembic.config import Config
+    """Create and migrate `pfa_eval` if need be, then rebuild the world in it."""
     from sqlalchemy import create_engine
-    from sqlalchemy.engine import make_url
 
-    from alembic import command
     from evals import overlay
 
-    target = make_url(url)
-    admin = create_engine(target.set(database="postgres"), isolation_level="AUTOCOMMIT")
-    with admin.connect() as connection:
-        exists = connection.execute(
-            text("SELECT 1 FROM pg_database WHERE datname = :d"), {"d": target.database}
-        ).first()
-        if not exists:
-            connection.execute(text(f'CREATE DATABASE "{target.database}"'))
-    admin.dispose()
-
-    api_root = Path(__file__).resolve().parents[1]
-    config = Config(str(api_root / "alembic.ini"))
-    config.set_main_option("script_location", str(api_root / "alembic"))
-    os.environ["ALEMBIC_DATABASE_URL"] = url
-    command.upgrade(config, "head")
-
+    database.ensure(url)
     engine = create_engine(url)
     with Session(engine) as session, session.begin():
         # Last run's conversations and spend would count against this run's caps.
@@ -500,9 +481,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--n", type=int, default=1)
     parser.add_argument("--only", default=None)
     parser.add_argument("--max-cost", type=Decimal, default=Decimal(10), help="dollars")
-    parser.add_argument(
-        "--database-url", default=os.environ.get("EVAL_DATABASE_URL", DEFAULT_EVAL_DB)
-    )
+    parser.add_argument("--database-url", default=database.url())
     args = parser.parse_args(argv)
 
     defaults = Settings(database_url=args.database_url)

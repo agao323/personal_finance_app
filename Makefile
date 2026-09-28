@@ -223,9 +223,9 @@ restore: .env ## Load an export back: make restore f=data/backups/pfa-2026-09-27
 
 eval-fixtures: .env ## Recompute api/evals/expected.json from the eval world (no model; rolled back)
 	@docker compose up -d --wait postgres >/dev/null
-	@# Builds the eval world inside a transaction on the LOCAL database and rolls it back:
-	@# the database is borrowed, not changed. Refuses one marked as holding real data.
-	@cd api && DATABASE_URL="$(LOCAL_DB_URL)" uv run python -m evals.fixtures
+	@# Builds the eval world inside a transaction in pfa_eval (created and migrated if need be)
+	@# and rolls it back. The development database is never touched.
+	@cd api && uv run python -m evals.fixtures
 
 eval: .env ## Ask the golden questions of a model and grade them: provider=local|anthropic n= only= max_cost=
 	@# provider=anthropic spends real money on the pfa-eval workspace's key

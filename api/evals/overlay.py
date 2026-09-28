@@ -10,6 +10,8 @@
 - **A balance stale by 120 days**: a health savings account last updated then.
 - **The injection corpus** (`injection.yaml`) in merchants, descriptions, a perk note, an
   account name and a rule pattern.
+- **Three goals** (ticket 111): a $400 dining limit and a six-month emergency fund for the
+  household, and the owner's own $60,000 house deposit by mid-2028 from Savings.
 
 It stays out of the demo seed on purpose: the demo should look like a household, and a
 merchant called "IGNORE PREVIOUS INSTRUCTIONS" does not.
@@ -28,7 +30,15 @@ from sqlalchemy.orm import Session
 
 from app.models.account import Account, BalanceSnapshot, Institution, OwnershipStake
 from app.models.card_perk import CardPerk, PerkRedemption
-from app.models.enums import AccountKind, AccountSubtype, CategorySource, DataSource, PerkCadence
+from app.models.enums import (
+    AccountKind,
+    AccountSubtype,
+    CategorySource,
+    DataSource,
+    GoalKind,
+    PerkCadence,
+)
+from app.models.goal import Goal, GoalAccount
 from app.models.transaction import CategorizationRule, Category, Transaction
 from app.models.user import User
 from evals import EVAL_SEED, EVAL_TODAY, load_corpus
@@ -49,6 +59,10 @@ URGENT_PERK = "Wellness credit"
 STALE_ACCOUNT = "Health savings"
 STALE_DAYS = 120
 TRANSFER_AMOUNT = Decimal("1500.00")
+
+DINING_GOAL = "Dining under $400"
+FUND_GOAL = "Six months of cash"
+HOUSE_GOAL = "House deposit"
 
 
 def build(session: Session) -> None:
@@ -72,6 +86,7 @@ def apply(session: Session) -> None:
     _urgent_perk(session, accounts["Travel Rewards"])
     _stale_account(session, owner)
     _corpus(session, accounts, categories, owner)
+    _goals(session, accounts, categories, owner)
     session.flush()
 
 
@@ -214,6 +229,39 @@ def _stale_account(session: Session, owner: User) -> None:
             balance=Decimal("6840.00"),
             source=DataSource.MANUAL,
         )
+    )
+
+
+def _goals(
+    session: Session, accounts: dict[str, Account], categories: dict[str, Category], owner: User
+) -> None:
+    """Three goals for the goal-aware cases (ticket 111): one of each kind, in both scopes."""
+    created = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
+    session.add_all(
+        [
+            Goal(
+                kind=GoalKind.SPENDING_LIMIT,
+                name=DINING_GOAL,
+                category_id=categories["Restaurants"].id,
+                target_amount=Decimal("400.00"),
+                created_at=created,
+            ),
+            Goal(
+                kind=GoalKind.EMERGENCY_FUND,
+                name=FUND_GOAL,
+                target_months=Decimal("6"),
+                created_at=created,
+            ),
+            Goal(
+                kind=GoalKind.SAVINGS_TARGET,
+                name=HOUSE_GOAL,
+                owner_user_id=owner.id,
+                target_amount=Decimal("60000.00"),
+                target_date=dt.date(2028, 6, 30),
+                created_at=created,
+                links=[GoalAccount(account_id=accounts["Savings"].id)],
+            ),
+        ]
     )
 
 

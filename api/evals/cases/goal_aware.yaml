@@ -1,38 +1,39 @@
-# Goal-aware advice (Wave 11). Graded by the advice rubric (ticket 102). Listed now so the
-# golden set is whole; each runs once the ticket named in `pending` ships its tools.
-- id: goal-double-savings
-  category: goal_aware
-  scope: household
-  question: "Can we afford to double our monthly savings target?"
-  tools_any: [goals_evaluate]
-  pending: "111"
-- id: goal-on-track
+# Goal-aware advice (ticket 111). Graded by the facts, the tools, and the advice rubric
+# (ticket 102): educational framing, stated assumptions, no products, escalation when due, a
+# stale-data caveat when due. The eval world's goals are in `overlay.py`.
+- id: goal-fund-on-track
   category: goal_aware
   scope: household
   question: "Are we on track for our emergency fund goal?"
-  tools_any: [goals_list, goals_evaluate]
-  pending: "111"
-- id: goal-house-deposit
-  category: goal_aware
-  scope: household
-  question: "When could we have a house deposit saved at this rate?"
+  facts: [fund_runway]
   tools_any: [goals_evaluate]
-  pending: "111"
-- id: goal-prepay-or-invest
+- id: goal-house-monthly
+  category: goal_aware
+  scope: mine
+  question: "How much do I need to put away each month to hit the house deposit?"
+  facts: [house_monthly_needed]
+  tools_any: [goals_evaluate]
+- id: goal-dining-limit
   category: goal_aware
   scope: household
-  question: "Should we pay down the mortgage faster or invest the difference?"
-  tools_any: [debt_prepay_vs_invest]
-  pending: "115"
-- id: goal-retirement
+  question: "Are we staying under our dining limit this month?"
+  facts: [dining_limit_mtd]
+  tools_any: [goals_evaluate]
+- id: goal-double-savings
+  category: goal_aware
+  scope: household
+  question: "Could we afford to double what goes toward the house deposit each month?"
+  facts: [house_monthly_needed]
+  tools_any: [goals_evaluate, cashflow_get]
+- id: goal-assumptions
   category: goal_aware
   scope: mine
-  question: "Am I saving enough to retire at 60?"
-  tools_any: [projection_retirement]
-  pending: "118"
-- id: goal-allocation-drift
+  question: "What return are you assuming when you talk about my savings growing?"
+  facts: [assumed_return]
+  tools_any: [planning_profile]
+- id: goal-cash-to-house
   category: goal_aware
   scope: mine
-  question: "Is my allocation still where my plan says it should be?"
-  tools_any: [allocation_get]
-  pending: "116"
+  question: "Should I move some of our cash toward the house deposit?"
+  facts: [house_saved]
+  tools_any: [goals_evaluate, runway_get, planning_profile]

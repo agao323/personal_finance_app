@@ -1,4 +1,4 @@
-"""Goals. Ticket 108; progress arrives with 111.
+"""Goals. Ticket 108; progress is computed on every read by 111's `analysis/goals.py`.
 
 **Each person sees household goals and their own.** Another member's personal goal is a 404,
 as a conversation is: whether it exists is not theirs to learn.
@@ -10,6 +10,7 @@ a savings target needs at least one linked, open account — lives only here.
 
 from __future__ import annotations
 
+import datetime as dt
 from decimal import Decimal
 from typing import Any
 
@@ -23,7 +24,8 @@ from app.models.enums import GoalKind
 from app.models.goal import Goal, GoalAccount
 from app.models.transaction import Category
 from app.schemas.common import ErrorResponse, ViewScope, to_cents
-from app.schemas.goal import GoalCreate, GoalRead, GoalUpdate
+from app.schemas.goal import GoalCreate, GoalProgress, GoalRead, GoalUpdate
+from app.services.analysis import goals as goal_analysis
 
 router = APIRouter(
     prefix="/goals",
@@ -49,6 +51,26 @@ def _require(session: Session, goal_id: int, user_id: int) -> Goal:
     return goal
 
 
+def progress_read(result: goal_analysis.Progress) -> GoalProgress:
+    """A computed `Progress` on the wire: money in cents, months in tenths."""
+
+    def cents(value: Decimal | None) -> int | None:
+        return None if value is None else to_cents(value)
+
+    return GoalProgress(
+        as_of=result.as_of,
+        on_track=result.on_track,
+        stale=result.stale,
+        month_to_date_cents=cents(result.month_to_date),
+        last_month_cents=cents(result.last_month),
+        runway_months_tenths=result.runway_months_tenths,
+        saved_cents=cents(result.saved),
+        remaining_cents=cents(result.remaining),
+        monthly_needed_cents=cents(result.monthly_needed),
+        progress_bps=result.progress_bps,
+    )
+
+
 def _to_read(session: Session, goal: Goal) -> GoalRead:
     category = session.get(Category, goal.category_id) if goal.category_id else None
     return GoalRead(
@@ -65,7 +87,7 @@ def _to_read(session: Session, goal: Goal) -> GoalRead:
         account_ids=[link.account_id for link in goal.links],
         created_at=goal.created_at,
         updated_at=goal.updated_at,
-        progress=None,
+        progress=progress_read(goal_analysis.progress(session, goal, dt.date.today())),
     )
 
 

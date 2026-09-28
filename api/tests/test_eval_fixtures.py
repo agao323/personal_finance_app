@@ -211,7 +211,7 @@ def test_every_case_names_things_that_exist() -> None:
 
 
 def test_the_golden_set_has_the_documented_shape() -> None:
-    counts = Counter(case.category for case in CASES.values())
+    counts = Counter(case.category for case in CASES.values() if case.pending is None)
     assert counts == {
         "lookup": 10,
         "comparison": 8,
