@@ -432,6 +432,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/goals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Goals
+     * @description Household goals and your own, newest first.
+     */
+    get: operations["list_goals_goals_get"];
+    put?: never;
+    /**
+     * Create Goal
+     * @description Set a goal. A `household` goal is shared; a `mine` goal is yours alone.
+     */
+    post: operations["create_goal_goals_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/goals/{goal_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Goal
+     * @description Delete a goal. Archiving keeps it instead.
+     */
+    delete: operations["delete_goal_goals__goal_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Goal
+     * @description Change a goal's name, targets, status or accounts. Its kind and owner are fixed.
+     */
+    patch: operations["update_goal_goals__goal_id__patch"];
+    trace?: never;
+  };
   "/health": {
     parameters: {
       query?: never;
@@ -1821,6 +1869,14 @@ export interface components {
       data_marker: {
         [key: string]: unknown;
       }[];
+      /** Goal Accounts */
+      goal_accounts: {
+        [key: string]: unknown;
+      }[];
+      /** Goals */
+      goals: {
+        [key: string]: unknown;
+      }[];
       /** Import Mappings */
       import_mappings: {
         [key: string]: unknown;
@@ -1970,6 +2026,142 @@ export interface components {
       | "credit_utilisation_high"
       | "allocation_drift"
       | "cash_drag";
+    /** GoalCreate */
+    GoalCreate: {
+      /**
+       * Account Ids
+       * @description savings_target: accounts that count.
+       */
+      account_ids?: number[];
+      /**
+       * Category Id
+       * @description spending_limit only.
+       */
+      category_id?: number | null;
+      kind: components["schemas"]["GoalKind"];
+      /** Name */
+      name: string;
+      /**
+       * Target Amount Cents
+       * @description savings_target total, or spending_limit per month.
+       */
+      target_amount_cents?: number | null;
+      /** Target Date */
+      target_date?: string | null;
+      /**
+       * Target Months Tenths
+       * @description emergency_fund: months of spending, in tenths.
+       */
+      target_months_tenths?: number | null;
+      /** @description `mine` makes it yours alone; `household` shares it. */
+      view: components["schemas"]["ViewScope"];
+    };
+    /**
+     * GoalKind
+     * @description What a goal measures. `debt_free` and `retirement` arrive with Wave 12, deliberately:
+     *     adding a label to a Postgres enum is a migration, so it happens when there is code for it.
+     * @enum {string}
+     */
+    GoalKind: "spending_limit" | "emergency_fund" | "savings_target";
+    /**
+     * GoalProgress
+     * @description How a goal stands today. Computed on read, never stored (ticket 111).
+     *
+     *     One shape for every kind; the fields a kind does not use are null.
+     */
+    GoalProgress: {
+      /**
+       * As Of
+       * Format: date
+       */
+      as_of: string;
+      /** Last Month Cents */
+      last_month_cents?: number | null;
+      /** Month To Date Cents */
+      month_to_date_cents?: number | null;
+      /**
+       * Monthly Needed Cents
+       * @description Still to save each month to reach the target by its date.
+       */
+      monthly_needed_cents?: number | null;
+      /** On Track */
+      on_track: boolean;
+      /**
+       * Progress Bps
+       * @description Saved as a share of the target, or spent as a share of the limit.
+       */
+      progress_bps?: number | null;
+      /** Remaining Cents */
+      remaining_cents?: number | null;
+      /** Runway Months Tenths */
+      runway_months_tenths?: number | null;
+      /** Saved Cents */
+      saved_cents?: number | null;
+      /**
+       * Stale
+       * @description Some figure behind this rests on a stale balance.
+       */
+      stale: boolean;
+    };
+    /** GoalRead */
+    GoalRead: {
+      /** Account Ids */
+      account_ids: number[];
+      /** Category Id */
+      category_id?: number | null;
+      /** Category Name */
+      category_name?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Id */
+      id: number;
+      kind: components["schemas"]["GoalKind"];
+      /** Name */
+      name: string;
+      /** @description Null until computed (ticket 111). */
+      progress?: components["schemas"]["GoalProgress"] | null;
+      status: components["schemas"]["GoalStatus"];
+      /** Target Amount Cents */
+      target_amount_cents?: number | null;
+      /** Target Date */
+      target_date?: string | null;
+      /** Target Months Tenths */
+      target_months_tenths?: number | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** @description `household` goals have no owner; `mine` are yours. */
+      view: components["schemas"]["ViewScope"];
+    };
+    /**
+     * GoalStatus
+     * @enum {string}
+     */
+    GoalStatus: "active" | "achieved" | "archived";
+    /**
+     * GoalUpdate
+     * @description Any field but the kind and whose goal it is, which define what the goal is.
+     */
+    GoalUpdate: {
+      /** Account Ids */
+      account_ids?: number[] | null;
+      /** Category Id */
+      category_id?: number | null;
+      /** Name */
+      name?: string | null;
+      status?: components["schemas"]["GoalStatus"] | null;
+      /** Target Amount Cents */
+      target_amount_cents?: number | null;
+      /** Target Date */
+      target_date?: string | null;
+      /** Target Months Tenths */
+      target_months_tenths?: number | null;
+    };
     /**
      * Grounding
      * @description `verified`: every figure checked. `flagged`: at least one was not. `none`: no figures.
@@ -3942,6 +4134,168 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ExportRead"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  list_goals_goals_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GoalRead"][];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  create_goal_goals_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GoalCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GoalRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  delete_goal_goals__goal_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        goal_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  update_goal_goals__goal_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        goal_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GoalUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GoalRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
       /** @description Unprocessable Entity */
