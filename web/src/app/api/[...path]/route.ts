@@ -77,6 +77,10 @@ async function proxy(
       ...(hasBody ? { duplex: "half" } : {}),
       redirect: "manual",
       cache: "no-store",
+      // A browser that goes away aborts this fetch, which closes the connection to the
+      // API, which cancels the advisor's turn — and stops it spending. Without it a closed
+      // tab left the API streaming to nobody (docs/ADVISOR.md#request-path).
+      signal: request.signal,
     } as RequestInit);
   } catch {
     // The API being unreachable is a gateway failure, not a client error. Returning
@@ -84,6 +88,9 @@ async function proxy(
     return Response.json({ detail: "Upstream API unreachable" }, { status: 502 });
   }
 
+  // `upstream.body` is passed through as a stream, never buffered: a server-sent event
+  // reaches the browser when the API writes it. `content-type` and `cache-control` go
+  // through unchanged — `no-transform` is what keeps a compressing hop from holding it.
   return new Response(upstream.body, {
     status: upstream.status,
     statusText: upstream.statusText,

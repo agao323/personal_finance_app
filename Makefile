@@ -72,6 +72,13 @@ smoke: .env ## Bring up the deploy-shaped stack and assert it actually works
 		"http://localhost:$(or $(WEB_PORT),3000)/api/nope")" = "404" \
 		&& echo "  ok: unknown route proxies back a 404, not a 200 or a 502" \
 		|| (echo "  FAIL: proxy masked the upstream status" >&2; exit 1)
+	@echo "── migrations, as the Fly release command runs them ──"
+	@$(PROD_COMPOSE) exec -T api alembic upgrade head >/dev/null \
+		&& echo "  ok: alembic upgrade head" \
+		|| (echo "  FAIL: migrations did not apply" >&2; exit 1)
+	@echo "── server-sent events cross the proxy unbuffered ──"
+	@python3 scripts/check_stream_timing.py \
+		"http://localhost:$(or $(WEB_PORT),3000)/api/advisor/stream-check"
 	@echo "── smoke passed ──"
 
 # ── Test ──────────────────────────────────────────────────────────────────────

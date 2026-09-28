@@ -111,3 +111,81 @@ describe("proxy route", () => {
     });
   });
 });
+
+describe("streaming through the proxy", () => {
+  it("aborts the upstream fetch when the browser goes away", async () => {
+    const spy = vi.fn().mockResolvedValue(new Response("data: {}\n\n"));
+    vi.stubGlobal("fetch", spy);
+    const browser = new AbortController();
+
+    await POST(
+      request("http://localhost:3000/api/advisor/conversations/x/turns", {
+        method: "POST",
+        body: JSON.stringify({ question: "Net worth?" }),
+        headers: { "content-type": "application/json" },
+        signal: browser.signal,
+      }),
+      context("advisor", "conversations", "x", "turns"),
+    );
+    const upstreamSignal: AbortSignal = spy.mock.calls[0][1].signal;
+    expect(upstreamSignal.aborted).toBe(false);
+
+    browser.abort();
+
+    expect(upstreamSignal.aborted).toBe(true);
+  });
+
+  it("passes the event-stream headers through unchanged", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("data: {}\n\n", {
+          headers: {
+            "content-type": "text/event-stream; charset=utf-8",
+            "cache-control": "no-cache, no-transform",
+            "x-accel-buffering": "no",
+          },
+        }),
+      ),
+    );
+
+    const response = await GET(
+      request("http://localhost:3000/api/advisor/stream-check"),
+      context("advisor", "stream-check"),
+    );
+
+    expect(response.headers.get("content-type")).toBe("text/event-stream; charset=utf-8");
+    expect(response.headers.get("cache-control")).toBe("no-cache, no-transform");
+    expect(response.headers.get("x-accel-buffering")).toBe("no");
+  });
+
+  it("delivers each chunk as the upstream writes it, not at the end", async () => {
+    let write!: ReadableStreamDefaultController<Uint8Array>;
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        write = controller;
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(upstream)));
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    const response = await GET(
+      request("http://localhost:3000/api/advisor/stream-check"),
+      context("advisor", "stream-check"),
+    );
+    const reader = response.body!.getReader();
+
+    // The upstream is still open: a proxy that buffered would never resolve these reads.
+    write.enqueue(encoder.encode('data: {"type":"heartbeat"}\n\n'));
+    const first = await reader.read();
+    expect(decoder.decode(first.value)).toBe('data: {"type":"heartbeat"}\n\n');
+
+    write.enqueue(encoder.encode('data: {"type":"turn_complete"}\n\n'));
+    const second = await reader.read();
+    expect(decoder.decode(second.value)).toBe('data: {"type":"turn_complete"}\n\n');
+
+    write.close();
+    expect((await reader.read()).done).toBe(true);
+  });
+});
