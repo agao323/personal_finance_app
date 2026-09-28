@@ -37,7 +37,7 @@ Tickets that call for an ADR by name:
 | `0008-local-backups.md` | 017 | Local exports on the owner's machine; no offsite copy | written |
 | `0009-advisor-model-provider.md` | 080 | Anthropic's API behind a neutral seam; self-hosting investigated | proposed |
 | `0010-the-advisor-loop-runs-in-the-api.md` | 080 | Hand-written loop in pfa-api, SSE through the BFF | proposed |
-| `0011-findings-are-computed-and-figures-are-grounded.md` | 080 | Findings engine before the model, grounding check after | proposed |
+| `0011-findings-are-computed-and-figures-are-grounded.md` | 080 | Findings engine before the model, grounding check after | accepted |
 | `0012-transcripts-live-in-postgres-for-30-days.md` | 080 | Where transcripts live, and for how long | proposed |
 | `0013-allocation-is-recorded-per-account-not-per-holding.md` | 080 | Account-level allocation instead of holdings | proposed |
 | `0014-the-demo-advisor-replays-recorded-answers.md` | 080 | No model on the public demo | proposed |

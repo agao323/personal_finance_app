@@ -48,7 +48,8 @@ provider-side spend limit that no bug here can bypass.
 ## Phases
 ### Phase 0 — Decisions (this ticket)
 ADRs 0009–0014, the SECURITY.md threat model, the DECISIONS.md entry, ADVISOR.md, and these
-tickets. **Done when the owner has accepted or amended the open decisions below.**
+tickets. **Done 2026-09-27**: the owner has made the decisions below, and adopted the rest as the
+working plan to be confirmed at 107.
 
 ### Phase 1 — Wave 9: tools, analyses, findings, Insights (081–094)
 Contract first (081), then the read models the tools need move out of routers into services
@@ -87,29 +88,35 @@ User-initiated, in-app only. Email or push would be egress.
 advisor could not answer and why; a month of real use ranks them, and that ranking beats this
 document's guess.
 
-## Open decisions
-1. **Model provider.** Recommended: a free local model for development and evals (120), and the
-   Anthropic API, `claude-opus-5`, in production from 107 — behind a provider-neutral seam.
-   Self-hosting *in production* was investigated on 2026-09-27 and not chosen: Fly's GPUs are
-   retired, a laptop-hosted model would be offline whenever the laptop sleeps and would have to
-   join production's private network, and a rented GPU is another third party. Full record and
-   revisit conditions in [ADR 0009](../docs/adr/0009-advisor-model-provider.md).
-2. **Row-level transactions to the provider.** Recommended: bounded — 25 rows a call, 100 a turn,
-   descriptions cut to 80 characters and sanitised. Aggregates stay the default.
-3. **Model and effort.** Recommended: `claude-opus-5` at `medium` effort; let `make eval` test
-   `low`, and Sonnet 5 or Opus 5.5 if cost bites.
-4. **Refusal fallbacks.** Recommended: on (`fallbacks: "default"`).
-5. **Whose conversations are visible.** Recommended: each person sees their own; the cap is
-   household-wide.
-6. **Proactive insights.** Recommended: the Insights panel always on, chat on demand, the monthly
-   review only if Wave 13 is wanted.
-7. **Finding thresholds.** Recommended: the constants in ADVISOR.md#findings, revisited after a
-   month.
-8. **Demo.** Recommended: recorded examples ([ADR 0014](../docs/adr/0014-the-demo-advisor-replays-recorded-answers.md)).
+## Decisions
+**Decided by the owner on 2026-09-27:**
+- Transcripts in Postgres for 30 days ([ADR 0012](../docs/adr/0012-transcripts-live-in-postgres-for-30-days.md)).
+- A $20 monthly cap.
+- Allocation and fund types, never tickers.
+- Spending analysis first. The advisor stays general — specific analyses are what make particular
+  answers exact, not a narrowing of what can be asked.
+- **Conversations are private to each person**; the monthly cap is household-wide.
+- **Findings are computed in Python and every figure is checked** —
+  [ADR 0011](../docs/adr/0011-findings-are-computed-and-figures-are-grounded.md), accepted.
+- The finding thresholds in ADVISOR.md#findings, revisited after a month of use.
+- The Insights panel on the dashboard, below the stat tiles.
+- Free local development: nothing costs money until 107.
 
-Decided by the owner on 2026-09-27: transcripts in Postgres for 30 days; a $20 monthly cap;
-allocation and fund types, never tickers; spending analysis first; the advisor stays general —
-specific analyses are what make particular answers exact, not a narrowing of what can be asked.
+**The working plan, adopted on 2026-09-27 and confirmed at ticket 107** with eval results in hand:
+1. **Model provider.** A free local model for development and evals (120), and the Anthropic API,
+   `claude-opus-5`, in production from 107 — behind a provider-neutral seam. Self-hosting *in
+   production* was investigated and not chosen: Fly's GPUs are retired, a laptop-hosted model would
+   be offline whenever the laptop sleeps and would have to join production's private network, and
+   a rented GPU is another third party. [ADR 0009](../docs/adr/0009-advisor-model-provider.md) is
+   accepted at 107, not before.
+2. **Row-level transactions to the provider.** Bounded — 25 rows a call, 100 a turn, descriptions
+   cut to 80 characters and sanitised. Aggregates stay the default.
+3. **Model and effort.** `claude-opus-5` at `medium`; `make eval` tests `low`, and Sonnet 5 or
+   Opus 5.5 if cost bites.
+4. **Refusal fallbacks.** On (`fallbacks: "default"`).
+5. **Proactive insights.** The Insights panel always on, chat on demand, the monthly review only if
+   Wave 13 is wanted.
+6. **Demo.** Recorded examples ([ADR 0014](../docs/adr/0014-the-demo-advisor-replays-recorded-answers.md)).
 
 ## Gates on the model half
 Wave 9 has none beyond this plan. **`ADVISOR_ENABLED` stays false in production** until:

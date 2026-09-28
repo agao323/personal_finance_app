@@ -34,5 +34,7 @@ when a question needs them — within strict bounds, counted against the turn's 
 `merchant_query` is the only free-text argument in the whole catalog. Keep it that way: 083's lint
 test fails on a second one, and should.
 
-Row-level data going to the provider is open decision 2 on ticket 080. If the owner chooses
-aggregates only, this ticket drops `search_transactions` and the rest stands.
+Row-level data going to a hosted provider is item 2 of 080's working plan, confirmed at 107.
+Development uses the local model over synthetic data, so building this tool commits nothing. If
+the owner chooses aggregates only at 107, production disables `search_transactions` and the rest
+stands.

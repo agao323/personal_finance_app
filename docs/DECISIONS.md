@@ -81,7 +81,10 @@ proactive insights (egress); a scheduler for anything the advisor does.
 
 **Also decided on 2026-09-27, by the owner:** transcripts in Postgres with a 30-day TTL
 ([ADR 0012](adr/0012-transcripts-live-in-postgres-for-30-days.md)); a $20 monthly cap; advice at
-the level of allocation and fund types, never tickers; spending analysis first. And, after an
+the level of allocation and fund types, never tickers; spending analysis first; conversations
+private to each person; findings computed and figures checked
+([ADR 0011](adr/0011-findings-are-computed-and-figures-are-grounded.md), accepted); and the
+remaining recommendations in ticket 080 adopted as the working plan, confirmed at ticket 107. And, after an
 investigation of self-hosted open-weight models, the Anthropic API behind a provider-neutral
 seam, recorded with its revisit conditions in
 [ADR 0009](adr/0009-advisor-model-provider.md) — pending the owner's acceptance.

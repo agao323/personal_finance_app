@@ -2,7 +2,8 @@
 Status: todo
 Wave: 9   Lane: —
 Touches: **contract**
-Blocked by: 080 (open decision 5 — whose conversations are visible — shapes the list route)
+Blocked by: none — 080's decisions are made. Conversations are private to each person, so
+`ConversationSummary` needs no author field.
 Read first: docs/ADVISOR.md#request-path, docs/ADVISOR.md#findings, docs/adr/0006-contract-changes-during-wave-2.md
 
 ## Goal

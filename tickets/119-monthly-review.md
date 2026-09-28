@@ -3,7 +3,7 @@ Status: todo — optional; build only if the owner wants it after using Wave 10
 Wave: 13   Lane: —
 Touches: **contract** (`ConversationCreate` gains `kind`)
 Blocked by: 107, 111
-Read first: docs/ADVISOR.md#open-decisions, docs/DECISIONS.md
+Read first: docs/ADVISOR.md#decisions, docs/DECISIONS.md
 
 ## Goal
 Once a month the advisor offers a review of the month just ended — spending against last month and

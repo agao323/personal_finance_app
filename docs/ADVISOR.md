@@ -884,30 +884,31 @@ the everyday development loop, and it measures whether a free model is good enou
 ADR 0009's first revisit condition. Release gates for production still run against the model
 being deployed.
 
-## Open decisions
+## Decisions
 
-Each has a recommendation; ticket 080 carries the same list.
+**Decided by the owner on 2026-09-27:** transcripts in Postgres with a 30-day TTL; a $20 monthly
+cap; advice at the level of allocation and fund types; spending analysis first; conversations
+private to each person, with a household-wide cap; findings computed and figures checked
+([ADR 0011](adr/0011-findings-are-computed-and-figures-are-grounded.md), accepted); the finding
+thresholds above, revisited after a month; the Insights panel on the dashboard; free local
+development until ticket 107.
 
-1. **Model provider.** Recommended: a free local model for development and evals, and the
-   Anthropic API in production from ticket 107, behind `ModelClient`. Self-hosting in production is
-   revisited on the conditions in [ADR 0009](adr/0009-advisor-model-provider.md).
-2. **Row-level transactions to the provider.** Recommended: bounded rows — 25 per call, 100 per
-   turn, descriptions truncated to 80 characters and sanitised.
-3. **Model and effort.** Recommended: `claude-opus-5` at `medium`, then let `make eval` compare
-   `low`, and Sonnet 5 ($2 / $10) or Opus 5.5 ($4 / $20) if cost bites.
-4. **Refusal fallbacks.** Recommended: on. A request may then be served by another Claude model.
-5. **Whose conversations are visible.** Recommended: each person sees their own; the monthly cap
-   is shared.
-6. **Proactive insights.** Recommended: the Insights panel always on (it is deterministic), chat
-   on demand, a monthly review only if Wave 13 is wanted — user-initiated and in-app, never email
-   or push, which would be egress.
-7. **Wave 11–12 order.** Recommended: decided by `note_limitation` counts after a month of use;
-   spending-limit goals first by default, matching the spending-first priority.
-8. **Finding thresholds.** Recommended: the constants above, revisited after a month.
-9. **Demo.** Recommended: recorded examples ([ADR 0014](adr/0014-the-demo-advisor-replays-recorded-answers.md)).
+**Working plan, adopted the same day and confirmed at ticket 107** with eval results in hand:
 
-Decided 2026-09-27: transcripts in Postgres with a 30-day TTL; a $20 monthly cap; advice at the
-level of allocation and fund types; spending analysis first.
+1. **Model provider.** A free local model for development and evals, and the Anthropic API in
+   production from ticket 107, behind `ModelClient`. [ADR 0009](adr/0009-advisor-model-provider.md)
+   is accepted at 107; self-hosting in production is revisited on its conditions.
+2. **Row-level transactions to the provider.** Bounded rows — 25 per call, 100 per turn,
+   descriptions truncated to 80 characters and sanitised.
+3. **Model and effort.** `claude-opus-5` at `medium`; `make eval` compares `low`, and Sonnet 5
+   ($2 / $10) or Opus 5.5 ($4 / $20) if cost bites.
+4. **Refusal fallbacks.** On. A request may then be served by another Claude model.
+5. **Proactive insights.** The Insights panel always on (it is deterministic), chat on demand, a
+   monthly review only if Wave 13 is wanted — user-initiated and in-app, never email or push,
+   which would be egress.
+6. **Wave 11–12 order.** Decided by `note_limitation` counts after a month of use; spending-limit
+   goals first by default, matching the spending-first priority.
+7. **Demo.** Recorded examples ([ADR 0014](adr/0014-the-demo-advisor-replays-recorded-answers.md)).
 
 ## Eval runs
 

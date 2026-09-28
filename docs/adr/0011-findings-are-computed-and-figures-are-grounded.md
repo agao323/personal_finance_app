@@ -1,6 +1,6 @@
 # ADR 0011 — Findings are computed in Python; every figure in an answer is checked
 
-Status: proposed · 2026-09-27 · Ticket 080
+Status: accepted · 2026-09-27 · Ticket 080 — accepted by the owner the day it was proposed
 
 ## Context
 
