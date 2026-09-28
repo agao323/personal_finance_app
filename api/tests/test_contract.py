@@ -68,6 +68,11 @@ LIVE_PATHS = {
     "/perks/schedule",  # 079
     "/insights",  # 093
     "/advisor/status",  # 097
+    "/advisor/conversations",  # 099
+    "/advisor/conversations/{conversation_id}",  # 099
+    "/advisor/conversations/{conversation_id}/turns",  # 099
+    "/advisor/turns/{turn_id}/feedback",  # 099
+    "/advisor/stream-check",  # 099
 }
 
 
@@ -148,13 +153,7 @@ def test_every_operation_is_either_live_or_stubbed() -> None:
 #: an invalid one and only reaches the 501 stub with a valid one. Writing these out
 #: doubles as proof that the request schemas accept sensible input — a schema nothing
 #: can satisfy would otherwise sit undetected until a lane tried to use it.
-VALID_BODIES: dict[tuple[str, str], dict[str, Any]] = {
-    ("POST", "/advisor/conversations"): {"view": "household"},
-    ("POST", "/advisor/conversations/{conversation_id}/turns"): {
-        "question": "What's our net worth?"
-    },
-    ("PUT", "/advisor/turns/{turn_id}/feedback"): {"verdict": "flagged", "note": "Wrong quarter."},
-}
+VALID_BODIES: dict[tuple[str, str], dict[str, Any]] = {}
 
 #: Stand-in for a uuid path parameter. Any well-formed uuid reaches the stub; "1" would
 #: be refused as a 422 before it got there.

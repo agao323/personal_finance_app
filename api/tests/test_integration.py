@@ -30,10 +30,7 @@ from app.main import app
 #: its lanes could build in parallel, exactly as 012 did for v1. Each implementing ticket
 #: deletes its line; the test fails both for a stub not listed here and for a line left
 #: behind after its route went live.
-PENDING = {
-    "GET /advisor/conversations": "099",
-    "GET /advisor/stream-check": "099",
-}
+PENDING: dict[str, str] = {}
 
 
 def test_no_route_answers_501(client: TestClient) -> None:

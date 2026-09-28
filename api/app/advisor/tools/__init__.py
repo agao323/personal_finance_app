@@ -338,6 +338,16 @@ class Registry:
     def spec(self, name: str) -> ToolSpec:
         return self._tools[name]
 
+    def label(self, name: str, args: dict[str, Any]) -> str:
+        """The plain label a stored call is shown with, rebuilt from its audited arguments."""
+        spec = self._tools.get(name)
+        if spec is None:
+            return name
+        try:
+            return spec.label(spec.args_model.model_validate(args))
+        except ValidationError:
+            return name
+
     def definitions(self) -> list[ToolDefinition]:
         """Every tool, sorted by name, with a strict schema.
 
@@ -380,7 +390,7 @@ class Registry:
                 row_count=rows,
                 latency_ms=round((time.perf_counter() - started) * 1000),
                 withheld_count=rendered.withheld if rendered else 0,
-                arguments=_summary(dumped),
+                arguments=summarize(dumped),
                 args=dumped,
                 as_of=result.as_of if result else None,
                 view=result.view if result else None,
@@ -440,7 +450,7 @@ class Registry:
         )
 
 
-def _summary(args: dict[str, Any]) -> str:
+def summarize(args: dict[str, Any]) -> str:
     """A readable, bounded summary of validated arguments for the "show lookups" list."""
     parts = [f"{key}={value}" for key, value in args.items() if value is not None]
     summary = ", ".join(parts)

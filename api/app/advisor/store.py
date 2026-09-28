@@ -117,6 +117,20 @@ class StoredMessage:
 
 
 @dataclass(frozen=True)
+class TranscriptTurn:
+    turn: AdvisorTurn
+    messages: list[AdvisorMessage]
+    calls: list[AdvisorToolCall]
+    #: The last model call's stop reason: `max_tokens` means the answer was cut short.
+    last_stop: str | None
+
+
+@dataclass(frozen=True)
+class Transcript:
+    turns: list[TranscriptTurn]
+
+
+@dataclass(frozen=True)
 class Purged:
     conversations: int
     tool_calls: int
@@ -141,6 +155,7 @@ class Store:
                 user_id=user_id,
                 view=view,
                 title_text=title[:120],
+                created_at=now,
                 expires_at=now + CONVERSATION_TTL,
             )
             session.add(conversation)
@@ -225,7 +240,14 @@ class Store:
             session.execute(
                 update(AdvisorConversation)
                 .where(AdvisorConversation.id == conversation_id)
-                .values(last_turn_at=now, expires_at=now + CONVERSATION_TTL)
+                .values(
+                    last_turn_at=now,
+                    expires_at=now + CONVERSATION_TTL,
+                    # A conversation is titled by its first question.
+                    title_text=func.coalesce(
+                        func.nullif(AdvisorConversation.title_text, ""), question[:120]
+                    ),
+                )
             )
             return StartedTurn(turn.id, seq)
 
@@ -293,6 +315,126 @@ class Store:
             ).scalars()
             numbers = [int(m.group(1)) for m in map(_CALL_ID.match, ids) if m]
             return max(numbers, default=0)
+
+    # ── reading and deleting, always as one user ──────────────────────────────
+
+    def conversations(self, user_id: int) -> list[tuple[AdvisorConversation, int]]:
+        """The user's conversations with their turn counts, most recently used first."""
+        with self._tx() as session:
+            turns = (
+                select(func.count(AdvisorTurn.id))
+                .where(AdvisorTurn.conversation_id == AdvisorConversation.id)
+                .scalar_subquery()
+            )
+            rows = session.execute(
+                select(AdvisorConversation, turns)
+                .where(AdvisorConversation.user_id == user_id)
+                .order_by(
+                    func.coalesce(
+                        AdvisorConversation.last_turn_at, AdvisorConversation.created_at
+                    ).desc(),
+                    AdvisorConversation.id,
+                )
+            ).all()
+            return [(conversation, int(count)) for conversation, count in rows]
+
+    def conversation(self, conversation_id: uuid.UUID, user_id: int) -> AdvisorConversation | None:
+        """The conversation if it is this user's. Another member's is the same as none."""
+        with self._tx() as session:
+            return session.execute(
+                select(AdvisorConversation).where(
+                    AdvisorConversation.id == conversation_id,
+                    AdvisorConversation.user_id == user_id,
+                )
+            ).scalar_one_or_none()
+
+    def streaming(self, conversation_id: uuid.UUID, now: dt.datetime) -> bool:
+        with self._tx() as session:
+            return (
+                session.execute(
+                    select(AdvisorTurn.id).where(
+                        AdvisorTurn.conversation_id == conversation_id,
+                        AdvisorTurn.status == TurnStatus.STREAMING,
+                        AdvisorTurn.started_at >= now - ABANDONED_AFTER,
+                    )
+                ).first()
+                is not None
+            )
+
+    def delete_conversation(self, conversation_id: uuid.UUID, user_id: int) -> bool:
+        """Delete now, for good. Tool-call rows stay, with the conversation id cleared."""
+        with self._tx() as session:
+            conversation = session.execute(
+                select(AdvisorConversation).where(
+                    AdvisorConversation.id == conversation_id,
+                    AdvisorConversation.user_id == user_id,
+                )
+            ).scalar_one_or_none()
+            if conversation is None:
+                return False
+            session.execute(
+                delete(AdvisorConversation).where(AdvisorConversation.id == conversation_id)
+            )
+            return True
+
+    def transcript(self, conversation_id: uuid.UUID) -> Transcript:
+        """Every turn with its messages, audited calls and last stop reason, in order."""
+        with self._tx() as session:
+            turns = list(
+                session.execute(
+                    select(AdvisorTurn)
+                    .where(AdvisorTurn.conversation_id == conversation_id)
+                    .order_by(AdvisorTurn.seq)
+                ).scalars()
+            )
+            ids = [t.id for t in turns]
+            messages = session.execute(
+                select(AdvisorMessage)
+                .where(AdvisorMessage.turn_id.in_(ids))
+                .order_by(AdvisorMessage.turn_id, AdvisorMessage.seq)
+            ).scalars()
+            calls = session.execute(
+                select(AdvisorToolCall)
+                .where(AdvisorToolCall.turn_id.in_(ids))
+                .order_by(AdvisorToolCall.id)
+            ).scalars()
+            usage = session.execute(
+                select(AdvisorUsage.turn_id, AdvisorUsage.stop_reason)
+                .where(AdvisorUsage.turn_id.in_(ids))
+                .order_by(AdvisorUsage.id)
+            ).all()
+            by_turn: dict[uuid.UUID, list[AdvisorMessage]] = {i: [] for i in ids}
+            for message in messages:
+                by_turn[message.turn_id].append(message)
+            calls_by_turn: dict[uuid.UUID, list[AdvisorToolCall]] = {i: [] for i in ids}
+            for call in calls:
+                if call.turn_id is not None:
+                    calls_by_turn[call.turn_id].append(call)
+            last_stop = {turn_id: stop for turn_id, stop in usage if turn_id is not None}
+            return Transcript(
+                [
+                    TranscriptTurn(t, by_turn[t.id], calls_by_turn[t.id], last_stop.get(t.id))
+                    for t in turns
+                ]
+            )
+
+    def turn_for(self, turn_id: uuid.UUID, user_id: int) -> AdvisorTurn | None:
+        with self._tx() as session:
+            return session.execute(
+                select(AdvisorTurn)
+                .join(AdvisorConversation, AdvisorConversation.id == AdvisorTurn.conversation_id)
+                .where(AdvisorTurn.id == turn_id, AdvisorConversation.user_id == user_id)
+            ).scalar_one_or_none()
+
+    def set_feedback(
+        self, turn_id: uuid.UUID, *, verdict: str, note: str | None, now: dt.datetime
+    ) -> None:
+        with self._tx() as session:
+            session.execute(
+                update(AdvisorTurn)
+                .where(AdvisorTurn.id == turn_id)
+                .values(feedback=verdict, feedback_note_text=note, feedback_at=now)
+            )
 
     # ── audit and usage ───────────────────────────────────────────────────────
 
