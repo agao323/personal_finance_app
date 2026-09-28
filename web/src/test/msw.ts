@@ -1156,3 +1156,73 @@ export function mockInsights(
     }),
   );
 }
+
+// ── the advisor ───────────────────────────────────────────────────────────────
+
+type AdvisorStatusBody = ResponseOf<"/advisor/status", "get">;
+type Conversation = ResponseOf<"/advisor/conversations", "get">[number];
+
+export const advisorStatus: AdvisorStatusBody = {
+  enabled: true,
+  reason: null,
+  provider: "anthropic",
+  model: "claude-opus-5",
+  month_spent_cents: 312,
+  month_cap_cents: 2000,
+  resets_on: "2026-10-01",
+};
+
+export const conversations: Conversation[] = [
+  {
+    id: "7d0c9f5e-0000-4000-8000-000000000002",
+    view: "household",
+    title: "What did we spend on dining?",
+    created_at: "2026-09-26T09:00:00Z",
+    last_turn_at: "2026-09-26T09:05:00Z",
+    expires_at: "2026-10-26T09:05:00Z",
+    turn_count: 3,
+  },
+  {
+    id: "7d0c9f5e-0000-4000-8000-000000000001",
+    view: "mine",
+    title: "What's my net worth?",
+    created_at: "2026-09-20T09:00:00Z",
+    last_turn_at: "2026-09-20T09:01:00Z",
+    expires_at: "2026-10-20T09:01:00Z",
+    turn_count: 1,
+  },
+];
+
+export type AdvisorCalls = { created: { view: string }[]; deleted: string[] };
+
+/** The advisor's list, status, create and delete. Returns what was asked of it. */
+export function mockAdvisor(
+  options: { status?: Partial<AdvisorStatusBody>; list?: Conversation[] } = {},
+): AdvisorCalls {
+  const calls: AdvisorCalls = { created: [], deleted: [] };
+  server.use(
+    http.get("/api/advisor/status", () =>
+      HttpResponse.json({ ...advisorStatus, ...options.status }),
+    ),
+    http.get("/api/advisor/conversations", () => HttpResponse.json(options.list ?? conversations)),
+    http.post("/api/advisor/conversations", async ({ request }) => {
+      const body = (await request.json()) as { view: "mine" | "household" };
+      calls.created.push(body);
+      const created: Conversation = {
+        id: "7d0c9f5e-0000-4000-8000-0000000000ff",
+        view: body.view,
+        title: "New conversation",
+        created_at: "2026-09-27T12:00:00Z",
+        last_turn_at: null,
+        expires_at: "2026-10-27T12:00:00Z",
+        turn_count: 0,
+      };
+      return HttpResponse.json(created, { status: 201 });
+    }),
+    http.delete("/api/advisor/conversations/:id", ({ params }) => {
+      calls.deleted.push(String(params.id));
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+  return calls;
+}
