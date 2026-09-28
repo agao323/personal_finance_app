@@ -5,7 +5,10 @@ Two things live here and nowhere else:
 1. **The stake lookup.** Every net worth figure is ownership-adjusted, and every
    ownership-adjusted figure comes through these helpers. If you find yourself writing
    ``SUM(balance)``, stop.
-2. **Rounding.** :func:`adjust` is the only place in the codebase that rounds money.
+2. **Rounding for net worth and its breakdowns.** :func:`adjust` rounds a stake's share of a
+   balance, and :func:`split` divides an already-rounded figure into parts — an account's
+   adjusted balance by asset class (ticket 116) — so the parts sum exactly to it. Derived
+   figures that divide (averages, projections) round in `services/analysis/numbers.py`.
 
 See docs/ARCHITECTURE.md#users-and-ownership and #rounding.
 """
@@ -13,6 +16,7 @@ See docs/ARCHITECTURE.md#users-and-ownership and #rounding.
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Sequence
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import ColumnElement, and_, or_, select
@@ -42,6 +46,38 @@ def adjust(amount: Decimal, percentage: Decimal) -> Decimal:
     would give $617.28 and the difference would be unexplainable.
     """
     return (amount * percentage / FULL).quantize(CENTS, rounding=ROUND_HALF_UP)
+
+
+def split(amount: Decimal, weights: Sequence[Decimal]) -> list[Decimal]:
+    """Divide an already-rounded `amount` into parts by `weights`, summing **exactly** to it.
+
+    Largest remainder: every part starts at its exact share rounded toward zero, to the cent,
+    and the cents left over go one each to the parts with the largest remainders — ties to the
+    earlier part, so the answer never depends on anything but the inputs. Each part is within
+    one cent of its exact share, and the parts add up to `amount` to the cent, so an account's
+    classes always equal the account's figure on screen.
+
+    Weights need not sum to 100; zero weights get nothing. A negative amount splits as its
+    magnitude and is negated.
+    """
+    if not weights:
+        raise ValueError("split needs at least one weight.")
+    if any(weight < 0 for weight in weights):
+        raise ValueError("split weights cannot be negative.")
+    total_weight = sum(weights, Decimal(0))
+    if total_weight == 0:
+        raise ValueError("split needs a weight above zero.")
+    if amount != amount.quantize(CENTS):
+        raise ValueError(f"split takes an amount already rounded to cents, not {amount}.")
+    sign = -1 if amount < 0 else 1
+    cents = int(abs(amount) * 100)
+    exact = [Decimal(cents) * weight / total_weight for weight in weights]
+    parts = [int(share) for share in exact]  # toward zero; every share is non-negative
+    leftover = cents - sum(parts)
+    by_remainder = sorted(range(len(parts)), key=lambda i: (-(exact[i] - parts[i]), i))
+    for index in by_remainder[:leftover]:
+        parts[index] += 1
+    return [Decimal(sign * part).scaleb(-2).quantize(CENTS) for part in parts]
 
 
 def _in_force_on(as_of: dt.date) -> ColumnElement[bool]:

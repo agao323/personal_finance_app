@@ -16,4 +16,3 @@
   scope: mine
   question: "Is my allocation still where my plan says it should be?"
   tools_any: [allocation_get]
-  pending: "116"

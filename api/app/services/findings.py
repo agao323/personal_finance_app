@@ -25,7 +25,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models.account import Account
-from app.models.enums import AccountKind, GoalKind, GoalStatus
+from app.models.enums import AccountKind, AssetClass, GoalKind, GoalStatus
 from app.models.goal import Goal
 from app.models.transaction import Category
 from app.schemas.advisor import (
@@ -43,6 +43,7 @@ from app.services import cards as card_service
 from app.services import liability_terms as terms_service
 from app.services import net_worth as net_worth_service
 from app.services import runway as runway_service
+from app.services.analysis import allocation as allocation_analysis
 from app.services.analysis import cards_value, data_quality, recurring, spend_trends
 from app.services.analysis import debt as debt_analysis
 from app.services.analysis import goals as goal_analysis
@@ -76,6 +77,10 @@ HIGH_INTEREST_APR = Decimal("8")
 HIGH_INTEREST_MIN_BALANCE = Decimal("500.00")
 #: A card using more than this share of its limit.
 UTILISATION_HIGH_BPS = 3000
+#: Any asset class this far from the planning target mix, in basis points (ticket 116).
+ALLOCATION_DRIFT_BPS = 500
+#: Cash at least this far beyond the emergency fund before it is worth a notice.
+CASH_DRAG_MIN = Decimal("5000.00")
 
 _SEVERITY_ORDER = {Severity.URGENT: 0, Severity.WARNING: 1, Severity.NOTICE: 2, Severity.INFO: 3}
 _KIND_ORDER = {kind: index for index, kind in enumerate(FindingKind)}
@@ -660,6 +665,74 @@ def _utilisation_high(session: Session, today: dt.date, viewer_id: int | None) -
     return found[:MAX_PER_KIND]
 
 
+def _allocation(
+    session: Session, today: dt.date, viewer_id: int | None, user_id: int
+) -> list[Finding]:
+    """Drift from the target mix, and cash beyond the emergency fund (ticket 116)."""
+    mix = allocation_analysis.mix(session, today, viewer_id, user_id)
+    found: list[Finding] = []
+    off = [d for d in mix.drift if abs(d.drift_bps) > ALLOCATION_DRIFT_BPS]
+    if off:
+        worst = max(off, key=lambda d: (abs(d.drift_bps), -list(AssetClass).index(d.asset_class)))
+        points = Decimal(abs(worst.drift_bps)).scaleb(-2).normalize()
+        side = "over" if worst.drift_bps > 0 else "under"
+        evidence = []
+        for d in off:
+            label = allocation_analysis.LABELS[d.asset_class].capitalize()
+            evidence += [
+                _evidence(
+                    f"{label} now", EvidenceUnit.BPS, d.actual_bps, today, "allocation", mix.stale
+                ),
+                _evidence(f"{label} target", EvidenceUnit.BPS, d.target_bps, today, "planning"),
+            ]
+        found.append(
+            _finding(
+                FindingKind.ALLOCATION_DRIFT,
+                "mix",
+                Severity.NOTICE,
+                f"Your mix is {points:f} points {side} target on "
+                f"{allocation_analysis.LABELS[worst.asset_class]}",
+                "Measured over accounts with a recorded allocation, and cash, as last entered."
+                + (" The target is the planning default." if mix.target_defaults else ""),
+                today,
+                evidence,
+                _action(ActionKind.OPEN, Screen.ACCOUNTS),
+            )
+        )
+    drag = mix.cash_drag
+    if drag is not None and drag.beyond >= CASH_DRAG_MIN:
+        months = f"{drag.fund_months.normalize():f}"
+        found.append(
+            _finding(
+                FindingKind.CASH_DRAG,
+                "cash",
+                Severity.NOTICE,
+                f"About {_money(drag.beyond)} in cash beyond your emergency fund",
+                f"{months} months of spending ({_money(drag.fund_target)}) is "
+                + ("your emergency-fund goal." if drag.from_goal else "a common default.")
+                + " Cash beyond it earns little.",
+                today,
+                [
+                    _evidence(
+                        "Cash", EvidenceUnit.CENTS, drag.cash, today, "allocation", mix.stale
+                    ),
+                    _evidence(
+                        "Emergency fund", EvidenceUnit.CENTS, drag.fund_target, today, "runway"
+                    ),
+                    _evidence(
+                        "Monthly spending", EvidenceUnit.CENTS, drag.monthly_burn, today, "runway"
+                    ),
+                    _evidence(
+                        "Beyond the fund", EvidenceUnit.CENTS, drag.beyond, today, "allocation"
+                    ),
+                ],
+                _action(ActionKind.OPEN, Screen.GOALS if drag.from_goal else Screen.ACCOUNTS),
+                impact=drag.beyond,
+            )
+        )
+    return found
+
+
 def _visible_goals(session: Session, user_id: int) -> list[Goal]:
     """Active goals the person sees: the household's, and their own."""
     return list(
@@ -807,6 +880,7 @@ def findings(session: Session, today: dt.date, view: ViewScope, user_id: int) ->
         lambda: _spend_increase(session, today),
         lambda: _high_interest_debt(session, today, viewer_id),
         lambda: _utilisation_high(session, today, viewer_id),
+        lambda: _allocation(session, today, viewer_id, user_id),
     ]
     found = [finding for produce in producers for finding in produce()]
     found.sort(

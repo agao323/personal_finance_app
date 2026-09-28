@@ -28,11 +28,18 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.account import Account, BalanceSnapshot, Institution, OwnershipStake
+from app.models.account import (
+    Account,
+    AccountAllocation,
+    BalanceSnapshot,
+    Institution,
+    OwnershipStake,
+)
 from app.models.card_perk import CardPerk, PerkRedemption
 from app.models.enums import (
     AccountKind,
     AccountSubtype,
+    AssetClass,
     CategorySource,
     DataSource,
     GoalKind,
@@ -89,6 +96,7 @@ def apply(session: Session) -> None:
     _corpus(session, accounts, categories, owner)
     _goals(session, accounts, categories, owner)
     _liability_terms(session, accounts)
+    _allocations(session, accounts)
     session.flush()
 
 
@@ -287,6 +295,34 @@ def _liability_terms(session: Session, accounts: dict[str, Account]) -> None:
                 credit_limit=Decimal("12000.00"),
                 as_of=dt.date(2026, 6, 1),
             ),
+        ]
+    )
+
+
+def _allocations(session: Session, accounts: dict[str, Account]) -> None:
+    """Allocations for the two investment accounts (ticket 116): the 401k as entered on
+    3 March, the brokerage all US stocks — together well over the default target's 40%."""
+    session.add_all(
+        [
+            AccountAllocation(
+                account_id=accounts["401k"].id,
+                asset_class=cls,
+                percentage=Decimal(pct),
+                effective_from=dt.date(2026, 3, 3),
+            )
+            for cls, pct in (
+                (AssetClass.US_EQUITY, "70"),
+                (AssetClass.INTL_EQUITY, "20"),
+                (AssetClass.BONDS, "10"),
+            )
+        ]
+        + [
+            AccountAllocation(
+                account_id=accounts["Brokerage"].id,
+                asset_class=AssetClass.US_EQUITY,
+                percentage=Decimal("100"),
+                effective_from=dt.date(2025, 11, 1),
+            )
         ]
     )
 

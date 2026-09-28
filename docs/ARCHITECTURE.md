@@ -168,7 +168,9 @@ Rounding per account rather than on the total means the figure on screen always 
 sum of the rows above it. Rounding at the end produces a dashboard where the numbers visibly
 don't add up, which destroys trust in every other number on the page.
 
-This is the only rounding site in the codebase.
+This is the only rounding site in the codebase. Its companion, `split` in the same module,
+divides an already-rounded figure — an account's balance by asset class — by largest remainder,
+so the parts sum exactly to it and nothing is rounded twice.
 
 If holdings-level tracking (shares × price) is ever added, prices need their own precision —
 2dp is correct for balances and wrong for unit prices. That's a Later concern, called out so
