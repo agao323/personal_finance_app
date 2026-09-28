@@ -1,5 +1,5 @@
 # 107 — Switch it on: the advisor in production
-Status: todo
+Status: in-progress
 Wave: 10   Lane: —
 Touches: none (configuration, a runbook, and records)
 Blocked by: 099, 100, 102, 103, 105, 106 — and the gates in DECISIONS.md, 2026-09-27
@@ -27,7 +27,7 @@ runbook for the day something goes wrong.
 - [ ] After the first week: tools used, rows returned, `withheld_count` totals, cost against the
       estimate, and the `note_limitation` ranking — written into ADVISOR.md#cost and ticket 080, and
       used to order Waves 11 and 12.
-- [ ] `docs/runbooks/advisor.md`: enabling and disabling; rotating the key; reading month-to-date
+- [x] `docs/runbooks/advisor.md`: enabling and disabling; rotating the key; reading month-to-date
       spend; running `make advisor-purge`; on a suspected injection — switch off, find the turn's
       tool calls, find the withheld rows by table and id, fix or remove the source text; and the
       **monthly review** from ADVISOR.md — read flagged answers inside the 30-day window, name and
@@ -42,3 +42,20 @@ runbook for the day something goes wrong.
 The same shape as ticket 037's infrastructure half: the code is done before this starts, and this
 ticket is the owner's hands on the dashboards plus the records that prove it was done. Nothing here
 is authorable by a session.
+
+## Progress — 2026-09-28
+
+The runbook is written (`docs/runbooks/advisor.md`). **Everything else here is the owner's**, in
+this order:
+
+1. Record the gates: ADR 0008's restore drill against production; then ADR 0009 → accepted once
+   step 3's results are in.
+2. Anthropic Console: `pfa-prod` workspace (key, $25/month limit) and `pfa-eval` workspace (key,
+   its own limit).
+3. `make eval provider=anthropic n=3` with `EVAL_ANTHROPIC_API_KEY` set; record the run in
+   ADVISOR.md#eval-runs; `make eval-examples` and review the diff.
+4. `fly secrets set -a pfa-api ANTHROPIC_API_KEY=… ADVISOR_ENABLED=true`.
+5. The stream-check through Cloudflare, the kill-switch drill and the cancellation drill,
+   recorded here with timings.
+6. After a week: the usage numbers and the `note_limitation` ranking, into ADVISOR.md#cost and
+   ticket 080.
