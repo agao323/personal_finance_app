@@ -28,6 +28,30 @@
       "unit": "cents",
       "value": 140283
     },
+    "fire_earliest_year": {
+      "unit": "count",
+      "value": 2050
+    },
+    "fire_save_500_year": {
+      "unit": "count",
+      "value": 2049
+    },
+    "fire_spend_cut_year": {
+      "unit": "count",
+      "value": 2049
+    },
+    "fire_success_4pct": {
+      "unit": "bps",
+      "value": 7640
+    },
+    "fire_success_high_rate": {
+      "unit": "bps",
+      "value": 6120
+    },
+    "fire_success_low_rate": {
+      "unit": "bps",
+      "value": 9600
+    },
     "fund_runway": {
       "unit": "months_tenths",
       "value": 271

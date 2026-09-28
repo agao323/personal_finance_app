@@ -21,7 +21,7 @@ from app.services.analysis.projections import Plan, ProjectionUnavailableError
 from app.services.balances import record_balance
 from app.services.ownership import create_initial_stake
 
-SYNTHETIC = Path(__file__).parent / "fixtures" / "returns_synthetic.csv"
+SYNTHETIC = Path(__file__).parents[1] / "evals" / "returns_synthetic.csv"
 JAN = dt.date(2026, 1, 1)
 TODAY = dt.date(2026, 8, 18)
 ALL_US = {AssetClass.US_EQUITY: Decimal(1)}
@@ -269,6 +269,8 @@ def household(
         account = make_account(name=name, kind=kind, subtype=subtype)
         create_initial_stake(db_session, account, owner_id, JAN)
         record_balance(db_session, account, TODAY, Decimal(balance))
+        row = db_session.get_one(Account, account)
+        row.tax_treatment = allocations.default_tax_treatment(row.subtype)
         return account
 
     ids = {

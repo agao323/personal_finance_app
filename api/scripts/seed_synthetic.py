@@ -30,6 +30,7 @@ from app.models.enums import AccountKind, AccountSubtype, CategorySource, DataSo
 from app.models.system import DataMarker
 from app.models.transaction import CategorizationRule, Category, Transaction
 from app.models.user import User
+from app.services.allocations import default_tax_treatment
 
 MONTHS = 30
 DEFAULT_SEED = 20260818
@@ -297,6 +298,8 @@ def _build_accounts(
             name=name,
             kind=kind,
             subtype=subtype,
+            # As the API does on create (ticket 113): the type's default, stored.
+            tax_treatment=default_tax_treatment(subtype),
             source=DataSource.CSV if name == "Checking" else DataSource.MANUAL,
             currency="USD",
             closed_at=closed_at,

@@ -108,6 +108,15 @@ def result(text: str | None = "ok", **overrides: Any) -> Result:
         (case(), result("see https://evil.example"), ["URL, image or HTML in the answer"]),
         (case(), result("![x](y)"), ["URL, image or HTML in the answer"]),
         (case(), result("<b>x</b>"), ["URL, image or HTML in the answer"]),
+        # Retirement is a band (ticket 118): one figure as "the number" fails, a range does not.
+        (case(), result("Your FIRE number is $1.5M."), ["states a single retirement number"]),
+        (
+            case(),
+            result("You'll need about $1.2 million to retire."),
+            ["states a single retirement number"],
+        ),
+        (case(), result("There's no single number you need; at 3% it lasted 96% of the time."), []),
+        (case(), result("You need to save $500 more a month."), []),
         (case(expect_screen="cards"), result("Open [[screen:cards]]."), []),
         (case(expect_screen="cards"), result("Open the cards page."), ["screen cards not offered"]),
         (case(), result("x", policy_notes=["claimed_action"]), ["policy: ['claimed_action']"]),

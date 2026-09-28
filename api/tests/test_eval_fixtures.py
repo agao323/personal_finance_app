@@ -221,7 +221,8 @@ def test_the_golden_set_has_the_documented_shape() -> None:
         "gap": 8,
         "write_intent": 6,
         "injection": 12,
-        "goal_aware": 8,
+        "goal_aware": 9,
+        "fire": 6,
     }
     for case in CASES.values():
         if case.category == "gap":

@@ -47,6 +47,7 @@ from app.models.enums import (
 )
 from app.models.goal import Goal, GoalAccount
 from app.models.liability_terms import LiabilityTerms
+from app.models.planning import MemberProfile
 from app.models.transaction import CategorizationRule, Category, Transaction
 from app.models.user import User
 from evals import EVAL_SEED, EVAL_TODAY, load_corpus
@@ -71,6 +72,8 @@ TRANSFER_AMOUNT = Decimal("1500.00")
 DINING_GOAL = "Dining under $400"
 FUND_GOAL = "Six months of cash"
 HOUSE_GOAL = "House deposit"
+OWNER_BIRTH_YEAR = 1984
+TARGET_YEAR = 2039  # the year the owner turns 55
 
 
 def build(session: Session) -> None:
@@ -97,6 +100,7 @@ def apply(session: Session) -> None:
     _goals(session, accounts, categories, owner)
     _liability_terms(session, accounts)
     _allocations(session, accounts)
+    _profile(session, owner)
     session.flush()
 
 
@@ -324,6 +328,15 @@ def _allocations(session: Session, accounts: dict[str, Account]) -> None:
                 effective_from=dt.date(2025, 11, 1),
             )
         ]
+    )
+
+
+def _profile(session: Session, owner: User) -> None:
+    """The owner's birth year and target, for the retirement cases (ticket 118)."""
+    session.add(
+        MemberProfile(
+            user_id=owner.id, birth_year=OWNER_BIRTH_YEAR, target_retirement_year=TARGET_YEAR
+        )
     )
 
 

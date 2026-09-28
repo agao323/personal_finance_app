@@ -28,7 +28,7 @@ from app.advisor.tools import ToolContext, load_all
 from app.models.transaction import Category
 from app.models.user import User
 from app.schemas.common import ViewScope
-from evals import overlay
+from evals import overlay, synthetic_returns
 
 Unit = str
 
@@ -198,6 +198,29 @@ def _assumption(field: str) -> Callable[[Session, dt.date], Any]:
     return lambda s, t: getattr(run_tool(s, t, "planning_profile", {}).assumptions, field)
 
 
+def _band_rate(rate_bps: int) -> Callable[[Session, dt.date], Any]:
+    """Bootstrap success at one withdrawal rate, at the target year (ticket 118)."""
+
+    def compute(s: Session, t: dt.date) -> Any:
+        band = run_tool(s, t, "projection_retirement", {}).band
+        return next(r for r in band.by_rate if r.rate_bps == rate_bps).bootstrap_success_bps
+
+    return compute
+
+
+def _earliest_year(s: Session, t: dt.date) -> Any:
+    return run_tool(s, t, "projection_retirement", {}).band.earliest_year
+
+
+def _what_if_year(change: str, value: int) -> Callable[[Session, dt.date], Any]:
+    """The scenario's earliest 90% year after one change."""
+    return lambda s, t: (
+        run_tool(
+            s, t, "projection_what_if", {"change": change, "value": value}
+        ).scenario.earliest_year
+    )
+
+
 H, M = ViewScope.HOUSEHOLD, ViewScope.MINE
 
 FACTS: dict[str, Fact] = {
@@ -277,14 +300,30 @@ FACTS: dict[str, Fact] = {
     "assumed_return": Fact(
         "bps", _assumption("expected_real_return_bps"), "The stated real return (the default)"
     ),
+    # retirement (ticket 118): the band's endpoints and the earliest 90% year, from the engine
+    "fire_success_low_rate": Fact("bps", _band_rate(300), "Success at a 3% withdrawal rate"),
+    "fire_success_4pct": Fact("bps", _band_rate(400), "Success at a 4% withdrawal rate"),
+    "fire_success_high_rate": Fact("bps", _band_rate(450), "Success at a 4.5% withdrawal rate"),
+    "fire_earliest_year": Fact("count", _earliest_year, "The earliest year reaching 90%"),
+    "fire_save_500_year": Fact(
+        "count",
+        _what_if_year("extra_monthly_saving", 50_000),
+        "The earliest 90% year saving $500 more a month",
+    ),
+    "fire_spend_cut_year": Fact(
+        "count",
+        _what_if_year("spend_change_bps", -1000),
+        "The earliest 90% year spending 10% less",
+    ),
 }
 
 
 def compute_all(session: Session, today: dt.date) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
-    for name, fact in FACTS.items():
-        value = fact.compute(session, today)
-        if isinstance(value, dt.date):
-            value = value.isoformat()
-        out[name] = {"unit": fact.unit, "value": value}
+    with synthetic_returns():
+        for name, fact in FACTS.items():
+            value = fact.compute(session, today)
+            if isinstance(value, dt.date):
+                value = value.isoformat()
+            out[name] = {"unit": fact.unit, "value": value}
     return out

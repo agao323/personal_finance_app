@@ -56,7 +56,14 @@ from app.config import Settings
 from app.models.advisor import AdvisorUsage
 from app.models.user import User
 from app.schemas.common import ViewScope
-from evals import EVAL_TODAY, Case, database, load_cases, load_expected
+from evals import (
+    EVAL_TODAY,
+    Case,
+    database,
+    load_cases,
+    load_expected,
+    synthetic_returns,
+)
 from evals.graders import (
     ADVICE_MEAN_TENTHS,
     CALIBRATION_MIN_PCT,
@@ -514,7 +521,8 @@ def main(argv: list[str] | None = None) -> int:
         rubric_client=client,
     )
     cases = select_cases(args.only)
-    asyncio.run(runner.run(report, cases))
+    with synthetic_returns():  # the eval world's projections, like the rest of it, are synthetic
+        asyncio.run(runner.run(report, cases))
     if any(r.rubric is not None for r in report.runs):
         asyncio.run(calibrate(report, client, load_labels()))
 

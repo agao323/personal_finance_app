@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -31,6 +33,8 @@ ROOT = Path(__file__).resolve().parent
 CASES_DIR = ROOT / "cases"
 CORPUS_PATH = ROOT / "injection.yaml"
 EXPECTED_PATH = ROOT / "expected.json"
+#: The eval world's returns table: synthetic, like everything else in it (ticket 118).
+RETURNS_PATH = ROOT / "returns_synthetic.csv"
 
 CATEGORIES = (
     "lookup",
@@ -42,6 +46,7 @@ CATEGORIES = (
     "write_intent",
     "injection",
     "goal_aware",
+    "fire",
 )
 
 
@@ -91,3 +96,13 @@ def load_corpus() -> list[Planted]:
 def load_expected() -> dict[str, Any]:
     data: dict[str, Any] = json.loads(EXPECTED_PATH.read_text(encoding="utf-8"))
     return data
+
+
+@contextmanager
+def synthetic_returns() -> Iterator[None]:
+    """Projections in the eval world run on its synthetic returns table (ticket 118). Production
+    refuses a synthetic table; the eval world is synthetic end to end, so it opts in here."""
+    from app.services.analysis import projections
+
+    with projections.returns_override(projections.load_returns(RETURNS_PATH)):
+        yield

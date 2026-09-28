@@ -10,7 +10,6 @@
   scope: mine
   question: "Am I saving enough to retire at 60?"
   tools_any: [projection_retirement]
-  pending: "118"
 - id: goal-allocation-drift
   category: goal_aware
   scope: mine

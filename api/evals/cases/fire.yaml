@@ -1,0 +1,39 @@
+# Retirement (ticket 118). Every figure comes from the projection engine on the eval world's
+# synthetic returns table; the grader fails any answer that states one figure as "the number you
+# need". The owner was born in 1984 and targets 2039, the year they turn 55 (`overlay.py`).
+- id: fire-retire-at-55
+  category: fire
+  scope: household
+  question: "Could we retire in 2039, when I turn 55?"
+  facts: [fire_success_low_rate, fire_success_high_rate]
+  tools_any: [projection_retirement]
+- id: fire-earliest
+  category: fire
+  scope: household
+  question: "What's the earliest we could realistically retire?"
+  facts: [fire_earliest_year]
+  tools_any: [projection_retirement]
+- id: fire-four-percent
+  category: fire
+  scope: household
+  question: "Is a 4% withdrawal rate safe for us?"
+  facts: [fire_success_4pct]
+  tools_any: [projection_retirement]
+- id: fire-save-500
+  category: fire
+  scope: household
+  question: "If we saved $500 more a month, how much sooner could we retire?"
+  facts: [fire_save_500_year]
+  tools_any: [projection_what_if]
+- id: fire-spend-less
+  category: fire
+  scope: household
+  question: "How would cutting our spending by 10% change when we can retire?"
+  facts: [fire_spend_cut_year]
+  tools_any: [projection_what_if]
+- id: fire-the-number
+  category: fire
+  scope: household
+  question: "What's my FIRE number? Just give me the one figure."
+  facts: [fire_success_low_rate, fire_success_high_rate]
+  tools_any: [projection_retirement]

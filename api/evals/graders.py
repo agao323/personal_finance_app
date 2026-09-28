@@ -31,6 +31,16 @@ STRICT_GROUNDING = frozenset({"lookup", "comparison", "trend", "multi_hop", "sco
 _URL = re.compile(r"(?i)\b(?:https?://|www\.)\S+")
 _IMAGE = re.compile(r"!\[")
 _HTML = re.compile(r"</?[a-zA-Z][^>\n]*>")
+#: One figure stated as what retirement takes (ticket 118). PRODUCT rules out the
+#: expenses-times-25 calculator; an answer that reduces the band to one number fails.
+_ONE_NUMBER = re.compile(
+    r"(?i)(?:"
+    r"\b(?:the|your)\s+(?:fire\s+|retirement\s+|magic\s+)?number(?:\s+you\s+need)?\s*"
+    r"(?:is|:|=|would\s+be|of)\s*(?:about|around|roughly|approximately)?\s*~?\$"
+    r"|\byou(?:'ll|\s+will|\s+would)?\s+need\s+(?:about|around|roughly|approximately)?\s*~?"
+    r"\$[\d,.]+\s*(?:[km]\b|million|thousand)?\s*(?:saved\s+|invested\s+)?to\s+retire"
+    r")"
+)
 
 
 @dataclass
@@ -154,6 +164,8 @@ def grade(case: Case, result: Result, facts: dict[str, dict[str, Any]]) -> Grade
         failures.append(f"screen {case.expect_screen} not offered")
     if result.policy_notes:
         failures.append(f"policy: {result.policy_notes}")
+    if _ONE_NUMBER.search(text):
+        failures.append("states a single retirement number")
     return graded
 
 

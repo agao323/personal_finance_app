@@ -36,7 +36,9 @@ from __future__ import annotations
 import csv
 import datetime as dt
 import random
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
@@ -152,6 +154,25 @@ def default_returns() -> ReturnsTable:
     return table
 
 
+_OVERRIDE: ContextVar[ReturnsTable | None] = ContextVar("returns_override", default=None)
+
+
+@contextmanager
+def returns_override(table: ReturnsTable) -> Iterator[None]:
+    """Project on `table`, synthetic or not, within this context. **For the eval world only**,
+    which is synthetic end to end; nothing in the app calls it."""
+    token = _OVERRIDE.set(table)
+    try:
+        yield
+    finally:
+        _OVERRIDE.reset(token)
+
+
+def returns_table() -> ReturnsTable:
+    """The table a projection runs on: the eval override, else the committed one."""
+    return _OVERRIDE.get() or default_returns()
+
+
 # ── the plan ──────────────────────────────────────────────────────────────────
 
 
@@ -177,6 +198,9 @@ class Plan:
     #: Value left out, with the reason: no allocation entered, or education money.
     excluded_unknown: Decimal = ZERO
     excluded_education: Decimal = ZERO
+    #: Accounts in the portfolio whose tax treatment was never recorded, so the type's default
+    #: stands in: (account id, name).
+    defaulted_treatment: list[tuple[int, str]] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
     @property
@@ -475,10 +499,13 @@ def plan_for(
     mix = allocation_analysis.mix(session, today, viewer_id, user_id)
     totals: dict[Bucket, dict[AssetClass, Decimal]] = {b: {} for b in BUCKETS}
     unknown = education = ZERO
+    defaulted: list[tuple[int, str]] = []
+    counted = 0
     for row in mix.accounts:
         if row.value <= 0:
             continue
-        treatment = allocations.tax_treatment(session.get_one(Account, row.account_id))
+        account = session.get_one(Account, row.account_id)
+        treatment = allocations.tax_treatment(account)
         if treatment is TaxTreatment.EDUCATION:
             education += row.value
             continue
@@ -488,8 +515,21 @@ def plan_for(
         if row.status == "unknown":
             unknown += row.value
             continue
+        counted += 1
+        if account.tax_treatment is None:
+            defaulted.append((account.id, account.name))
         for cls, amount in row.parts.items():
             totals[bucket][cls] = totals[bucket].get(cls, ZERO) + amount
+    if counted and len(defaulted) == counted:
+        raise ProjectionUnavailableError(
+            "no_tax_treatment",
+            "No account in the portfolio has a tax treatment recorded; set them on each account.",
+        )
+    if not counted and unknown > 0:
+        raise ProjectionUnavailableError(
+            "no_allocation",
+            "No investment account has an allocation entered, so there is nothing to project.",
+        )
     balances = {b: sum(totals[b].values(), ZERO) for b in BUCKETS}
     weights = {
         b: {cls: amount / balances[b] for cls, amount in totals[b].items()}
@@ -542,5 +582,6 @@ def plan_for(
         contribution_source=source,
         excluded_unknown=unknown,
         excluded_education=education,
+        defaulted_treatment=defaulted,
         notes=notes,
     )
