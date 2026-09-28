@@ -32,7 +32,7 @@ runs out of budget mid-change and leaves the repo broken.
 | 7 — Cards | 053–059 | **053 → 054 → 5 lanes** | Multiple cards, editing, cadence-aware urgency, history, net value |
 | 8 — Connectors | 075 | planning | SimpleFIN: transactions nightly, credits marked from them. **Blocked by 017.** |
 | 9 — Advisor foundations | 080–094 | **081 → 082 → 083, then 3 lanes** | Tools, analyses, findings, and an Insights panel. **No model, no egress.** Plan: 080 |
-| 10 — Advisor loop and chat | 095–107 | **2 lanes**, then 107 | Loop, audit, caps, grounding, evals, streaming chat. Ships **switched off**; 107 switches it on behind gates |
+| 10 — Advisor loop and chat | 095–107, 120 | **2 lanes**, then 107 | Loop, audit, caps, grounding, evals, streaming chat — built on a free local model (120). Ships **switched off**; 107 switches it on behind gates, and is the first thing that costs money |
 | 11 — Goals | 108–111 | serial | Spending limits, emergency fund, savings targets; stated assumptions; goal-aware advice |
 | 12 — Debt and projections | 112–118 | 112 → 113, then fan-out | Liability terms, tax treatment, allocation, debt strategies, projections to the FIRE bar |
 | 13 — Monthly review | 119 | optional | User-initiated, in-app only |
@@ -122,7 +122,7 @@ advisor route stubbed at `501`, every model and the SSE event union generated in
 |---|---|---|---|
 | **T** | Tools | 084–086 | `api/app/advisor/tools/{balances,spending,cards}.py` |
 | **S** | Analyses and findings | 087–093 | `api/app/services/analysis/**` (after 083's `periods.py`), `api/app/services/findings.py`, `api/app/advisor/tools/analysis.py`, `api/app/routers/insights.py` |
-| **L** | Loop | 095–099, 101–103 | `api/app/advisor/{model,pricing,loop,store,grounding,answer,sse}.py`, `advisor/prompts/`, `advisor/tools/meta.py`, `models/advisor.py`, `routers/advisor.py`, `api/evals/**`, migration 0007 |
+| **L** | Loop | 095–099, 101–103, 120 | `api/app/advisor/{model,model_local,pricing,loop,store,grounding,answer,sse}.py`, `advisor/prompts/`, `advisor/tools/meta.py`, `models/advisor.py`, `routers/advisor.py`, `api/evals/**`, migration 0007 |
 | **W** | Web | 094, 100, 104–106 | `web/src/components/{insights,advisor}/**`, `web/src/app/(dashboard)/advisor/**`, `web/src/lib/{screens,advisor-stream,markdown-lite}.ts`, and `route.ts` for 100 only |
 
 - **Lane W starts the day 081 merges**, in Wave 9. Its `Integrates with` fields name the API

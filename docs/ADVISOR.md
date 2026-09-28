@@ -118,9 +118,15 @@ call the existing services in-process. [ADR 0010](adr/0010-the-advisor-loop-runs
 has the alternatives (a Next.js route, the SDK's beta Tool Runner, Managed Agents) and why they
 lost.
 
-A provider-neutral `ModelClient` protocol is the seam. Two implementations ship:
-`AnthropicModelClient`, and `ScriptedModelClient`, which replays a scripted sequence of tool
-calls and text so the whole loop runs in CI without a network. Stored history is
+A provider-neutral `ModelClient` protocol is the seam. Three implementations ship:
+
+- `ScriptedModelClient` replays a scripted sequence of tool calls and text, so the whole loop runs
+  in CI without a network.
+- `LocalModelClient` (ticket 120) talks to a free open-weight model on the owner's Mac. **It is
+  the default for development and evals**, against the synthetic seed, and is refused on any
+  deployment.
+- `AnthropicModelClient` is the production provider, first used when ticket 107 switches the
+  advisor on. Stored history is
 Anthropic-shaped content blocks; another provider would need a translation layer, which is
 [ADR 0009](adr/0009-advisor-model-provider.md)'s revisit cost.
 
@@ -524,6 +530,11 @@ routes. No URL is ever model-authored.
 
 ## Cost
 
+**Nothing is spent until production is switched on.** Wave 9 calls no model. Wave 10 is built and
+tested against the scripted model in CI and a local model on the laptop (ticket 120), both free.
+The first paid call is the first question after ticket 107. Everything below is about what
+happens after that.
+
 A representative question on `claude-opus-5` with a warm cache — three model calls, about 7,300
 tokens of cached prefix (tools, system, tool-use preamble), 5,000 tokens of tool results, 1,600
 output tokens including adaptive thinking:
@@ -866,14 +877,20 @@ chat against MSW streams, including an answer that tries to render an image.
 Seeds a local database, runs the golden set live against the configured model with the `pfa-eval`
 key, prints a per-case table, pass rates per category against the thresholds, token totals and
 **cost**. `n=3` repeats each case for release gates; `only=injection` filters; `max_cost=10`
-aborts past a spend (default $10). One run of about 70 cases is roughly $7.
+aborts past a spend (default $10). One run of about 70 cases is roughly $7 on the hosted model.
+
+`make eval provider=local` runs the same suite against the laptop's model **for nothing**. It is
+the everyday development loop, and it measures whether a free model is good enough, which is
+ADR 0009's first revisit condition. Release gates for production still run against the model
+being deployed.
 
 ## Open decisions
 
 Each has a recommendation; ticket 080 carries the same list.
 
-1. **Model provider.** Recommended: the Anthropic API behind `ModelClient`; self-hosting revisited
-   on the conditions in [ADR 0009](adr/0009-advisor-model-provider.md).
+1. **Model provider.** Recommended: a free local model for development and evals, and the
+   Anthropic API in production from ticket 107, behind `ModelClient`. Self-hosting in production is
+   revisited on the conditions in [ADR 0009](adr/0009-advisor-model-provider.md).
 2. **Row-level transactions to the provider.** Recommended: bounded rows — 25 per call, 100 per
    turn, descriptions truncated to 80 characters and sanitised.
 3. **Model and effort.** Recommended: `claude-opus-5` at `medium`, then let `make eval` compare

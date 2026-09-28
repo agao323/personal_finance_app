@@ -44,6 +44,12 @@ protocol, and minimise what is sent.**
   names or institution names ([ADVISOR.md#provider-data-handling](../ADVISOR.md#provider-data-handling)).
 - Nothing about the tools, the findings engine, the grounding check or the evals knows which
   provider is behind the seam. Swapping means one adapter and one `make eval` run.
+- **Development and evals default to a free local model** (ticket 120): an open-weight model on
+  the owner's Mac, reached by the local stack, against the synthetic seed. That is the laptop
+  option without the objections below. Nothing is on Fly's private network, nothing needs to be
+  awake for a phone, and nothing real is read. The local provider is refused on any deployment.
+  **The hosted API is first used, and first paid for, when 107 switches the advisor on in
+  production.**
 
 ## Alternatives considered
 
@@ -79,8 +85,9 @@ would then operate the serving stack too. No privacy gain over the API, more to 
 
 ## Consequences
 
-**Easy.** The strongest tool use and reasoning available, no hardware, pay per question, a hard
-provider-side spend limit. The evals measure quality instead of assuming it.
+**Easy.** The strongest tool use and reasoning available in production, no hardware, pay per
+question, a hard provider-side spend limit. Building it costs nothing, because development runs on
+the local model. The evals measure quality instead of assuming it.
 
 **Hard.** A fourth processor reads household data, with 30-day retention and up to two years if
 something is flagged. The advisor depends on a vendor's model lifecycle: models retire and SDKs
@@ -94,7 +101,9 @@ conversations' replay. Cheap to accept today; worth knowing before switching.
 **Revisit when** any of these becomes true:
 
 1. An open-weight model passes the [eval thresholds](../ADVISOR.md#pass-thresholds) on hardware
-   the household would run always-on — measured, not read from a leaderboard.
+   the household would run always-on — measured, not read from a leaderboard. Ticket 120 makes
+   this free to measure: `make eval provider=local` runs the same suite against the laptop's
+   model.
 2. Anthropic's retention or training terms change for the worse.
 3. GPUs become available inside the Fly organisation again, or the app moves to a host that has
    them.

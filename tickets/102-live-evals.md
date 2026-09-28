@@ -3,6 +3,7 @@ Status: todo
 Wave: 10   Lane: L
 Touches: none
 Blocked by: 098, 099, 101
+Integrates with: 120
 Read first: docs/ADVISOR.md#evals, docs/ADVISOR.md#pass-thresholds
 
 ## Goal
@@ -11,9 +12,10 @@ answer, compares the results with the thresholds, and prints what it cost. It is
 for switching the advisor on and for every later change of model, effort, prompt or tool.
 
 ## Acceptance criteria
-- [ ] `api/evals/run.py` seeds a local database with the overlay, runs the cases through
-      `AnthropicModelClient` with the **eval** key (`EVAL_ANTHROPIC_API_KEY`, the `pfa-eval`
-      workspace — never the production one), and supports `n=` repeats, `only=` filtering and
+- [ ] `api/evals/run.py` seeds a local database with the overlay and runs the cases through the
+      chosen provider: `provider=local` (120's adapter, **free**, the default while building) or
+      `provider=anthropic` with the **eval** key (`EVAL_ANTHROPIC_API_KEY`, the `pfa-eval`
+      workspace — never the production one). It supports `n=` repeats, `only=` filtering and
       `max_cost=` (default $10, aborting cleanly past it).
 - [ ] `api/evals/graders.py`, deterministic first: grounding re-run; required facts present in an
       allowed form; tool assertions; the expected limitation; no canary, URL, image or HTML in the

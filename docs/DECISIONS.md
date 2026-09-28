@@ -5,6 +5,27 @@ Implementation-level decisions made during tickets go in `adr/` instead.
 
 ---
 
+## 2026-09-27 — The advisor is built for free; money is spent only when production is switched on
+
+Asked whether there is a way to start that costs nothing: there is, and it is now the plan's
+default rather than an option.
+
+- **Wave 9** calls no model at all.
+- **Wave 10** is built and tested against a scripted model in CI and a **free open-weight model on
+  the owner's Mac** (ticket 120), against the synthetic seed. `make eval provider=local` runs the
+  golden set at no cost.
+- **The hosted API is first called, and first paid for, at ticket 107**, when the owner switches the
+  advisor on in production.
+
+This is the laptop option ADR 0009 rejected for production, used where its objections do not apply.
+Nothing joins Fly's private network, nothing has to be awake for a phone, and nothing real is read.
+The local provider is refused on any deployment, in code.
+
+*Rules out:* free tiers of hosted model APIs for real data. They generally pay for themselves with
+the data, on terms worse than the paid tiers'.
+
+---
+
 ## 2026-09-27 — The AI advisor: the half without a model ships first, the half with one still ships last
 
 PRODUCT listed the AI agent as Later, and SECURITY.md said it **ships last**: highest risk, lowest

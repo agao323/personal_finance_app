@@ -55,10 +55,15 @@ Contract first (081), then the read models the tools need move out of routers in
 (082), then the tool framework (083). Three lanes: tools (084–086), analyses and findings
 (087–093), web (094). Spending analysis leads, as decided on 2026-09-27. No model, no egress.
 
-### Phase 2 — Wave 10, lane L: loop, audit, caps, grounding, evals (095–103, 107)
-The advisor tables (095), the model client and price table (096), the loop (097), grounding
-(098), the streaming endpoints (099), eval fixtures in CI (101) and the live `make eval` (102),
-privacy and operations hardening (103), and switching it on (107).
+### Phase 2 — Wave 10, lane L: loop, audit, caps, grounding, evals (095–103, 120, 107)
+The advisor tables (095), the model client and price table (096), a free local model for
+development and evals (120), the loop (097), grounding (098), the streaming endpoints (099), eval
+fixtures in CI (101) and the live `make eval` (102), privacy and operations hardening (103), and
+switching it on (107).
+
+**Nothing costs money until 107.** Wave 9 calls no model; Wave 10 is built against the scripted
+model in CI and a local model on the laptop. The hosted API is first called — and first paid for —
+in production, when the owner decides.
 
 ### Phase 3 — Wave 10, lane W: the chat (100, 104–106)
 The BFF forwards cancellation and does not buffer (100); the `/advisor` screen (104); streaming,
@@ -83,11 +88,12 @@ advisor could not answer and why; a month of real use ranks them, and that ranki
 document's guess.
 
 ## Open decisions
-1. **Model provider.** Recommended: the Anthropic API, `claude-opus-5`, behind a provider-neutral
-   seam. Self-hosted open-weight models were investigated on 2026-09-27 — Fly's GPUs are retired,
-   a laptop-hosted model would be offline whenever the laptop sleeps and would have to join
-   production's private network, and a rented GPU is another third party. Full record and revisit
-   conditions in [ADR 0009](../docs/adr/0009-advisor-model-provider.md).
+1. **Model provider.** Recommended: a free local model for development and evals (120), and the
+   Anthropic API, `claude-opus-5`, in production from 107 — behind a provider-neutral seam.
+   Self-hosting *in production* was investigated on 2026-09-27 and not chosen: Fly's GPUs are
+   retired, a laptop-hosted model would be offline whenever the laptop sleeps and would have to
+   join production's private network, and a rented GPU is another third party. Full record and
+   revisit conditions in [ADR 0009](../docs/adr/0009-advisor-model-provider.md).
 2. **Row-level transactions to the provider.** Recommended: bounded — 25 rows a call, 100 a turn,
    descriptions cut to 80 characters and sanitised. Aggregates stay the default.
 3. **Model and effort.** Recommended: `claude-opus-5` at `medium` effort; let `make eval` test
