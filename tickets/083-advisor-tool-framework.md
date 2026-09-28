@@ -1,5 +1,5 @@
 # 083 — The tool framework: registry, strict schemas, read-only calls, sanitised results
-Status: todo
+Status: done
 Wave: 9   Lane: —
 Touches: none
 Blocked by: none
@@ -13,40 +13,40 @@ returns a sanitised, pre-formatted rendering. Two throwaway test tools exercise 
 come in 084–093.
 
 ## Acceptance criteria
-- [ ] `advisor/tools/__init__.py`: a `@tool` decorator registering name, description, input model,
+- [x] `advisor/tools/__init__.py`: a `@tool` decorator registering name, description, input model,
       result model, shape (`aggregate` or `rows`) and whether it is scoped. `schemas()` returns the
       tool definitions **sorted by name**, strict: `additionalProperties: false`, every property in
       `required`, optional parameters nullable.
-- [ ] `run(call, ctx)`: validate → check budget → execute → sanitise → render. Invalid arguments
+- [x] `run(call, ctx)`: validate → check budget → execute → sanitise → render. Invalid arguments
       return an `is_error` result with the reason; an exhausted budget returns `budget_exhausted`.
       Neither raises.
-- [ ] Each call runs in its own session, `SET TRANSACTION READ ONLY`, `statement_timeout` 5 s. A
+- [x] Each call runs in its own session, `SET TRANSACTION READ ONLY`, `statement_timeout` 5 s. A
       test tool that attempts an `INSERT` fails with Postgres's read-only error — **in the suite's
       rolled-back fixture and through a real session**, as `tests/test_db.py` does. Record in the
       test which mechanism the fixture needed (a read-only savepoint, or the fallback in
       ADVISOR.md).
-- [ ] `ToolContext` carries `today`, the viewer id resolved from the authenticated user, the
+- [x] `ToolContext` carries `today`, the viewer id resolved from the authenticated user, the
       default scope, the turn budget, a session factory and an audit sink (a protocol; in memory
       here, the database in 097). No tool reads the clock.
-- [ ] **Schema lint test**: walks every registered tool and fails on any string property without an
+- [x] **Schema lint test**: walks every registered tool and fails on any string property without an
       `enum` or a `pattern` plus `maxLength`, any unbounded integer, or any free-text property
       other than `merchant_query` — whose pattern must reject `/` and `:`.
-- [ ] `advisor/sanitize.py` implements ADVISOR.md#prompt-injection and is applied to every result
+- [x] `advisor/sanitize.py` implements ADVISOR.md#prompt-injection and is applied to every result
       field ending `_text`. Tested against a corpus of at least 30 strings: zero-width and bidi
       characters, Unicode tag characters, URLs in many shapes, markdown images and links, HTML,
       chat-template tokens, role markers, and every registered tool name.
-- [ ] `advisor/render.py` is the one formatter: cents → `$1,234.56` (negatives `-$12.34`), bps →
+- [x] `advisor/render.py` is the one formatter: cents → `$1,234.56` (negatives `-$12.34`), bps →
       `12.3%`, ISO dates, and the envelope `{tool, call, as_of, scope, stale…, data}`, capped at
       8 KB with `truncated`. **Every figure gets a reference id** — `c2.net_worth`,
       `c4.buckets.3.change` — shown beside its display form, and `render.resolve(ref)` returns the
       typed value and canonical form for the grounding check (ADVISOR.md#grounding).
-- [ ] Tool conventions, enforced by the lint test where they can be: names namespaced by area
+- [x] Tool conventions, enforced by the lint test where they can be: names namespaced by area
       (`networth_*`, `spend_*`, `cards_*`, `accounts_*`, …); a description of at least two
       sentences saying what the tool answers and which tool to use instead; `detail:
       concise | full` on tools whose full result is large; error messages that say what to do next.
-- [ ] `services/analysis/periods.py` resolves the period presets, calendar-aligned, from `today`,
+- [x] `services/analysis/periods.py` resolves the period presets, calendar-aligned, from `today`,
       with span caps; partial periods report the elapsed days so comparisons can be like-for-like.
-- [ ] Tests: unit — sanitiser corpus, renderer formats (including half-cent and negative cases),
+- [x] Tests: unit — sanitiser corpus, renderer formats (including half-cent and negative cases),
       schema generation, every period preset on quarter and year boundaries and 29 February;
       functional — read-only enforcement both ways, budget accounting.
 
@@ -65,3 +65,29 @@ is off because it would switch off the provider's half (ADR 0010).
 The sanitiser only ever touches what is sent to a model. Stored data and screens are unchanged —
 React already escapes it, and rewriting a merchant name in the database would be a write the
 advisor is not allowed to make.
+
+## Done — 2026-09-27
+
+- **Read-only, both ways, verified before it was written.** Postgres allows a savepoint to be
+  switched to `READ ONLY`, refuses a write inside it (`ReadOnlySqlTransaction`), and restores
+  read-write on rollback to the savepoint. So tests run tools in a read-only savepoint on the
+  suite's own session (`savepoint_read_only`), and production uses `fresh_read_only_session`;
+  `test_advisor_framework.py` asserts the refusal on both. One trap found while probing: a
+  read-only transaction may still write to **temporary** tables, so a probe that uses one
+  proves nothing.
+- **Strict schemas lose their constraints, not their checking.** Strict tool schemas reject
+  `minimum`, `maximum`, `minLength`, `maxLength` and — to be safe — `pattern`, so
+  `strict_schema` moves each into the property's description ("at most 25") and inlines
+  `$ref`s. Pydantic still enforces every one of them in `Registry.run`.
+- **Figures render as `$1,234.56 [c2.net_worth]`.** The reference sits beside the value so the
+  model copies it rather than counting list positions. The rendering is lossless, so
+  `render.figures_in` rebuilds the references from a stored transcript — no second store.
+  `*_months_tenths` renders as `*_months` (`runway_months`), because "runway" alone loses the
+  unit.
+- Shared argument types live with the registry: `Id` (bounded, because the lint refuses an
+  unbounded integer — it caught one in this ticket's own test), `PeriodArg`, and `Detail`.
+- `like_for_like` compares **equal day counts**: on 20 August, 1 July to 20 August is 51 days and
+  the matching slice of last quarter is 1 April to 21 May. ADVISOR.md said 20 May and now says
+  21 May.
+- Four test files rather than one, one per module: `test_advisor_framework.py`,
+  `test_advisor_sanitize.py`, `test_advisor_render.py`, `test_periods.py`.

@@ -295,7 +295,7 @@ decides the order of Waves 11 and 12 — see [data model additions](#data-model-
   requires `start` and `end`). Presets are **calendar-aligned** and resolved in one place,
   `services/analysis/periods.py`, relative to the turn's `today`.
 - **Partial periods compare like-for-like.** `this_quarter` against `last_quarter` on 20 August
-  compares 1 July–20 August with 1 April–20 May and says so (`like_for_like: true`), plus the
+  compares 1 July–20 August with 1 April–21 May — the same 51 days — and says so (`like_for_like: true`), plus the
   full prior quarter for context. Comparing a partial quarter with a whole one shows a spending
   drop that is really a calendar — the same reason runway never averages in the current month.
 - **Invalid arguments are a result, not an exception.** A validation failure returns
