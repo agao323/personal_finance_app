@@ -3,7 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import DashboardPage from "./page";
-import { mockFailure, mockNetWorth, mockNetWorthSeries, mockRunway } from "@/test/msw";
+import {
+  mockFailure,
+  mockInsights,
+  mockNetWorth,
+  mockNetWorthSeries,
+  mockRunway,
+} from "@/test/msw";
 
 beforeEach(() => {
   globalThis.localStorage.clear();
@@ -12,6 +18,8 @@ beforeEach(() => {
   // here — but none of them assert on it, so it lives in the setup rather than
   // repeated in each case.
   mockNetWorthSeries();
+  // The Insights panel (094) fetches on mount too.
+  mockInsights([]);
 });
 
 describe("dashboard", () => {

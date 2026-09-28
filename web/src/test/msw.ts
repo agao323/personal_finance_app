@@ -1027,3 +1027,132 @@ export const walletHistory: ResponseOf<"/cards/history", "get"> = {
     },
   ],
 };
+
+/**
+ * Insights fixtures (ticket 094).
+ *
+ * Three findings in the server's order — urgent, warning, notice — covering the evidence
+ * units the panel formats and one stale finding. `insightsWith(n)` builds a longer list
+ * for the collapse behaviour.
+ */
+type Insights = ResponseOf<"/insights", "get">;
+type Finding = Insights["findings"][number];
+
+export const findings: Finding[] = [
+  {
+    id: "perk_expiring:perk12:2026-06-01",
+    kind: "perk_expiring",
+    severity: "urgent",
+    title: "Dining on Sapphire: $15.00 lapses in 6 days",
+    detail: "This period's credit is unused and resets at the end of the period.",
+    as_of: "2026-06-25",
+    stale: false,
+    impact_cents: 1500,
+    evidence: [
+      {
+        label: "Credit",
+        unit: "cents",
+        value_cents: 1500,
+        as_of: "2026-06-25",
+        stale: false,
+        source: "cards.upcoming",
+      },
+      {
+        label: "Last day",
+        unit: "date",
+        value_date: "2026-06-30",
+        as_of: "2026-06-25",
+        stale: false,
+        source: "cards.upcoming",
+      },
+    ],
+    action: {
+      kind: "use_perk",
+      screen: "cards",
+      account_id: 4,
+      perk_id: 12,
+      transaction_ids: [],
+    },
+  },
+  {
+    id: "stale_balance:acct7",
+    kind: "stale_balance",
+    severity: "warning",
+    title: "Brokerage's balance is 120 days old",
+    detail: "Net worth still counts it, carried forward.",
+    as_of: "2026-06-25",
+    stale: true,
+    impact_cents: 5_000_000,
+    evidence: [
+      {
+        label: "Days old",
+        unit: "days",
+        value_count: 120,
+        as_of: "2026-06-25",
+        stale: true,
+        source: "net_worth",
+      },
+    ],
+    action: {
+      kind: "update_balance",
+      screen: "account",
+      account_id: 7,
+      transaction_ids: [],
+    },
+  },
+  {
+    id: "recurring_price_increase:STREAMLY",
+    kind: "recurring_price_increase",
+    severity: "notice",
+    title: "STREAMLY went up $2.50 per monthly charge",
+    detail: "Now $17.99 a charge, about $215.88 a year.",
+    as_of: "2026-06-25",
+    stale: false,
+    impact_cents: 3000,
+    evidence: [
+      {
+        label: "Increase",
+        unit: "bps",
+        value_bps: 1614,
+        as_of: "2026-06-25",
+        stale: false,
+        source: "recurring",
+      },
+      {
+        label: "Runway",
+        unit: "months_tenths",
+        value_months_tenths: 234,
+        as_of: "2026-06-25",
+        stale: false,
+        source: "runway",
+      },
+    ],
+    action: { kind: "review", screen: "transactions", transaction_ids: [] },
+  },
+];
+
+export function insightsWith(count: number): Finding[] {
+  return Array.from({ length: count }, (_, index) => ({
+    ...findings[2],
+    id: `recurring_price_increase:M${index}`,
+    title: `Merchant ${index} went up`,
+  }));
+}
+
+export function mockInsights(
+  rows: Finding[] = findings,
+  onRequest?: (view: string | null) => void,
+) {
+  server.use(
+    http.get("/api/insights", ({ request }) => {
+      const view = new URL(request.url).searchParams.get("view");
+      onRequest?.(view);
+      const body: Insights = {
+        as_of: "2026-06-25",
+        view: view === "household" ? "household" : "mine",
+        findings: rows,
+      };
+      return HttpResponse.json(body);
+    }),
+  );
+}

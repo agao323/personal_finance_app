@@ -1,6 +1,7 @@
 "use client";
 
 import { NetWorthChart } from "@/components/charts/net-worth-chart";
+import { InsightsPanel } from "@/components/insights/insights-panel";
 import { ErrorBoundary } from "@/components/states";
 import { NetWorthTile } from "@/components/tiles/net-worth";
 import { RunwayTile } from "@/components/tiles/runway";
@@ -25,6 +26,14 @@ export default function DashboardPage() {
         </ErrorBoundary>
         <ErrorBoundary>
           <RunwayTile />
+        </ErrorBoundary>
+      </div>
+
+      {/* Not keyed on `view` either: findings already on screen stay there while the
+          other view's arrive, rather than dropping back to a skeleton. */}
+      <div className="mt-4">
+        <ErrorBoundary>
+          <InsightsPanel view={view} />
         </ErrorBoundary>
       </div>
 
