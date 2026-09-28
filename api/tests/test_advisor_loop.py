@@ -340,13 +340,16 @@ def test_a_tool_call_on_the_final_call_is_not_run(harness: Harness) -> None:
 
 def test_the_thirteenth_lookup_is_refused(harness: Harness) -> None:
     many = [_tool("categories_list", {}, f"t{i}") for i in range(13)]
-    client = ScriptedModelClient([ScriptedCall(tool_calls=many), ScriptedCall(text=["Done."])])
+    client = ScriptedModelClient(
+        [ScriptedCall(tool_calls=many), ScriptedCall(text=["Here is what I found."])]
+    )
 
     events = harness.run(client)
 
     statuses = [e["lookup"]["status"] for e in events if e["type"] == "tool_call"]
     assert statuses == ["ok"] * 12 + ["budget_exhausted"]
     assert harness.count(AdvisorToolCall) == 13
+    assert types(events)[-2:] == ["answer", "turn_complete"]
 
 
 def test_the_wall_clock_stops_a_slow_model(harness: Harness) -> None:

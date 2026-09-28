@@ -37,7 +37,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.advisor import pricing
+from app.advisor import answer as answer_module
+from app.advisor import grounding, policy, pricing
 from app.advisor.model import (
     ModelClient,
     ModelRequest,
@@ -62,11 +63,10 @@ from app.schemas.advisor import (
     AdvisorErrorCode,
     Answer,
     AnswerEvent,
-    Citation,
     ErrorEvent,
     Grounding,
-    Lookup,
-    LookupStatus,
+    PolicyNote,
+    RegeneratingEvent,
     TextDeltaEvent,
     ToolCallEvent,
     TurnCompleteEvent,
@@ -239,28 +239,36 @@ class _DbAudit:
         self.store.record_tool_call(self.conversation_id, self.turn_id, outcome)
 
 
-def _lookup(outcome: ToolOutcome) -> Lookup:
-    return Lookup(
-        call_id=outcome.call_id,
-        tool=outcome.tool,
-        label=outcome.label,
-        arguments=outcome.arguments,
-        status=outcome.status,
-        row_count=outcome.row_count,
-        latency_ms=outcome.latency_ms,
-        as_of=outcome.as_of,
-    )
+def _renderings(history: Sequence[StoredMessage]) -> list[str]:
+    """Every tool result the model saw in earlier turns, as it saw it."""
+    return [
+        block["content"]
+        for message in history
+        if message.role == "tool_results"
+        for block in message.content
+        if isinstance(block.get("content"), str)
+    ]
 
 
-def _citation(outcome: ToolOutcome) -> Citation:
-    return Citation(
-        call_id=outcome.call_id,
-        tool=outcome.tool,
-        label=outcome.label,
-        as_of=outcome.as_of,
-        view=outcome.view,
-        stale=outcome.stale,
-    )
+def retry_context(unverified: Sequence[str], notes: Sequence[PolicyNote]) -> str:
+    """The operator message for the one regeneration: what failed, stated as facts."""
+    parts = ["The previous answer was not shown to the person."]
+    if unverified:
+        listed = "; ".join(dict.fromkeys(unverified))
+        parts.append(
+            f"These figures in it did not come from a lookup: {listed}. Every figure is "
+            "written as a reference to a lookup result, such as {{c2.net_worth}}, or comes "
+            "from a tool that computes it; a figure no tool produced is left out."
+        )
+    parts.extend(f"It also broke a rule: {note.message}" for note in notes)
+    parts.append("Write the answer again.")
+    return " ".join(parts)
+
+
+def _regenerating(notes: Sequence[PolicyNote]) -> str:
+    if notes:
+        return "The answer broke one of the advisor's rules and is being written again."
+    return "A figure could not be traced to a lookup, so the answer is being written again."
 
 
 def _text_of(content: Sequence[dict[str, Any]]) -> str:
@@ -339,10 +347,18 @@ async def run_turn(
     outcomes: list[ToolOutcome] = []
     served: str | None = None
     status = TurnStatus.FAILED
+    checked_as = Grounding.NONE
     finished = False
 
     try:
         history = store.history(conversation_id, before_seq=turn.seq)
+        # What earlier turns proved is rebuilt from their stored results, so a figure from
+        # the last question can be referred to in this one.
+        evidence = grounding.Evidence()
+        evidence.add_all(_renderings(history))
+        with deps.tool_sessions() as session:
+            names = policy.household_names(session)
+        regenerated = False
         this_turn: list[StoredMessage] = [
             StoredMessage(turn.turn_id, "user", [{"type": "text", "text": question}]),
             StoredMessage(
@@ -382,17 +398,23 @@ async def run_turn(
 
             response: ModelResponse | None = None
             tool_uses: list[ToolUse] = []
+            resolver = grounding.StreamResolver(evidence)
             call_started = time.monotonic()
             async with contextlib.aclosing(
                 _bounded(deps.client.stream(request), deadline)
             ) as events:
                 async for event in events:
                     if isinstance(event, TextDelta):
-                        yield TextDeltaEvent(type="text_delta", text=event.text)
+                        shown = resolver.feed(event.text)
+                        if shown:
+                            yield TextDeltaEvent(type="text_delta", text=shown)
                     elif isinstance(event, ToolUse):
                         tool_uses.append(event)
                     else:
                         response = event
+            held = resolver.flush()
+            if held:
+                yield TextDeltaEvent(type="text_delta", text=held)
             if response is None:
                 raise _TurnError(AdvisorErrorCode.MODEL_ERROR)
 
@@ -427,7 +449,8 @@ async def run_turn(
                         deps.registry.run, tool_use.name, tool_use.input, ctx
                     )
                     outcomes.append(outcome)
-                    yield ToolCallEvent(type="tool_call", lookup=_lookup(outcome))
+                    evidence.add(outcome.content)
+                    yield ToolCallEvent(type="tool_call", lookup=answer_module.lookup(outcome))
                     results.append(
                         {
                             "type": "tool_result",
@@ -443,14 +466,36 @@ async def run_turn(
             if response.stop_reason == "end_turn" or (
                 response.stop_reason == "max_tokens" and not tool_uses
             ):
-                text = _text_of(response.content)
+                truncated = response.stop_reason == "max_tokens"
+                checked = grounding.check(
+                    answer_module.clean(_text_of(response.content)), evidence, question=question
+                )
+                notes = policy.check(
+                    checked.text, figures=checked.figures, evidence=evidence, exempt_names=names
+                )
+                failed = bool(checked.unverified or notes)
+                if failed and not regenerated and not final_call and not truncated:
+                    # One regeneration, told what failed. The streamed text is discarded.
+                    regenerated = True
+                    retry = [{"type": "text", "text": retry_context(checked.unverified, notes)}]
+                    store.add_message(turn.turn_id, "context", retry)
+                    this_turn.append(StoredMessage(turn.turn_id, "context", retry))
+                    yield RegeneratingEvent(type="regenerating", reason=_regenerating(notes))
+                    continue
+                checked_as = (
+                    Grounding.FLAGGED
+                    if failed
+                    else Grounding.VERIFIED
+                    if checked.figures
+                    else Grounding.NONE
+                )
                 answer = Answer(
-                    text=text,
-                    figures=[],
-                    citations=[_citation(o) for o in outcomes if o.status is LookupStatus.OK],
-                    limitations=[],
-                    policy_notes=[],
-                    truncated=response.stop_reason == "max_tokens",
+                    text=checked.text,
+                    figures=checked.figures,
+                    citations=answer_module.citations(outcomes),
+                    limitations=answer_module.limitations(outcomes),
+                    policy_notes=notes,
+                    truncated=truncated,
                 )
                 yield AnswerEvent(type="answer", answer=answer)
                 status = TurnStatus.COMPLETE
@@ -469,7 +514,9 @@ async def run_turn(
             )
             raise _TurnError(AdvisorErrorCode.MODEL_ERROR)
 
-        store.finish_turn(turn.turn_id, status=status, now=deps.now(), model=served)
+        store.finish_turn(
+            turn.turn_id, status=status, now=deps.now(), grounding=checked_as, model=served
+        )
         finished = True
     except _TurnError as stop:
         store.finish_turn(
@@ -508,7 +555,7 @@ async def run_turn(
     yield TurnCompleteEvent(
         type="turn_complete",
         turn_id=turn.turn_id,
-        grounding=Grounding.NONE,
+        grounding=checked_as,
         cost_cents=pricing.display_cents(store.turn_spent(turn.turn_id)),
         month_spent_cents=pricing.display_cents(store.month_spent(today)),
     )

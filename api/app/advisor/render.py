@@ -24,7 +24,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Literal
@@ -212,3 +212,12 @@ def figures_in(text: str) -> dict[str, Figure]:
             value = int(Decimal(shown.replace("$", "").replace(",", "")).scaleb(2))
         found[match["ref"]] = Figure(ref=match["ref"], unit=unit, value=value, display=shown)
     return found
+
+
+def resolve(ref: str, figures: Mapping[str, Figure]) -> Figure | None:
+    """The figure a reference names — `c2.net_worth` — or None when it names nothing.
+
+    The grounding check writes `Figure.display` into an answer wherever the model wrote
+    `{{ref}}`, so a figure reaches the screen in exactly the form `render` gave it.
+    """
+    return figures.get(ref)
