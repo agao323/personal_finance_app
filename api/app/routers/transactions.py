@@ -13,8 +13,8 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.deps import CurrentUser, DbSession
 from app.models.account import Account
@@ -31,6 +31,7 @@ from app.schemas.transaction import (
     TransactionRead,
     TransactionUpdate,
 )
+from app.services import transactions as transaction_service
 
 router = APIRouter(
     prefix="/transactions",
@@ -90,42 +91,23 @@ def list_transactions(
     surfaced prominently as a prompt to add a rule, and this is where that prompt
     leads.
     """
-    filters = []
-    if date_from is not None:
-        filters.append(Transaction.posted_at >= date_from)
-    if date_to is not None:
-        filters.append(Transaction.posted_at <= date_to)
-    if account_id is not None:
-        filters.append(Transaction.account_id == account_id)
-    if category_id is not None:
-        filters.append(Transaction.category_id == category_id)
-    if uncategorised is True:
-        filters.append(Transaction.category_id.is_(None))
-    elif uncategorised is False:
-        filters.append(Transaction.category_id.isnot(None))
-    if search:
-        pattern = f"%{search}%"
-        filters.append(
-            or_(Transaction.merchant.ilike(pattern), Transaction.description.ilike(pattern))
-        )
-
-    total = session.execute(
-        select(func.count()).select_from(Transaction).where(*filters)
-    ).scalar_one()
-
-    rows = session.execute(
-        select(Transaction, Account.name)
-        .join(Account, Account.id == Transaction.account_id)
-        .options(selectinload(Transaction.category))
-        .where(*filters)
-        .order_by(Transaction.posted_at.desc(), Transaction.id.desc())
-        .limit(limit)
-        .offset(offset)
-    ).all()
+    result = transaction_service.search(
+        session,
+        transaction_service.TransactionFilters(
+            date_from=date_from,
+            date_to=date_to,
+            account_id=account_id,
+            category_id=category_id,
+            uncategorised=uncategorised,
+            search=search,
+        ),
+        limit=limit,
+        offset=offset,
+    )
 
     return TransactionList(
-        items=[_to_read(t, name) for t, name in rows],
-        page=Page(total=total, limit=limit, offset=offset),
+        items=[_to_read(t, name) for t, name in result.rows],
+        page=Page(total=result.total, limit=limit, offset=offset),
     )
 
 

@@ -62,7 +62,7 @@ class SpendSummary:
     excluded_transfer_count: int
 
 
-def _spend_query(start: dt.date, end: dt.date) -> Select[tuple[Transaction, Category]]:
+def expense_query(start: dt.date, end: dt.date) -> Select[tuple[Transaction, Category]]:
     """Expense transactions in a half-open date range.
 
     An outer join, not an inner one: a transaction with no category still counts
@@ -89,15 +89,31 @@ def _spend_query(start: dt.date, end: dt.date) -> Select[tuple[Transaction, Cate
 BucketKey = tuple[int | None, str, int | None]
 
 
-def _totals(
-    session: Session, start: dt.date, end: dt.date, by_parent: bool
+def expense_rows(
+    session: Session, start: dt.date, end: dt.date
+) -> list[tuple[Transaction, Category | None]]:
+    """Every row that counts as spend in `[start, end]`, with its category, if any.
+
+    Public so that analyses group spend their own way — by merchant, by month — on the
+    same rows these totals are built from, rather than restating the transfer, income and
+    uncategorised rules in a second query that would drift from this one (ticket 082).
+    """
+    # The outer join makes `category` optional at runtime even though the Select's
+    # static type does not say so.
+    return [(t, c) for t, c in session.execute(expense_query(start, end)).all()]
+
+
+def spend_totals(
+    session: Session, start: dt.date, end: dt.date, by_parent: bool = False
 ) -> dict[BucketKey, Decimal]:
-    """Spend per bucket. Amounts are stored signed; outflows are negative."""
+    """Spend per bucket in `[start, end]`. Amounts are stored signed; outflows are negative.
+
+    Public so that a comparison over two *explicit* windows — this quarter against last —
+    uses the same rules as the dashboard's prior-period comparison (ticket 082).
+    """
     totals: dict[BucketKey, Decimal] = {}
 
-    for transaction, category in session.execute(_spend_query(start, end)).all():
-        # The outer join makes `category` optional at runtime even though the Select's
-        # static type does not say so.
+    for transaction, category in expense_rows(session, start, end):
         # Outflows are negative on the wire and in storage; spend is their magnitude.
         # An inflow sitting on an expense category (a refund) reduces spend, which is
         # correct — you did not spend that money after all.
@@ -144,9 +160,9 @@ def spend_by_category(
     session: Session, start: dt.date, end: dt.date, by_parent: bool = False
 ) -> SpendSummary:
     """Spend between ``start`` and ``end`` inclusive, with a prior-period comparison."""
-    current = _totals(session, start, end, by_parent)
+    current = spend_totals(session, start, end, by_parent)
     prior_start, prior_end = prior_period(start, end)
-    prior = _totals(session, prior_start, prior_end, by_parent)
+    prior = spend_totals(session, prior_start, prior_end, by_parent)
 
     buckets = [
         Bucket(

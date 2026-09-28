@@ -15,7 +15,6 @@ Route docstrings are part of the frozen contract — see the note in `routers/ru
 from __future__ import annotations
 
 import datetime as dt
-from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
@@ -42,10 +41,8 @@ from app.schemas.card_perk import (
     UpcomingRead,
 )
 from app.schemas.common import ErrorResponse, from_cents, to_cents
+from app.services import cards as card_service
 from app.services import perks as perk_service
-
-#: Money accumulator start. Decimal, never float.
-ZERO = Decimal("0.00")
 
 router = APIRouter(tags=["cards"], responses={404: {"model": ErrorResponse}})
 
@@ -70,43 +67,9 @@ def _perk(session: Session, perk_id: int) -> CardPerk:
     return perk
 
 
-def _redeemed(session: Session, perk_id: int, period_start: dt.date) -> PerkRedemption | None:
-    return session.execute(
-        select(PerkRedemption).where(
-            PerkRedemption.perk_id == perk_id, PerkRedemption.period_start == period_start
-        )
-    ).scalar_one_or_none()
-
-
-def _to_read(session: Session, perk: CardPerk, on: dt.date) -> PerkRead:
-    """A perk with its current period resolved.
-
-    The period comes from `services/perks.py` rather than being worked out here, so
-    there is exactly one implementation of what window a date is in — the same rule that
-    keeps rounding inside `services/ownership.py`.
-    """
-    # **The one thing the anchor still gates**: a credit whose first period is in the future
-    # has no current period. Asked here, as one comparison that says what it means, rather
-    # than by `period_containing` answering None to two different questions (ticket 076).
-    current: PerkPeriodRead | None = None
-    if perk.anchor_on <= on:
-        period = perk_service.period_containing(perk.cadence, perk.anchor_on, on)
-        redemption = _redeemed(session, perk.id, period.start)
-        remaining = period.days_remaining(on)
-        current = PerkPeriodRead(
-            start=period.start,
-            end=period.end,
-            days_remaining=remaining,
-            is_used=redemption is not None,
-            used_note=redemption.note if redemption else None,
-            used_amount_cents=(
-                to_cents(redemption.amount)
-                if redemption is not None and redemption.amount is not None
-                else None
-            ),
-            # From the service, never recomputed here and never in the browser.
-            is_urgent=perk_service.is_urgent(perk.cadence, remaining),
-        )
+def _to_read(view: card_service.PerkView) -> PerkRead:
+    """Map a resolved perk to the wire. The reading itself is `services/cards.perk_view`."""
+    perk, current = view.perk, view.current
     return PerkRead(
         id=perk.id,
         account_id=perk.account_id,
@@ -116,8 +79,26 @@ def _to_read(session: Session, perk: CardPerk, on: dt.date) -> PerkRead:
         cadence=perk.cadence,
         anchor_on=perk.anchor_on,
         is_active=perk.is_active,
-        current_period=current,
+        current_period=(
+            None
+            if current is None
+            else PerkPeriodRead(
+                start=current.start,
+                end=current.end,
+                days_remaining=current.days_remaining,
+                is_used=current.is_used,
+                used_note=current.used_note,
+                used_amount_cents=(
+                    to_cents(current.used_amount) if current.used_amount is not None else None
+                ),
+                is_urgent=current.is_urgent,
+            )
+        ),
     )
+
+
+def _read(session: Session, perk: CardPerk, on: dt.date) -> PerkRead:
+    return _to_read(card_service.perk_view(session, perk, on))
 
 
 @router.get("/cards", response_model=list[CardRead])
@@ -127,82 +108,23 @@ def list_cards(
     on: Annotated[dt.date | None, Query(description="Evaluate periods as of this date.")] = None,
 ) -> list[CardRead]:
     """Every credit card account with its perks and their current periods."""
-    today = on or dt.date.today()
-    cards = session.execute(
-        select(Account)
-        .where(Account.subtype == AccountSubtype.CREDIT_CARD)
-        .order_by(Account.name, Account.id)
-    ).scalars()
-
-    result: list[CardRead] = []
-    for account in cards:
-        rows = session.execute(
-            select(CardPerk)
-            .where(CardPerk.account_id == account.id)
-            .order_by(CardPerk.is_active.desc(), CardPerk.name, CardPerk.id)
-        ).scalars()
-        perk_reads = [_to_read(session, perk, today) for perk in rows]
-        unused = sum(
-            p.value_cents
-            for p in perk_reads
-            if p.is_active and p.current_period is not None and not p.current_period.is_used
+    return [
+        CardRead(
+            account_id=card.account.id,
+            name=card.account.name,
+            institution=card.account.institution.name if card.account.institution else None,
+            is_closed=card.account.closed_at is not None,
+            perks=[_to_read(view) for view in card.perks],
+            unused_cents=to_cents(card.unused),
+            active_perk_count=card.active_perk_count,
+            annual_fee_cents=(
+                to_cents(card.account.annual_fee) if card.account.annual_fee is not None else None
+            ),
+            fee_renews_on=card.account.fee_renews_on,
+            realised_this_year_cents=to_cents(card.realised_this_year),
         )
-        result.append(
-            CardRead(
-                account_id=account.id,
-                name=account.name,
-                institution=account.institution.name if account.institution else None,
-                is_closed=account.closed_at is not None,
-                perks=perk_reads,
-                unused_cents=unused,
-                active_perk_count=sum(1 for p in perk_reads if p.is_active),
-                annual_fee_cents=(
-                    to_cents(account.annual_fee) if account.annual_fee is not None else None
-                ),
-                fee_renews_on=account.fee_renews_on,
-                realised_this_year_cents=_realised_this_year(session, account.id, today),
-            )
-        )
-    return result
-
-
-def _realised_value(redemption: PerkRedemption, perk: CardPerk) -> Decimal:
-    """What one recorded use was worth.
-
-    The recorded amount, or the perk's face value when a one-tap mark recorded none.
-    **Never what was available**, which would flatter every card.
-
-    One function because two callers need the same answer: the per-card figure and the
-    history panel. They used to compute it separately and with different window rules, and
-    the card screen showed both at once.
-    """
-    return redemption.amount if redemption.amount is not None else perk.value
-
-
-def _realised_this_year(session: Session, account_id: int, on: dt.date) -> int:
-    """Value realised on this card in the calendar year containing `on`, in cents.
-
-    **Containment on `period_start`, the same rule `_history` applies** — a period belongs
-    to the year it began in, and to exactly one year. That is what lets this figure and the
-    history panel's "This year" window agree by construction rather than by comment.
-
-    This replaced a fee year anchored on the renewal date, which matched on period
-    *overlap* because a calendar-year credit's period almost always begins before the fee
-    year it was counted against. The cost of overlap was that on the second day of a new
-    fee year, a credit spent eleven months earlier still counted toward the fee just
-    charged — wrong in exactly the case the figure existed for. See ticket 073.
-    """
-    start = dt.date(on.year, 1, 1)
-    rows = session.execute(
-        select(PerkRedemption, CardPerk)
-        .join(CardPerk, CardPerk.id == PerkRedemption.perk_id)
-        .where(
-            CardPerk.account_id == account_id,
-            PerkRedemption.period_start >= start,
-            PerkRedemption.period_start <= on,
-        )
-    ).all()
-    return to_cents(sum((_realised_value(r, p) for r, p in rows), ZERO))
+        for card in card_service.list_cards(session, on or dt.date.today())
+    ]
 
 
 @router.post("/cards/{account_id}/perks", response_model=PerkRead, status_code=201)
@@ -221,7 +143,7 @@ def add_perk(
     )
     session.add(perk)
     session.flush()
-    return _to_read(session, perk, dt.date.today())
+    return _read(session, perk, dt.date.today())
 
 
 @router.patch("/perks/{perk_id}", response_model=PerkRead)
@@ -243,7 +165,7 @@ def update_perk(
     for field, value in changes.items():
         setattr(perk, field, value)
     session.flush()
-    return _to_read(session, perk, dt.date.today())
+    return _read(session, perk, dt.date.today())
 
 
 @router.delete("/perks/{perk_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -291,7 +213,7 @@ def mark_used(
     period = perk_service.period_containing(perk.cadence, perk.anchor_on, on)
 
     amount = from_cents(payload.amount_cents) if payload.amount_cents is not None else None
-    existing = _redeemed(session, perk.id, period.start)
+    existing = card_service.redemption_for(session, perk.id, period.start)
     if existing is None:
         session.add(
             PerkRedemption(
@@ -309,7 +231,7 @@ def mark_used(
         if payload.note is not None:
             existing.note = payload.note
     session.flush()
-    return _to_read(session, perk, on)
+    return _read(session, perk, on)
 
 
 @router.delete("/perks/{perk_id}/redemptions", response_model=PerkRead)
@@ -330,7 +252,7 @@ def mark_unused(
         )
     )
     session.flush()
-    return _to_read(session, perk, day)
+    return _read(session, perk, day)
 
 
 def _history(
@@ -342,87 +264,36 @@ def _history(
     to_date: dt.date | None,
     today: dt.date,
 ) -> HistoryRead:
-    """Recorded redemptions, newest first, with the value each realised.
-
-    One implementation for both the per-perk and whole-wallet views: the only difference
-    is a filter, and two copies would drift on the `missed_periods` arithmetic, which is
-    the fiddly part.
-    """
-    query = (
-        select(PerkRedemption, CardPerk, Account)
-        .join(CardPerk, CardPerk.id == PerkRedemption.perk_id)
-        .join(Account, Account.id == CardPerk.account_id)
-    )
-    if perk_id is not None:
-        query = query.where(CardPerk.id == perk_id)
-    if account_id is not None:
-        query = query.where(CardPerk.account_id == account_id)
-    if from_date is not None:
-        query = query.where(PerkRedemption.period_start >= from_date)
-    if to_date is not None:
-        query = query.where(PerkRedemption.period_start <= to_date)
-
-    rows = list(session.execute(query.order_by(PerkRedemption.period_start.desc())).all())
-
-    entries: list[RedemptionRead] = []
-    realised = ZERO
-    for redemption, perk, account in rows:
-        period = perk_service.period_containing(
-            perk.cadence, perk.anchor_on, redemption.period_start
-        )
-        value = _realised_value(redemption, perk)
-        realised += value
-        entries.append(
-            RedemptionRead(
-                perk_id=perk.id,
-                perk_name=perk.name,
-                account_id=account.id,
-                card_name=account.name,
-                period_start=redemption.period_start,
-                period_end=period.end,
-                cadence=perk.cadence,
-                realised_cents=to_cents(value),
-                is_face_value=redemption.amount is None,
-                note=redemption.note,
-                recorded_at=redemption.created_at,
-            )
-        )
-
-    # Periods that closed inside the window with nothing against them. Counted by
-    # walking each perk's periods rather than inferred from a count, because a perk's
-    # cadence determines how many periods a span even contains.
-    missed = 0
-    perks_query = select(CardPerk).where(CardPerk.is_active.is_(True))
-    if perk_id is not None:
-        perks_query = perks_query.where(CardPerk.id == perk_id)
-    if account_id is not None:
-        perks_query = perks_query.where(CardPerk.account_id == account_id)
-    for perk in session.execute(perks_query).scalars():
-        recorded = {
-            row.period_start
-            for row in session.execute(
-                select(PerkRedemption).where(PerkRedemption.perk_id == perk.id)
-            ).scalars()
-        }
-        # Still from the anchor, not from the beginning of time. A period before the credit
-        # was set up can now be *recorded* (ticket 076), but calling it missed would invent
-        # an obligation out of a date someone typed into a form.
-        cursor = max(perk.anchor_on, from_date) if from_date else perk.anchor_on
-        horizon = min(to_date, today) if to_date else today
-        while cursor <= horizon:
-            period = perk_service.period_containing(perk.cadence, perk.anchor_on, cursor)
-            # Only periods that have actually ended can be called missed. The current one
-            # is still spendable.
-            if period.end <= today and period.start not in recorded:
-                missed += 1
-            cursor = period.end
-
-    return HistoryRead(
+    """Map `services/cards.history` to the wire."""
+    result = card_service.history(
+        session,
+        perk_id=perk_id,
+        account_id=account_id,
         from_date=from_date,
         to_date=to_date,
-        realised_cents=to_cents(realised),
-        missed_periods=missed,
-        redemptions=entries,
+        today=today,
+    )
+    return HistoryRead(
+        from_date=result.from_date,
+        to_date=result.to_date,
+        realised_cents=to_cents(result.realised),
+        missed_periods=result.missed_periods,
+        redemptions=[
+            RedemptionRead(
+                perk_id=entry.perk.id,
+                perk_name=entry.perk.name,
+                account_id=entry.account.id,
+                card_name=entry.account.name,
+                period_start=entry.redemption.period_start,
+                period_end=entry.period_end,
+                cadence=entry.perk.cadence,
+                realised_cents=to_cents(entry.realised),
+                is_face_value=entry.redemption.amount is None,
+                note=entry.redemption.note,
+                recorded_at=entry.redemption.created_at,
+            )
+            for entry in result.entries
+        ],
     )
 
 
@@ -587,43 +458,16 @@ def upcoming(
     The point of the feature. Closed cards are excluded — a perk on a card you no longer
     hold is not something you can still use.
     """
-    today = on or dt.date.today()
-    rows = session.execute(
-        select(CardPerk, Account)
-        .join(Account, Account.id == CardPerk.account_id)
-        .where(
-            CardPerk.is_active.is_(True),
-            Account.subtype == AccountSubtype.CREDIT_CARD,
-            Account.closed_at.is_(None),
-        )
-    ).all()
-
-    found: list[tuple[int, UpcomingPerk]] = []
-    for perk, account in rows:
-        read = _to_read(session, perk, today)
-        period = read.current_period
-        if period is None or period.is_used or period.days_remaining > within_days:
-            continue
-        found.append(
-            (
-                period.days_remaining,
-                UpcomingPerk(perk=read, account_id=account.id, card_name=account.name),
-            )
-        )
-
-    # Soonest first, then by value: two perks expiring the same day are better read
-    # with the expensive one at the top.
-    found.sort(key=lambda pair: (pair[0], -pair[1].perk.value_cents, pair[1].perk.name))
-    ordered = [item for _, item in found]
-
+    result = card_service.upcoming(session, within_days, on or dt.date.today())
     return UpcomingRead(
-        within_days=within_days,
-        as_of=today,
-        total_cents=sum(item.perk.value_cents for item in ordered),
-        urgent_cents=sum(
-            item.perk.value_cents
-            for item in ordered
-            if item.perk.current_period is not None and item.perk.current_period.is_urgent
-        ),
-        perks=ordered,
+        within_days=result.within_days,
+        as_of=result.as_of,
+        total_cents=to_cents(result.total),
+        urgent_cents=to_cents(result.urgent),
+        perks=[
+            UpcomingPerk(
+                perk=_to_read(item.view), account_id=item.account.id, card_name=item.account.name
+            )
+            for item in result.items
+        ],
     )
