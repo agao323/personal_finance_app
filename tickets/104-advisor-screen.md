@@ -43,4 +43,4 @@ Household, and an honest statement of whether the advisor is available and, if n
   error events use it too.
 - `QuestionBox` is its own component because 105 reuses it for follow-up questions.
 - Delete confirms inside its own row ("Keep it" cancels) and removes only that row.
-- Laid out single-column, `max-w-2xl`. Checked on a phone viewport together with 105.
+- Laid out single-column, `max-w-2xl`; checked on a phone viewport with 105.

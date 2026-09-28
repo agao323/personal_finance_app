@@ -1226,3 +1226,121 @@ export function mockAdvisor(
   );
   return calls;
 }
+
+type ConversationDetail = ResponseOf<"/advisor/conversations/{conversation_id}", "get">;
+type StoredTurn = ConversationDetail["turns"][number];
+
+export const CONVERSATION_ID = "7d0c9f5e-0000-4000-8000-0000000000aa";
+export const TURN_ID = "5a1b2c3d-0000-4000-8000-0000000000bb";
+
+export const storedTurn: StoredTurn = {
+  id: "5a1b2c3d-0000-4000-8000-000000000001",
+  seq: 1,
+  question: "What's our net worth?",
+  status: "complete",
+  grounding: "verified",
+  answer: {
+    text: "Household net worth is $412,388.14.",
+    figures: [
+      { start: 23, end: 34, status: "verified", source: { call_id: "c1", path: "net_worth" } },
+    ],
+    citations: [
+      {
+        call_id: "c1",
+        tool: "networth_get",
+        label: "Net worth, household",
+        as_of: "2026-09-27",
+        view: "household",
+        stale: false,
+      },
+    ],
+    limitations: [],
+    policy_notes: [],
+    truncated: false,
+  },
+  lookups: [
+    {
+      call_id: "c1",
+      tool: "networth_get",
+      label: "Net worth, household",
+      arguments: "view=household",
+      status: "ok",
+      row_count: 0,
+      latency_ms: 42,
+      as_of: "2026-09-27",
+    },
+  ],
+  error: null,
+  feedback: null,
+  feedback_note: null,
+  started_at: "2026-09-27T12:00:00Z",
+  finished_at: "2026-09-27T12:00:04Z",
+};
+
+export type ConversationCalls = {
+  turns: { question: string; signal: AbortSignal }[];
+  feedback: { turnId: string; body: unknown }[];
+};
+
+/**
+ * A conversation, its status, feedback, and a turn that streams `events` as server-sent
+ * events. With `hold`, the stream stays open after the events until the request is aborted.
+ */
+export function mockConversation(
+  options: {
+    turns?: StoredTurn[];
+    events?: unknown[];
+    hold?: boolean;
+    status?: Partial<AdvisorStatusBody>;
+  } = {},
+): ConversationCalls {
+  const calls: ConversationCalls = { turns: [], feedback: [] };
+  const detail: ConversationDetail = {
+    id: CONVERSATION_ID,
+    view: "household",
+    title: "What's our net worth?",
+    created_at: "2026-09-27T12:00:00Z",
+    last_turn_at: "2026-09-27T12:00:04Z",
+    expires_at: "2026-10-27T12:00:04Z",
+    turn_count: (options.turns ?? [storedTurn]).length,
+    turns: options.turns ?? [storedTurn],
+  };
+  server.use(
+    http.get("/api/advisor/status", () =>
+      HttpResponse.json({ ...advisorStatus, ...options.status }),
+    ),
+    http.get("/api/advisor/conversations/:id", () => HttpResponse.json(detail)),
+    http.put("/api/advisor/turns/:id/feedback", async ({ request, params }) => {
+      const body = await request.json();
+      calls.feedback.push({ turnId: String(params.id), body });
+      return HttpResponse.json({ ...storedTurn, id: String(params.id) });
+    }),
+    http.post("/api/advisor/conversations/:id/turns", async ({ request }) => {
+      const body = (await request.json()) as { question: string };
+      calls.turns.push({ question: body.question, signal: request.signal });
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (const event of options.events ?? []) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+          }
+          if (!options.hold) {
+            controller.close();
+            return;
+          }
+          request.signal.addEventListener("abort", () => {
+            try {
+              controller.error(new DOMException("aborted", "AbortError"));
+            } catch {
+              // already closed
+            }
+          });
+        },
+      });
+      return new HttpResponse(stream, {
+        headers: { "content-type": "text/event-stream", "cache-control": "no-cache, no-transform" },
+      });
+    }),
+  );
+  return calls;
+}
