@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import Literal
 
 from pydantic import Field, model_validator
 
-from app.models.enums import AccountKind, AccountSubtype, DataSource
+from app.models.enums import AccountKind, AccountSubtype, AssetClass, DataSource, TaxTreatment
 from app.schemas.common import Bps, Cents, Schema
 
 
@@ -68,6 +69,9 @@ class AccountRead(Schema):
     currency: str
     closed_at: dt.date | None = None
     institution: InstitutionRead | None = None
+    tax_treatment: TaxTreatment = Field(
+        description="How the account is taxed; the subtype's default until someone sets it."
+    )
 
     balance_cents: Cents | None = Field(default=None, description="Raw balance, unadjusted.")
     adjusted_balance_cents: Cents | None = Field(
@@ -99,6 +103,10 @@ class AccountCreate(Schema):
     ownership_percentage_bps: Bps | None = None
     opening_balance_cents: Cents | None = None
     opening_balance_as_of: dt.date | None = None
+    tax_treatment: TaxTreatment | None = Field(
+        default=None,
+        description="Defaults from the subtype. A 401k with a Roth portion is two accounts.",
+    )
 
 
 class AccountUpdate(Schema):
@@ -110,6 +118,7 @@ class AccountUpdate(Schema):
     #: card with no fee recorded is a different state from one whose fee is $0.
     annual_fee_cents: Cents | None = Field(default=None, ge=0)
     fee_renews_on: dt.date | None = None
+    tax_treatment: TaxTreatment | None = None
 
 
 class DeletionPreview(Schema):
@@ -204,4 +213,45 @@ class LiabilityTermsUpdate(Schema):
     def _promo_has_an_end(self) -> LiabilityTermsUpdate:
         if (self.promo_apr_pct_thousandths is None) != (self.promo_ends_on is None):
             raise ValueError("A promotional rate needs its end date, and an end date its rate.")
+        return self
+
+
+class AllocationShare(Schema):
+    asset_class: AssetClass
+    percentage_bps: Bps = Field(gt=0, le=10000, description="4000 means 40.00%.")
+
+
+class AllocationRow(AllocationShare):
+    effective_from: dt.date
+    effective_to: dt.date | None = Field(default=None, description="Null: still in force.")
+
+
+class AllocationRead(Schema):
+    """What an account holds by asset class today, and every allocation it has had."""
+
+    status: Literal["recorded", "derived", "unknown", "not_applicable"] = Field(
+        description="derived: follows from the subtype (cash, property, vehicles). unknown: "
+        "an investment account with nothing recorded. not_applicable: a debt."
+    )
+    shares: list[AllocationShare] = Field(description="Totals exactly 100% when known.")
+    history: list[AllocationRow]
+
+
+class AllocationCreate(Schema):
+    """A new allocation from a date. The one in force closes on that date."""
+
+    effective_from: dt.date
+    shares: list[AllocationShare] = Field(min_length=1, max_length=6)
+
+    @model_validator(mode="after")
+    def _whole(self) -> AllocationCreate:
+        classes = [share.asset_class for share in self.shares]
+        if len(set(classes)) != len(classes):
+            raise ValueError("Each asset class once.")
+        total = sum(share.percentage_bps for share in self.shares)
+        if total != 10000:
+            whole, rest = divmod(total, 100)
+            raise ValueError(
+                f"An allocation must total exactly 100%; this totals {whole}.{rest:02d}%."
+            )
         return self

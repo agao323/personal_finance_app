@@ -23,7 +23,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
-from app.models.enums import AccountKind, AccountSubtype, DataSource, pg_enum
+from app.models.enums import (
+    AccountKind,
+    AccountSubtype,
+    AssetClass,
+    DataSource,
+    TaxTreatment,
+    pg_enum,
+)
 
 #: Every money column in the schema. 2dp round-trips exactly through integer cents,
 #: so the wire format needs no scale field. Never Float — see the CI guard.
@@ -79,6 +86,11 @@ class Account(Base):
     #: Both nullable, and absent is not zero: a card with no fee recorded shows nothing
     #: rather than claiming its fee is $0. Read only by the card screen (ticket 059) —
     #: **never by net worth**, which is about balances, not what a card costs to hold.
+    #: How the account is taxed (ticket 113). NULL reads as the subtype's default
+    #: (`services/allocations.default_tax_treatment`); the migration backfilled every row.
+    tax_treatment: Mapped[TaxTreatment | None] = mapped_column(
+        pg_enum(TaxTreatment, "tax_treatment")
+    )
     annual_fee: Mapped[Decimal | None] = mapped_column(MONEY)
     fee_renews_on: Mapped[dt.date | None] = mapped_column(Date)
 
@@ -131,6 +143,40 @@ class OwnershipStake(Base):
     effective_to: Mapped[dt.date | None] = mapped_column(Date)
 
     account: Mapped[Account] = relationship(back_populates="stakes")
+
+
+class AccountAllocation(Base):
+    """What an investment account holds by asset class, effective-dated like a stake.
+
+    The rows in force on any date sum to exactly 100 for the account — enforced in
+    `services/allocations.py`, as the stake invariant is in `services/ownership.py`. A new
+    allocation closes the rows in force on its start date and opens its own, so history is
+    never rewritten. Account level, not holdings: ADR 0013.
+    """
+
+    __tablename__ = "account_allocations"
+    __table_args__ = (
+        CheckConstraint(
+            "percentage > 0 AND percentage <= 100", name="ck_allocations_percentage_range"
+        ),
+        CheckConstraint(
+            "effective_to IS NULL OR effective_to > effective_from",
+            name="ck_allocations_date_order",
+        ),
+        Index("ix_allocations_account_effective", "account_id", "effective_from"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
+    asset_class: Mapped[AssetClass] = mapped_column(
+        pg_enum(AssetClass, "asset_class"), nullable=False
+    )
+    percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    effective_from: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    #: NULL means "still in force".
+    effective_to: Mapped[dt.date | None] = mapped_column(Date)
 
 
 class BalanceSnapshot(Base):

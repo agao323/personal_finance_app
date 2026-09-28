@@ -8,6 +8,7 @@ will be missing from autogenerate and from the schema tests.
 from app.models.account import (
     MONEY,
     Account,
+    AccountAllocation,
     BalanceSnapshot,
     Institution,
     OwnershipStake,
@@ -42,6 +43,7 @@ from app.models.user import User
 __all__ = [
     "MONEY",
     "Account",
+    "AccountAllocation",
     "AccountKind",
     "AccountSubtype",
     "AdvisorConversation",

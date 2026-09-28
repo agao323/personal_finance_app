@@ -41,6 +41,7 @@ EXPECTED_TABLES = {
     "member_profiles",
     "planning_assumptions",
     "liability_terms",
+    "account_allocations",
 }
 
 

@@ -146,3 +146,25 @@ class RiskTolerance(enum.StrEnum):
     CONSERVATIVE = "conservative"
     MODERATE = "moderate"
     AGGRESSIVE = "aggressive"
+
+
+class TaxTreatment(enum.StrEnum):
+    """How an account is taxed (ticket 113). A 401k with a Roth portion is two accounts."""
+
+    TAXABLE = "taxable"
+    TAX_DEFERRED = "tax_deferred"
+    ROTH = "roth"
+    HSA = "hsa"
+    EDUCATION = "education"
+    NONE = "none"
+
+
+class AssetClass(enum.StrEnum):
+    """What an account holds, at the level allocation is recorded — never holdings (ADR 0013)."""
+
+    US_EQUITY = "us_equity"
+    INTL_EQUITY = "intl_equity"
+    BONDS = "bonds"
+    CASH = "cash"
+    REAL_ESTATE = "real_estate"
+    OTHER = "other"

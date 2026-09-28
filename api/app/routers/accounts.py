@@ -24,6 +24,10 @@ from app.schemas.account import (
     AccountList,
     AccountRead,
     AccountUpdate,
+    AllocationCreate,
+    AllocationRead,
+    AllocationRow,
+    AllocationShare,
     BalanceCreate,
     BalanceRead,
     DeletionPreview,
@@ -34,6 +38,7 @@ from app.schemas.account import (
     StakeRead,
 )
 from app.schemas.common import ErrorResponse, ViewScope, from_bps, from_cents, to_bps, to_cents
+from app.services import allocations
 from app.services import liability_terms as terms_service
 from app.services.accounts import (
     AccountView,
@@ -81,6 +86,7 @@ def _to_read(view: AccountView) -> AccountRead:
             if account.institution is None
             else InstitutionRead(id=account.institution.id, name=account.institution.name)
         ),
+        tax_treatment=allocations.tax_treatment(account),
         balance_cents=None if view.balance is None else to_cents(view.balance.balance),
         adjusted_balance_cents=(None if view.adjusted is None else to_cents(view.adjusted)),
         balance_as_of=None if view.balance is None else view.balance.as_of,
@@ -170,6 +176,10 @@ def create(session: DbSession, user: CurrentUser, payload: AccountCreate) -> Acc
         ),
         opening_balance_as_of=payload.opening_balance_as_of,
     )
+    account.tax_treatment = payload.tax_treatment or allocations.default_tax_treatment(
+        account.subtype
+    )
+    session.flush()
     return _to_read(view_for(session, account, dt.date.today(), user.id))
 
 
@@ -421,3 +431,54 @@ def put_terms(
     terms.as_of = payload.as_of or today
     session.flush()
     return _terms_read(terms, today)
+
+
+# ── allocations (ticket 113) ──────────────────────────────────────────────────
+
+
+def _allocation_read(session: Session, account: Account) -> AllocationRead:
+    current = allocations.allocation_for(session, account, dt.date.today())
+    return AllocationRead(
+        status=current.status,
+        shares=[
+            AllocationShare(asset_class=asset_class, percentage_bps=to_bps(pct))
+            for asset_class, pct in sorted(current.shares.items())
+        ],
+        history=[
+            AllocationRow(
+                asset_class=row.asset_class,
+                percentage_bps=to_bps(row.percentage),
+                effective_from=row.effective_from,
+                effective_to=row.effective_to,
+            )
+            for row in allocations.history(session, account.id)
+        ],
+    )
+
+
+@router.get("/{account_id}/allocations", response_model=AllocationRead)
+def get_allocations(session: DbSession, user: CurrentUser, account_id: int) -> AllocationRead:
+    """What the account holds by asset class today, and its history."""
+    return _allocation_read(session, _get(session, account_id))
+
+
+@router.post(
+    "/{account_id}/allocations",
+    response_model=AllocationRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def set_allocations(
+    session: DbSession, user: CurrentUser, account_id: int, payload: AllocationCreate
+) -> AllocationRead:
+    """Record a new allocation from a date, closing the one in force on that date."""
+    account = _get(session, account_id)
+    try:
+        allocations.set_allocation(
+            session,
+            account,
+            {share.asset_class: from_bps(share.percentage_bps) for share in payload.shares},
+            payload.effective_from,
+        )
+    except allocations.AllocationError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+    return _allocation_read(session, account)

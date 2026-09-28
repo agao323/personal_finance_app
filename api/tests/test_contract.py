@@ -78,6 +78,7 @@ LIVE_PATHS = {
     "/planning/profile",  # 109
     "/planning/assumptions",  # 109
     "/accounts/{account_id}/terms",  # 112
+    "/accounts/{account_id}/allocations",  # 113
 }
 
 
