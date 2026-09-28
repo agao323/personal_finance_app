@@ -140,3 +140,9 @@ class GoalStatus(enum.StrEnum):
     ACTIVE = "active"
     ACHIEVED = "achieved"
     ARCHIVED = "archived"
+
+
+class RiskTolerance(enum.StrEnum):
+    CONSERVATIVE = "conservative"
+    MODERATE = "moderate"
+    AGGRESSIVE = "aggressive"

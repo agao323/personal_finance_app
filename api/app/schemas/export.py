@@ -51,3 +51,5 @@ class ExportRead(Schema):
     advisor_usage: list[dict[str, Any]]
     goals: list[dict[str, Any]]
     goal_accounts: list[dict[str, Any]]
+    member_profiles: list[dict[str, Any]]
+    planning_assumptions: list[dict[str, Any]]

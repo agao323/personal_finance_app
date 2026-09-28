@@ -30,8 +30,10 @@ from app.models.enums import (
     GoalStatus,
     MatchType,
     PerkCadence,
+    RiskTolerance,
 )
 from app.models.goal import Goal, GoalAccount
+from app.models.planning import MemberProfile, PlanningAssumptions
 from app.models.system import DataMarker, ImportMapping
 from app.models.transaction import CategorizationRule, Category, Transaction
 from app.models.user import User
@@ -61,9 +63,12 @@ __all__ = [
     "ImportMapping",
     "Institution",
     "MatchType",
+    "MemberProfile",
     "OwnershipStake",
     "PerkCadence",
     "PerkRedemption",
+    "PlanningAssumptions",
+    "RiskTolerance",
     "Transaction",
     "User",
 ]

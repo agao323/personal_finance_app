@@ -343,6 +343,8 @@ inventory is worse than none, because it is trusted.
 | GET | `/advisor/stream-check` | 099 |
 | GET POST | `/goals` | 108 |
 | PATCH DELETE | `/goals/{goal_id}` | 108 |
+| GET PUT | `/planning/profile` | 109 |
+| GET POST | `/planning/assumptions` | 109 |
 
 Query parameters, request bodies, and response shapes are defined in
 `api/app/schemas/` and generated into `web/src/lib/api-types.ts`. They are deliberately

@@ -30,6 +30,7 @@ from app.routers import (
     import_csv,
     insights,
     net_worth,
+    planning,
     rules,
     runway,
     spend,
@@ -110,6 +111,7 @@ for _router in (
     insights.router,
     advisor.router,
     goals.router,
+    planning.router,
 ):
     app.include_router(_router)
 

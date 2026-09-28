@@ -75,6 +75,8 @@ LIVE_PATHS = {
     "/advisor/stream-check",  # 099
     "/goals",  # 108
     "/goals/{goal_id}",  # 108
+    "/planning/profile",  # 109
+    "/planning/assumptions",  # 109
 }
 
 
