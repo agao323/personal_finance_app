@@ -267,3 +267,53 @@ def top_merchants(
     ]
     rows.sort(key=lambda r: (-r.spend, r.name))
     return rows[:limit], total
+
+
+@dataclass(frozen=True)
+class Spike:
+    category_id: int | None
+    name: str
+    month: dt.date
+    spend: Decimal
+    trailing_median: Decimal
+
+    @property
+    def excess(self) -> Decimal:
+        return self.spend - self.trailing_median
+
+
+def category_spikes(session: Session, today: dt.date) -> list[Spike]:
+    """Leaf categories whose latest complete month is an anomaly, by `monthly`'s rule.
+
+    Every category at once, from one set of month totals — the Insights panel asks this on
+    every load, and running `monthly` per category would be a query per category per month.
+    """
+    starts = _month_starts_before(today, TRAILING_MONTHS + 1)
+    months: list[dict[BucketKey, Decimal] | None] = []
+    for start in starts:
+        end = _month_end(start)
+        months.append(
+            spend_totals(session, start, end) if has_any_transaction(session, start, end) else None
+        )
+    latest = months[-1]
+    if latest is None:
+        return []
+
+    spikes: list[Spike] = []
+    for key, spend in latest.items():
+        prior = [m.get(key, ZERO) for m in months[:-1] if m is not None]
+        if len(prior) < MIN_MONTHS_FOR_MEDIAN:
+            continue
+        base = median(prior)
+        if spend > base * SPIKE_MULTIPLE and spend - base >= SPIKE_MIN_EXCESS:
+            spikes.append(
+                Spike(
+                    category_id=key[0],
+                    name=key[1],
+                    month=starts[-1],
+                    spend=spend,
+                    trailing_median=base,
+                )
+            )
+    spikes.sort(key=lambda s: (-s.excess, s.name))
+    return spikes

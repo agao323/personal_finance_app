@@ -1,18 +1,20 @@
 """Insights: the findings engine's ranked observations. No model is involved.
 
-Declared by ticket 081, implemented by 093. See docs/ADVISOR.md#findings.
+Declared by ticket 081, implemented by 093. The engine is `services/findings.py`; see
+docs/ADVISOR.md#findings.
 """
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Annotated
 
 from fastapi import APIRouter, Query
 
 from app.deps import CurrentUser, DbSession
-from app.routers._stub import not_implemented
 from app.schemas.advisor import InsightsRead
 from app.schemas.common import ErrorResponse, ViewScope
+from app.services.findings import findings
 
 router = APIRouter(tags=["insights"], responses={422: {"model": ErrorResponse}})
 
@@ -29,4 +31,8 @@ def get_insights(
     Stale evidence caps a finding at `notice` and turns its action into "update this
     balance", except for `stale_balance`, which is about exactly that.
     """
-    not_implemented("093")
+    return InsightsRead(
+        as_of=dt.date.today(),
+        view=view,
+        findings=findings(session, dt.date.today(), view, user.id),
+    )

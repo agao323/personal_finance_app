@@ -66,6 +66,7 @@ LIVE_PATHS = {
     "/cards/history",  # 054
     "/perks/{perk_id}/periods",  # 068
     "/perks/schedule",  # 079
+    "/insights",  # 093
 }
 
 

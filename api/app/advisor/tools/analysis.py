@@ -25,7 +25,9 @@ from app.advisor.tools import (
     ToolResult,
 )
 from app.models.account import Account
+from app.schemas.advisor import FindingKind, Severity
 from app.schemas.common import ViewScope, to_cents
+from app.services import findings as findings_service
 from app.services.analysis import cards_value as cards_value_service
 from app.services.analysis import cashflow, data_quality, networth_change, recurring, spend_trends
 from app.services.analysis.numbers import change_bps, quantize_money
@@ -623,5 +625,92 @@ def cards_value(args: CardValueArgs, session: Session, ctx: ToolContext) -> Card
                 net_value_cents=to_cents(c.net),
             )
             for c in cards_value_service.value(session, year, ctx.today)
+        ],
+    )
+
+
+# ── findings_list ─────────────────────────────────────────────────────────────
+
+
+class FindingsArgs(ToolArgs):
+    view: ViewScope | None = Field(
+        default=None, description="mine or household. Omit to use the conversation's view."
+    )
+    kinds: list[FindingKind] | None = Field(
+        default=None, max_length=10, description="Only these kinds. Omit for all."
+    )
+
+
+class EvidenceRow(BaseModel):
+    label: str
+    value_cents: int | None = None
+    value_bps: int | None = None
+    value_months_tenths: int | None = None
+    value_count: int | None = None
+    value_date: dt.date | None = None
+    stale: bool
+
+
+class FindingRow(BaseModel):
+    finding_id: str
+    kind: FindingKind
+    severity: Severity
+    title_text: str
+    detail_text: str
+    stale: bool
+    impact_cents: int | None
+    evidence: list[EvidenceRow]
+    action_screen: str | None
+
+
+class FindingsResult(ToolResult):
+    findings: list[FindingRow]
+
+
+@REGISTRY.tool(
+    "findings_list",
+    description=(
+        "What needs attention, as the app's findings engine sees it: expiring credits, likely "
+        "unmarked transfers, stale balances, low runway, spending spikes, price increases, "
+        "uncategorised spending, quiet imports, card fees not covered, a net worth drop. Ranked "
+        "most urgent first, each with its evidence. Use it for 'anything I should know' or "
+        "'what should I do this month'; explain and prioritise these rather than inventing your "
+        "own. A stale finding rests on an old balance and says so."
+    ),
+    label=lambda args: "Findings",
+)
+def findings_list(args: FindingsArgs, session: Session, ctx: ToolContext) -> FindingsResult:
+    view = args.view or ctx.view
+    rows = findings_service.findings(session, ctx.today, view, ctx.user_id)
+    if args.kinds:
+        rows = [f for f in rows if f.kind in args.kinds]
+    return FindingsResult(
+        as_of=ctx.today,
+        view=view,
+        stale=any(f.stale for f in rows),
+        findings=[
+            FindingRow(
+                finding_id=f.id,
+                kind=f.kind,
+                severity=f.severity,
+                title_text=f.title,
+                detail_text=f.detail,
+                stale=f.stale,
+                impact_cents=f.impact_cents,
+                evidence=[
+                    EvidenceRow(
+                        label=e.label,
+                        value_cents=e.value_cents,
+                        value_bps=e.value_bps,
+                        value_months_tenths=e.value_months_tenths,
+                        value_count=e.value_count,
+                        value_date=e.value_date,
+                        stale=e.stale,
+                    )
+                    for e in f.evidence
+                ],
+                action_screen=f.action.screen.value if f.action else None,
+            )
+            for f in rows
         ],
     )
