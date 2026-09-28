@@ -146,7 +146,17 @@ def test_every_operation_is_either_live_or_stubbed() -> None:
 #: an invalid one and only reaches the 501 stub with a valid one. Writing these out
 #: doubles as proof that the request schemas accept sensible input — a schema nothing
 #: can satisfy would otherwise sit undetected until a lane tried to use it.
-VALID_BODIES: dict[tuple[str, str], dict[str, Any]] = {}
+VALID_BODIES: dict[tuple[str, str], dict[str, Any]] = {
+    ("POST", "/advisor/conversations"): {"view": "household"},
+    ("POST", "/advisor/conversations/{conversation_id}/turns"): {
+        "question": "What's our net worth?"
+    },
+    ("PUT", "/advisor/turns/{turn_id}/feedback"): {"verdict": "flagged", "note": "Wrong quarter."},
+}
+
+#: Stand-in for a uuid path parameter. Any well-formed uuid reaches the stub; "1" would
+#: be refused as a 422 before it got there.
+_A_UUID = "00000000-0000-4000-8000-000000000001"
 
 #: Multipart upload rather than JSON; covered separately below.
 MULTIPART: set[tuple[str, str]] = set()
@@ -163,7 +173,11 @@ def test_every_stub_returns_501(client: TestClient, method: str, path: str) -> N
         pytest.skip("covered by test_multipart_stub_returns_501")
 
     concrete = (
-        path.replace("{account_id}", "1").replace("{rule_id}", "1").replace("{transaction_id}", "1")
+        path.replace("{account_id}", "1")
+        .replace("{rule_id}", "1")
+        .replace("{transaction_id}", "1")
+        .replace("{conversation_id}", _A_UUID)
+        .replace("{turn_id}", _A_UUID)
     )
     body = VALID_BODIES.get((method, path))
     response = client.request(method, concrete, json=body)

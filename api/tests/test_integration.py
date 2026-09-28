@@ -26,6 +26,18 @@ from app.main import app
 # ── completeness ──────────────────────────────────────────────────────────────
 
 
+#: Routes declared ahead of their implementation. The advisor contract (081) froze these so
+#: its lanes could build in parallel, exactly as 012 did for v1. Each implementing ticket
+#: deletes its line; the test fails both for a stub not listed here and for a line left
+#: behind after its route went live.
+PENDING = {
+    "GET /insights": "093",
+    "GET /advisor/status": "097",
+    "GET /advisor/conversations": "099",
+    "GET /advisor/stream-check": "099",
+}
+
+
 def test_no_route_answers_501(client: TestClient) -> None:
     """The completeness check for the whole contract-first approach.
 
@@ -52,7 +64,10 @@ def test_no_route_answers_501(client: TestClient) -> None:
             if response.status_code == 501:
                 unimplemented.append(f"{method} {route.path}")
 
-    assert not unimplemented, f"still stubbed: {sorted(unimplemented)}"
+    assert set(unimplemented) == set(PENDING), (
+        f"still stubbed: {sorted(set(unimplemented) - set(PENDING))}; "
+        f"live but still listed as pending: {sorted(set(PENDING) - set(unimplemented))}"
+    )
 
 
 # ── the pipeline ──────────────────────────────────────────────────────────────

@@ -334,6 +334,13 @@ inventory is worse than none, because it is trusted.
 | GET | `/perks/schedule` | 079 |
 | GET POST | `/members` | 043 |
 | PATCH | `/members/{member_id}` | 043 |
+| GET | `/insights` | 093 |
+| GET | `/advisor/status` | 097 |
+| GET POST | `/advisor/conversations` | 099 |
+| GET DELETE | `/advisor/conversations/{conversation_id}` | 099 |
+| POST | `/advisor/conversations/{conversation_id}/turns` | 099 |
+| PUT | `/advisor/turns/{turn_id}/feedback` | 099 |
+| GET | `/advisor/stream-check` | 099 |
 
 Query parameters, request bodies, and response shapes are defined in
 `api/app/schemas/` and generated into `web/src/lib/api-types.ts`. They are deliberately

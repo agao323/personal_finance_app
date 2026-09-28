@@ -21,11 +21,13 @@ from app.middleware import DemoReadOnlyMiddleware, RequestContextMiddleware
 from app.observability import configure_sentry
 from app.routers import (
     accounts,
+    advisor,
     auth,
     cards,
     categories,
     export,
     import_csv,
+    insights,
     net_worth,
     rules,
     runway,
@@ -92,6 +94,8 @@ for _router in (
     transactions.router,
     auth.router,
     users.router,
+    insights.router,
+    advisor.router,
 ):
     app.include_router(_router)
 

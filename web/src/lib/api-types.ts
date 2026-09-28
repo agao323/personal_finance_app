@@ -162,6 +162,139 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/advisor/conversations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Conversations
+     * @description The current user's conversations, newest first. Nobody sees anyone else's.
+     */
+    get: operations["list_conversations_advisor_conversations_get"];
+    put?: never;
+    /**
+     * Create Conversation
+     * @description Start a conversation in the Mine or Household view.
+     */
+    post: operations["create_conversation_advisor_conversations_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/advisor/conversations/{conversation_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Conversation
+     * @description A conversation with its turns, answers, figure checks, sources and lookups.
+     *
+     *     Never the raw tool payloads: those stay in the transcript the loop replays.
+     */
+    get: operations["get_conversation_advisor_conversations__conversation_id__get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Conversation
+     * @description Delete now, for good. Copies in backup files written before today remain.
+     */
+    delete: operations["delete_conversation_advisor_conversations__conversation_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/advisor/conversations/{conversation_id}/turns": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create Turn
+     * @description Ask a question. The answer streams back as server-sent events.
+     */
+    post: operations["create_turn_advisor_conversations__conversation_id__turns_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/advisor/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Status
+     * @description Whether a question can be asked now and, if not, why; and this month's spend.
+     */
+    get: operations["get_status_advisor_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/advisor/stream-check": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Stream Check
+     * @description Three heartbeats a second apart and nothing else.
+     *
+     *     Proves events cross every proxy between here and the browser as they are written.
+     *     Carries no data.
+     */
+    get: operations["stream_check_advisor_stream_check_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/advisor/turns/{turn_id}/feedback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Put Feedback
+     * @description Mark an answer good or flagged, with an optional note, for the monthly review.
+     */
+    put: operations["put_feedback_advisor_turns__turn_id__feedback_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/auth/session": {
     parameters: {
       query?: never;
@@ -366,6 +499,30 @@ export interface paths {
      *     upload cannot also carry a JSON body.
      */
     post: operations["preview_csv_import_csv_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/insights": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Insights
+     * @description What needs attention, ranked: severity, then money at stake, then kind.
+     *
+     *     Spend-based findings are the same in both views — spend is never split by ownership.
+     *     Stale evidence caps a finding at `notice` and turns its action into "update this
+     *     balance", except for `stale_balance`, which is about exactly that.
+     */
+    get: operations["get_insights_insights_get"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1116,6 +1273,117 @@ export interface components {
       name?: string | null;
       subtype?: components["schemas"]["AccountSubtype"] | null;
     };
+    /**
+     * ActionKind
+     * @description What the action asks the owner to do. Always something done on a screen, by hand.
+     * @enum {string}
+     */
+    ActionKind:
+      | "open"
+      | "update_balance"
+      | "import_transactions"
+      | "add_rule"
+      | "mark_transfer"
+      | "use_perk"
+      | "review";
+    /**
+     * AdvisorErrorCode
+     * @description Why a turn did not produce an answer, or was refused before it started.
+     *
+     *     Each is a distinct message in the UI. "Something went wrong" is not one of them.
+     * @enum {string}
+     */
+    AdvisorErrorCode:
+      | "disabled"
+      | "demo"
+      | "not_configured"
+      | "monthly_cap"
+      | "conversation_cap"
+      | "turn_cap"
+      | "turn_in_progress"
+      | "budget_exhausted"
+      | "timeout"
+      | "refusal"
+      | "truncated"
+      | "cancelled"
+      | "model_error";
+    /**
+     * AdvisorEvent
+     * @description One event on a turn's stream. Declared as a model so the union reaches the types.
+     */
+    AdvisorEvent:
+      | components["schemas"]["TurnStartedEvent"]
+      | components["schemas"]["ToolCallEvent"]
+      | components["schemas"]["TextDeltaEvent"]
+      | components["schemas"]["AnswerEvent"]
+      | components["schemas"]["RegeneratingEvent"]
+      | components["schemas"]["ErrorEvent"]
+      | components["schemas"]["HeartbeatEvent"]
+      | components["schemas"]["TurnCompleteEvent"];
+    /**
+     * AdvisorProvider
+     * @enum {string}
+     */
+    AdvisorProvider: "anthropic" | "local" | "scripted";
+    /**
+     * AdvisorStatus
+     * @description Whether a question can be asked right now, and what this month has cost.
+     */
+    AdvisorStatus: {
+      /** Enabled */
+      enabled: boolean;
+      /** Model */
+      model?: string | null;
+      /**
+       * Month Cap Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      month_cap_cents: number;
+      /**
+       * Month Spent Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      month_spent_cents: number;
+      provider: components["schemas"]["AdvisorProvider"];
+      /** @description Why not, when `enabled` is false. */
+      reason?: components["schemas"]["AdvisorErrorCode"] | null;
+      /**
+       * Resets On
+       * Format: date
+       * @description The first day of next month, UTC.
+       */
+      resets_on: string;
+    };
+    /**
+     * Answer
+     * @description The checked answer: text, the proof for each figure, and its sources.
+     *
+     *     `text` is a restricted markdown subset with every link, image and HTML tag already
+     *     removed. Render it with the app's own renderer, never a general markdown library.
+     */
+    Answer: {
+      /** Citations */
+      citations: components["schemas"]["Citation"][];
+      /** Figures */
+      figures: components["schemas"]["FigureCheck"][];
+      /** Limitations */
+      limitations: components["schemas"]["LimitationKind"][];
+      /** Policy Notes */
+      policy_notes: components["schemas"]["PolicyNote"][];
+      /** Text */
+      text: string;
+      /** Truncated */
+      truncated: boolean;
+    };
+    /** AnswerEvent */
+    AnswerEvent: {
+      answer: components["schemas"]["Answer"];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "answer";
+    };
     /** BalanceCreate */
     BalanceCreate: {
       /**
@@ -1268,6 +1536,23 @@ export interface components {
      */
     CategorySource: "import" | "rule" | "manual";
     /**
+     * Citation
+     * @description A source line under an answer. Assembled by the system, never by the model.
+     */
+    Citation: {
+      /** As Of */
+      as_of?: string | null;
+      /** Call Id */
+      call_id: string;
+      /** Label */
+      label: string;
+      /** Stale */
+      stale: boolean;
+      /** Tool */
+      tool: string;
+      view?: components["schemas"]["ViewScope"] | null;
+    };
+    /**
      * ColumnMapping
      * @description Maps this file's headers onto transaction fields. Header names only, never values.
      */
@@ -1284,6 +1569,68 @@ export interface components {
       merchant?: string | null;
       /** Posted At */
       posted_at: string;
+    };
+    /** ConversationCreate */
+    ConversationCreate: {
+      /** @description Mine or Household. Spend is never split either way. */
+      view: components["schemas"]["ViewScope"];
+    };
+    /** ConversationDetail */
+    ConversationDetail: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Expires At
+       * Format: date-time
+       * @description Deleted 30 days after the last turn.
+       */
+      expires_at: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Last Turn At */
+      last_turn_at?: string | null;
+      /** Title */
+      title: string;
+      /** Turn Count */
+      turn_count: number;
+      /** Turns */
+      turns: components["schemas"]["TurnRead"][];
+      view: components["schemas"]["ViewScope"];
+    };
+    /**
+     * ConversationSummary
+     * @description A conversation in the list. Each person sees only their own.
+     */
+    ConversationSummary: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Expires At
+       * Format: date-time
+       * @description Deleted 30 days after the last turn.
+       */
+      expires_at: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Last Turn At */
+      last_turn_at?: string | null;
+      /** Title */
+      title: string;
+      /** Turn Count */
+      turn_count: number;
+      view: components["schemas"]["ViewScope"];
     };
     /**
      * DataSource
@@ -1334,6 +1681,19 @@ export interface components {
       /** Message */
       message: string;
     };
+    /** ErrorEvent */
+    ErrorEvent: {
+      code: components["schemas"]["AdvisorErrorCode"];
+      /** Message */
+      message: string;
+      /** Resets On */
+      resets_on?: string | null;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "error";
+    };
     /**
      * ErrorResponse
      * @description The single error shape for every non-2xx response.
@@ -1347,6 +1707,52 @@ export interface components {
       /** Errors */
       errors?: components["schemas"]["ErrorDetail"][];
     };
+    /**
+     * Evidence
+     * @description One figure a finding rests on, and where it came from.
+     */
+    Evidence: {
+      /**
+       * As Of
+       * Format: date
+       */
+      as_of: string;
+      /** Label */
+      label: string;
+      /**
+       * Source
+       * @description The analysis that computed it, e.g. `spend_trends.monthly`.
+       */
+      source: string;
+      /**
+       * Stale
+       * @description The figure rests on a balance carried forward past 90 days.
+       */
+      stale: boolean;
+      unit: components["schemas"]["EvidenceUnit"];
+      /**
+       * Value Bps
+       * @description Basis points; may be negative or exceed 10000 for a change.
+       */
+      value_bps?: number | null;
+      /** Value Cents */
+      value_cents?: number | null;
+      /** Value Count */
+      value_count?: number | null;
+      /** Value Date */
+      value_date?: string | null;
+      /**
+       * Value Months Tenths
+       * @description Months x 10: 234 means 23.4 months.
+       */
+      value_months_tenths?: number | null;
+    };
+    /**
+     * EvidenceUnit
+     * @description Which `value_*` field of an `Evidence` is populated. Exactly one ever is.
+     * @enum {string}
+     */
+    EvidenceUnit: "cents" | "bps" | "count" | "days" | "months_tenths" | "date";
     /** ExportMeta */
     ExportMeta: {
       /** Account Count */
@@ -1421,6 +1827,135 @@ export interface components {
         [key: string]: unknown;
       }[];
     };
+    /**
+     * Feedback
+     * @enum {string}
+     */
+    Feedback: "good" | "flagged";
+    /**
+     * FigureCheck
+     * @description One figure in an answer's text: where it is, and what proves it.
+     */
+    FigureCheck: {
+      /** End */
+      end: number;
+      /**
+       * Reason
+       * @description Why a figure is unverified.
+       */
+      reason?: string | null;
+      source?: components["schemas"]["FigureSource"] | null;
+      /**
+       * Start
+       * @description Character offset into `Answer.text`.
+       */
+      start: number;
+      status: components["schemas"]["FigureStatus"];
+    };
+    /** FigureSource */
+    FigureSource: {
+      /**
+       * Call Id
+       * @description The tool call the figure came from, e.g. `c2`.
+       */
+      call_id: string;
+      /**
+       * Path
+       * @description Where in that result, e.g. `buckets.3.change`.
+       */
+      path: string;
+    };
+    /**
+     * FigureStatus
+     * @enum {string}
+     */
+    FigureStatus: "verified" | "matched" | "unverified";
+    /**
+     * Finding
+     * @description A structured observation from the findings engine. No model is involved.
+     *
+     *     `title` and `detail` are server-rendered from templates and evidence, and can contain
+     *     imported text such as a merchant name. They are plain text: render them as text,
+     *     never as markdown or HTML.
+     */
+    Finding: {
+      action?: components["schemas"]["FindingAction"] | null;
+      /**
+       * As Of
+       * Format: date
+       */
+      as_of: string;
+      /** Detail */
+      detail: string;
+      /** Evidence */
+      evidence: components["schemas"]["Evidence"][];
+      /**
+       * Id
+       * @description Stable across runs: kind + subject ids + period.
+       */
+      id: string;
+      /**
+       * Impact Cents
+       * @description Annualised money at stake, used for ranking.
+       */
+      impact_cents?: number | null;
+      kind: components["schemas"]["FindingKind"];
+      severity: components["schemas"]["Severity"];
+      /** Stale */
+      stale: boolean;
+      /** Title */
+      title: string;
+    };
+    /**
+     * FindingAction
+     * @description Where to go to act on a finding. Never a URL.
+     */
+    FindingAction: {
+      /** Account Id */
+      account_id?: number | null;
+      /** Category Id */
+      category_id?: number | null;
+      kind: components["schemas"]["ActionKind"];
+      /** Perk Id */
+      perk_id?: number | null;
+      screen: components["schemas"]["Screen"];
+      /** Transaction Ids */
+      transaction_ids: number[];
+    };
+    /**
+     * FindingKind
+     * @description Every finding the engine can produce, across Waves 9-12.
+     *
+     *     The wave that implements each is in docs/ADVISOR.md#findings. Declared now so the
+     *     Insights panel can be written once, against the whole set.
+     * @enum {string}
+     */
+    FindingKind:
+      | "perk_expiring"
+      | "possible_unmarked_transfer"
+      | "stale_balance"
+      | "runway_low"
+      | "spend_spike"
+      | "recurring_price_increase"
+      | "uncategorised_spend"
+      | "transactions_not_imported"
+      | "card_fee_uncovered"
+      | "net_worth_drop"
+      | "spend_increase"
+      | "recurring_summary"
+      | "goal_off_track"
+      | "spending_limit_exceeded"
+      | "emergency_fund_below_target"
+      | "high_interest_debt"
+      | "credit_utilisation_high"
+      | "allocation_drift"
+      | "cash_drag";
+    /**
+     * Grounding
+     * @description `verified`: every figure checked. `flagged`: at least one was not. `none`: no figures.
+     * @enum {string}
+     */
+    Grounding: "verified" | "flagged" | "none";
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -1433,6 +1968,14 @@ export interface components {
        * @constant
        */
       status: "ok";
+    };
+    /** HeartbeatEvent */
+    HeartbeatEvent: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "heartbeat";
     };
     /**
      * HistoryRead
@@ -1513,6 +2056,20 @@ export interface components {
       /** Updated */
       updated: number;
     };
+    /**
+     * InsightsRead
+     * @description Findings for a scope, ranked: severity, then impact, then kind.
+     */
+    InsightsRead: {
+      /**
+       * As Of
+       * Format: date
+       */
+      as_of: string;
+      /** Findings */
+      findings: components["schemas"]["Finding"][];
+      view: components["schemas"]["ViewScope"];
+    };
     /** InstitutionRead */
     InstitutionRead: {
       /** Id */
@@ -1534,6 +2091,57 @@ export interface components {
        */
       total_cents: number;
     };
+    /**
+     * LimitationKind
+     * @description Data a question needed that the app does not have. Recorded by `note_limitation`.
+     *
+     *     Counted in the audit log, these rank what to build next — see docs/ADVISOR.md.
+     * @enum {string}
+     */
+    LimitationKind:
+      | "holdings"
+      | "tax_treatment"
+      | "liability_terms"
+      | "goals"
+      | "credit_limits"
+      | "reward_multipliers"
+      | "credit_score"
+      | "income_history"
+      | "balance_history"
+      | "transaction_coverage"
+      | "projections"
+      | "market_data"
+      | "tax_or_legal_advice"
+      | "other";
+    /**
+     * Lookup
+     * @description One tool call, as the "show lookups" control lists it.
+     */
+    Lookup: {
+      /**
+       * Arguments
+       * @description A readable summary of the validated arguments.
+       */
+      arguments: string;
+      /** As Of */
+      as_of?: string | null;
+      /** Call Id */
+      call_id: string;
+      /** Label */
+      label: string;
+      /** Latency Ms */
+      latency_ms: number;
+      /** Row Count */
+      row_count: number;
+      status: components["schemas"]["LookupStatus"];
+      /** Tool */
+      tool: string;
+    };
+    /**
+     * LookupStatus
+     * @enum {string}
+     */
+    LookupStatus: "ok" | "invalid_args" | "budget_exhausted" | "error";
     /**
      * MatchType
      * @enum {string}
@@ -1829,6 +2437,20 @@ export interface components {
       /** Value Cents */
       value_cents?: number | null;
     };
+    /**
+     * PolicyCheck
+     * @enum {string}
+     */
+    PolicyCheck: "ticker_or_issuer" | "claimed_action" | "tax_figure" | "scope_label";
+    /**
+     * PolicyNote
+     * @description A policy check an answer still failed after its one retry. Shown on the answer.
+     */
+    PolicyNote: {
+      check: components["schemas"]["PolicyCheck"];
+      /** Message */
+      message: string;
+    };
     /** PreviewRow */
     PreviewRow: {
       /**
@@ -1908,6 +2530,19 @@ export interface components {
        * Format: date-time
        */
       recorded_at: string;
+    };
+    /**
+     * RegeneratingEvent
+     * @description The streamed text failed a check and is being written again. Discard it.
+     */
+    RegeneratingEvent: {
+      /** Reason */
+      reason: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "regenerating";
     };
     /** RuleApplyRequest */
     RuleApplyRequest: {
@@ -2019,6 +2654,23 @@ export interface components {
       /** Windows */
       windows: components["schemas"]["BurnWindow"][];
     };
+    /**
+     * Screen
+     * @description An in-app destination. The web maps each to a route in `lib/screens.ts`.
+     * @enum {string}
+     */
+    Screen:
+      | "dashboard"
+      | "spending"
+      | "transactions"
+      | "accounts"
+      | "account"
+      | "cards"
+      | "import"
+      | "rules"
+      | "goals"
+      | "planning"
+      | "advisor";
     /** SessionRead */
     SessionRead: {
       /** Display Name */
@@ -2028,6 +2680,12 @@ export interface components {
       /** User Id */
       user_id: number;
     };
+    /**
+     * Severity
+     * @description Most urgent first. The panel keeps the server's order; it never re-sorts.
+     * @enum {string}
+     */
+    Severity: "urgent" | "warning" | "notice" | "info";
     /** SpendBucket */
     SpendBucket: {
       /**
@@ -2134,6 +2792,28 @@ export interface components {
        */
       percentage_bps: number;
     };
+    /**
+     * TextDeltaEvent
+     * @description Streamed text. References are already resolved; statuses arrive with `answer`.
+     */
+    TextDeltaEvent: {
+      /** Text */
+      text: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "text_delta";
+    };
+    /** ToolCallEvent */
+    ToolCallEvent: {
+      lookup: components["schemas"]["Lookup"];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "tool_call";
+    };
     /** TransactionList */
     TransactionList: {
       /** Items */
@@ -2179,6 +2859,95 @@ export interface components {
       /** Category Id */
       category_id?: number | null;
     };
+    /** TurnCompleteEvent */
+    TurnCompleteEvent: {
+      /**
+       * Cost Cents
+       * @description What this turn cost, rounded once to cents.
+       */
+      cost_cents: number;
+      grounding: components["schemas"]["Grounding"];
+      /**
+       * Month Spent Cents
+       * @description Amount in integer cents. 1234 means $12.34.
+       */
+      month_spent_cents: number;
+      /**
+       * Turn Id
+       * Format: uuid
+       */
+      turn_id: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "turn_complete";
+    };
+    /** TurnCreate */
+    TurnCreate: {
+      /** Question */
+      question: string;
+    };
+    /**
+     * TurnFeedback
+     * @description The owner's verdict on one answer. Stays in the app; feeds the monthly review.
+     */
+    TurnFeedback: {
+      /** Note */
+      note?: string | null;
+      verdict: components["schemas"]["Feedback"];
+    };
+    /** TurnRead */
+    TurnRead: {
+      answer?: components["schemas"]["Answer"] | null;
+      error?: components["schemas"]["AdvisorErrorCode"] | null;
+      feedback?: components["schemas"]["Feedback"] | null;
+      /** Feedback Note */
+      feedback_note?: string | null;
+      /** Finished At */
+      finished_at?: string | null;
+      grounding: components["schemas"]["Grounding"];
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Lookups */
+      lookups: components["schemas"]["Lookup"][];
+      /** Question */
+      question: string;
+      /** Seq */
+      seq: number;
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string;
+      status: components["schemas"]["TurnStatus"];
+    };
+    /** TurnStartedEvent */
+    TurnStartedEvent: {
+      /**
+       * Conversation Id
+       * Format: uuid
+       */
+      conversation_id: string;
+      /**
+       * Turn Id
+       * Format: uuid
+       */
+      turn_id: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "turn_started";
+    };
+    /**
+     * TurnStatus
+     * @enum {string}
+     */
+    TurnStatus: "streaming" | "complete" | "cancelled" | "failed" | "refused";
     /**
      * UpcomingPerk
      * @description An unused perk whose period is about to end.
@@ -2629,6 +3398,328 @@ export interface operations {
       };
     };
   };
+  list_conversations_advisor_conversations_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConversationSummary"][];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  create_conversation_advisor_conversations_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConversationCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConversationSummary"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_conversation_advisor_conversations__conversation_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        conversation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConversationDetail"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  delete_conversation_advisor_conversations__conversation_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        conversation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  create_turn_advisor_conversations__conversation_id__turns_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        conversation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TurnCreate"];
+      };
+    };
+    responses: {
+      /** @description Server-sent events, one `AdvisorEvent` JSON object per `data:` line. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": components["schemas"]["AdvisorEvent"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_status_advisor_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdvisorStatus"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  stream_check_advisor_stream_check_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Three heartbeats, one second apart. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  put_feedback_advisor_turns__turn_id__feedback_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        turn_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TurnFeedback"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TurnRead"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
   read_session_auth_session_get: {
     parameters: {
       query?: never;
@@ -2917,6 +4008,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ImportPreview"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_insights_insights_get: {
+    parameters: {
+      query?: {
+        view?: components["schemas"]["ViewScope"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InsightsRead"];
         };
       };
       /** @description Unprocessable Entity */
