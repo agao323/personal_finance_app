@@ -61,7 +61,7 @@ production until every gate below holds.
 - **024, the Google Sheet history.** Without it, trend questions about the months before the app
   existed return "insufficient history". The tools report coverage rather than the advisor waiting
   for it.
-- **075, SimpleFIN.** Without it, transactions are as fresh as the last CSV. `get_data_health`
+- **075, SimpleFIN.** Without it, transactions are as fresh as the last CSV. `data_health`
   reports the last transaction per account, and the analyses skip months with no data rather than
   counting them as zero. The injection defences sit at the tool boundary, so they cover SimpleFIN
   text the day it arrives.

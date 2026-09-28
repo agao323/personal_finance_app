@@ -16,7 +16,7 @@ A loan or card records what it costs to carry — its rate, its minimum payment,
 - [ ] `GET PUT /accounts/{account_id}/terms`. `as_of` defaults to today on save; terms whose `as_of`
       is more than 365 days old are reported stale.
 - [ ] `liability_terms` in `EXPORTED` and `ExportRead`; `make types` run.
-- [ ] Tool `get_liability_terms` (APR rendered to three decimals as a percentage).
+- [ ] Tool `debt_terms` (APR rendered to three decimals as a percentage).
 - [ ] Tests: refusal for an asset account; promo APR with an end date; staleness at 365 and 366
       days; export includes terms.
 

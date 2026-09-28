@@ -37,7 +37,13 @@ come in 084–093.
       chat-template tokens, role markers, and every registered tool name.
 - [ ] `advisor/render.py` is the one formatter: cents → `$1,234.56` (negatives `-$12.34`), bps →
       `12.3%`, ISO dates, and the envelope `{tool, call, as_of, scope, stale…, data}`, capped at
-      8 KB with `truncated`.
+      8 KB with `truncated`. **Every figure gets a reference id** — `c2.net_worth`,
+      `c4.buckets.3.change` — shown beside its display form, and `render.resolve(ref)` returns the
+      typed value and canonical form for the grounding check (ADVISOR.md#grounding).
+- [ ] Tool conventions, enforced by the lint test where they can be: names namespaced by area
+      (`networth_*`, `spend_*`, `cards_*`, `accounts_*`, …); a description of at least two
+      sentences saying what the tool answers and which tool to use instead; `detail:
+      concise | full` on tools whose full result is large; error messages that say what to do next.
 - [ ] `services/analysis/periods.py` resolves the period presets, calendar-aligned, from `today`,
       with span caps; partial periods report the elapsed days so comparisons can be like-for-like.
 - [ ] Tests: unit — sanitiser corpus, renderer formats (including half-cent and negative cases),

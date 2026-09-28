@@ -18,6 +18,11 @@ the public demo shows what the advisor does without ever calling a model.
       that is its own ticket.
 - [ ] A test asserts the header on every route and the absence of any wildcard in `img-src` or
       `connect-src`.
+- [ ] **`'self'` stays trustworthy** — the EchoLeak lesson. Tests assert that `route.ts` only ever
+      forwards to `INTERNAL_API_URL` whatever path it is given (including encoded `//` and
+      absolute-URL tricks), keeps `redirect: "manual"`, and that no API route issues a redirect to
+      another host. A same-origin endpoint that fetched or redirected elsewhere would turn
+      `img-src 'self'` into a way out.
 - [ ] Under `NEXT_PUBLIC_DEMO`, `/advisor` renders the recorded conversations in
       `lib/advisor-examples.json` through 105's renderer, read-only, with no question box and a
       plain label: recorded on the demo's synthetic data; this demo cannot ask new questions.

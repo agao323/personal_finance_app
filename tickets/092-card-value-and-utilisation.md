@@ -16,7 +16,7 @@ value that was available, how much of it was used, and what the card netted.
       year × the perk's value); utilisation in bps; missed periods; net = realised − fee.
 - [ ] Containment on `period_start`, the rule ticket 073 settled, so this agrees with the Cards
       screen's "realised this year" figure by construction.
-- [ ] Tool `get_card_value(year)`.
+- [ ] Tool `cards_value(year)`.
 - [ ] Tests: a card with no fee; a card whose fee exceeds realised value; a partial redemption; a
       retired perk; and a test that this module's realised figure equals `services/cards`' for the
       same card and year.

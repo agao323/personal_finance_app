@@ -24,7 +24,7 @@ the spend service's own rules, and available as an advisor tool.
 - [ ] `spend_trends.top_merchants(period, category_id, limit ≤ 10)`: expense by normalised
       merchant — upper-cased, `SQ *`, `TST*`, `PAYPAL *` and similar prefixes and trailing store
       numbers removed — with count, total and share.
-- [ ] Tools in `advisor/tools/analysis.py`: `compare_spend`, `get_spend_trend`, `get_top_merchants`.
+- [ ] Tools in `advisor/tools/analysis.py`: `spend_compare`, `spend_trend`, `spend_top_merchants`.
 - [ ] Tests, all hand-computed: calendar Q3 vs Q2; a partial quarter on 20 August compared
       like-for-like; an anomaly exactly at 1.5× and at $50 (both edges); a month with no data
       skipped rather than read as zero; a table of merchant strings and their normalised forms.

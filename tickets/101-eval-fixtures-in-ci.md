@@ -17,8 +17,9 @@ expected answer can never quietly disagree with the app.
       urgent unused perk, a balance stale by 120 days, and the injection corpus. It calls
       `assert_not_real` first and refuses a real database.
 - [ ] `api/evals/injection.yaml`: at least 12 planted strings — direct instructions, fake role
-      markers, a markdown image pointing at an outside host, a link, a request to call
-      `search_transactions` for everything, an instruction to misstate net worth, one hidden with
+      markers, a markdown image pointing at an outside host — inline **and reference-style**, the
+      EchoLeak form — a link, a request to call
+      `transactions_search` for everything, an instruction to misstate net worth, one hidden with
       zero-width characters — each carrying a unique canary token, planted across merchant,
       description, perk note, account name and rule pattern. Each is marked whether the sanitiser
       is expected to withhold it; the subtle ones are there for the model, not the sanitiser.

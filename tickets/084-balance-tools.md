@@ -10,17 +10,17 @@ The advisor can read every balance figure the dashboard shows, in either scope, 
 attached — through the same services the dashboard calls.
 
 ## Acceptance criteria
-- [ ] `get_net_worth`, `get_net_worth_series`, `list_accounts`, `get_account_history`, `get_runway`,
+- [ ] `networth_get`, `networth_series`, `accounts_list`, `accounts_history`, `runway_get`,
       with the parameters, bounds and returns in ADVISOR.md#tool-catalog, each passing `today` from
       the context to its service.
 - [ ] Scope maps to the viewer exactly as `routers/net_worth._viewer` does: `mine` → the
       authenticated user's id, `household` → `None`. No tool accepts a user id.
-- [ ] `get_runway`: scope changes liquid assets only. A test asserts the burn windows are identical
+- [ ] `runway_get`: scope changes liquid assets only. A test asserts the burn windows are identical
       in both scopes.
-- [ ] `get_net_worth_series`: at most 120 points; `day` interval only for spans of 92 days or less;
+- [ ] `networth_series`: at most 120 points; `day` interval only for spans of 92 days or less;
       a `coverage` block giving the earliest snapshot and saying when points before it were
       omitted.
-- [ ] `get_account_history`: snapshots downsampled to month-ends past 120 points; every stake row.
+- [ ] `accounts_history`: snapshots downsampled to month-ends past 120 points; every stake row.
 - [ ] Staleness everywhere: per-account `stale` flags, `stale_accounts` in the envelope.
 - [ ] Runway months render at one decimal through `render.py`. The service's `float` is converted
       via `Decimal(str(value))` and never used arithmetically.

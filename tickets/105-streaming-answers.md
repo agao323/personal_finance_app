@@ -18,7 +18,11 @@ tricked into producing.
 - [ ] Text deltas append to the current answer without re-rendering earlier turns. A "checking
       figures" state holds until `answer`, which replaces the streamed text with the checked
       version; `regenerating` is shown as such.
-- [ ] **Unverified figures are visibly marked** in place, with a one-line reason.
+- [ ] **Figures carry their status** in place: verified figures quietly, with their source on tap;
+      matched figures unmarked; unverified figures visibly marked with a one-line reason.
+- [ ] **On the answer itself:** a "show lookups" control listing each tool call with its arguments,
+      rows and time; and a flag control — *good* or *flagged*, with an optional note — saved
+      through `PUT /advisor/turns/{turn_id}/feedback` without reloading the conversation.
 - [ ] Tool progress from `tool_call` events: a quiet line per lookup ("Spending by category, Q3").
 - [ ] Sources under each answer, from its citations: what was looked up, as of when, which scope, a
       stale badge. Limitations listed plainly ("The app has no liability terms yet").
@@ -27,8 +31,10 @@ tricked into producing.
       text. Screen tokens become in-app buttons through `lib/screens.ts`; unknown tokens render as
       text.
 - [ ] Error events read plainly: cap reached (with its reset date), refused, timed out, cancelled.
-- [ ] Tests (MSW streams): a full event sequence; an answer containing `![x](https://evil.example/?d=1)`
-      and a raw `<img src=…>` produces **no `img` and no `a` element** in the DOM; Stop aborts the
+- [ ] Tests (MSW streams): a full event sequence; an answer containing `![x](https://evil.example/?d=1)`,
+      the reference-style form (`![x][1]` with `[1]: https://evil.example/?d=1`) and a raw
+      `<img src=…>` produces **no `img` and no `a` element** in the DOM; flagging an answer saves
+      without clearing the conversation; Stop aborts the
       fetch; an unverified figure is marked; regeneration replaces the text; a stale citation shows
       its badge.
 

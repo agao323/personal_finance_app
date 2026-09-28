@@ -49,27 +49,27 @@ tool wraps. **Buildable** means the data exists and only a deterministic analysi
 
 | # | Question | Data needed | Today | Tool (wave) |
 |---|---|---|---|---|
-| 1 | "What's our net worth?" / "what's my share?" | Ownership-adjusted balances per scope | **Available** — `services/net_worth.net_worth`, `GET /net-worth` | `get_net_worth` (9) |
-| 2 | "How has net worth moved this year?" | Snapshot series with carry-forward | **Available** — `net_worth_series`. Shallow in production until 024 imports the sheet | `get_net_worth_series` (9) |
-| 3 | "Why did net worth drop in March?" | Per-account contribution at two dates, stake changes, closures, staleness | **Buildable** — contributions exist per account; attribution is new. A market loss cannot be told from a withdrawal on an account whose transactions aren't imported. Dates before the first snapshot are unanswerable | `explain_net_worth_change` (9) |
-| 4 | "Dining this quarter vs last" | Expense totals over two calendar windows | **Buildable** — `spend_by_category` compares against an equal-length window, not a calendar quarter; needs a public totals helper | `compare_spend` (9) |
-| 5 | "Is grocery spending trending up?" / "anything unusual this month?" | Monthly totals per category, trailing median | **Buildable** | `get_spend_trend` (9) |
-| 6 | "Where does the dining money go?" | Expense by merchant | **Buildable** — no merchant rollup exists | `get_top_merchants` (9) |
-| 7 | "What was that $129.99 charge?" | Transaction rows | **Available** — the query lives inline in `routers/transactions.py`; extract | `search_transactions` (9) |
-| 8 | "Which subscriptions should I cancel?" | Recurring merchants, cadence, price changes | **Buildable** — only as complete as the imports (CSV until 075). Cannot know whether you *use* a subscription | `find_recurring_charges` (9) |
-| 9 | "How many months of runway?" | Liquid assets per scope, trailing gross burn | **Available** — `services/runway` | `get_runway` (9) |
-| 10 | "What's my savings rate?" / "net burn?" | Income by month | **Buildable** — income is classified (`categories.kind`) but never displayed | `get_cashflow` (9) |
-| 11 | "Which card credits am I about to lose?" | Perks, current periods, redemptions | **Available** — logic lives in `routers/cards.py`; extract | `get_upcoming_perks` (9) |
-| 12 | "Is the Travel card worth its fee?" | Realised value vs annual fee | **Available** (ticket 059), in the router; utilisation is new | `get_card_value` (9) |
-| 13 | "Which balances are out of date?" | Staleness, last snapshot and last transaction per account | **Available** in pieces | `get_data_health` (9) |
-| 14 | "Are transfers being counted as spending?" | Unmatched equal-and-opposite pairs | **Buildable** as a *suggestion*; marking stays manual (PRODUCT Later) | `get_data_health` + a finding (9) |
-| 15 | "Am I on track for X?" | Goals, targets, dates | **GAP** — no goals | `evaluate_goals` (11) |
-| 16 | "How much should I keep in cash?" | Burn (have) and a target (don't) | **Partial** | `get_runway` + goals (11) |
-| 17 | "Pay down the car loan or invest?" | APR, minimum payment, term; a return assumption | **GAP** — liabilities carry balances only | `compare_prepay_vs_invest` (12) |
-| 18 | "Avalanche or snowball?" | APR and minimum payment per debt | **GAP** | `compare_debt_strategies` (12) |
+| 1 | "What's our net worth?" / "what's my share?" | Ownership-adjusted balances per scope | **Available** — `services/net_worth.net_worth`, `GET /net-worth` | `networth_get` (9) |
+| 2 | "How has net worth moved this year?" | Snapshot series with carry-forward | **Available** — `net_worth_series`. Shallow in production until 024 imports the sheet | `networth_series` (9) |
+| 3 | "Why did net worth drop in March?" | Per-account contribution at two dates, stake changes, closures, staleness | **Buildable** — contributions exist per account; attribution is new. A market loss cannot be told from a withdrawal on an account whose transactions aren't imported. Dates before the first snapshot are unanswerable | `networth_explain_change` (9) |
+| 4 | "Dining this quarter vs last" | Expense totals over two calendar windows | **Buildable** — `spend_by_category` compares against an equal-length window, not a calendar quarter; needs a public totals helper | `spend_compare` (9) |
+| 5 | "Is grocery spending trending up?" / "anything unusual this month?" | Monthly totals per category, trailing median | **Buildable** | `spend_trend` (9) |
+| 6 | "Where does the dining money go?" | Expense by merchant | **Buildable** — no merchant rollup exists | `spend_top_merchants` (9) |
+| 7 | "What was that $129.99 charge?" | Transaction rows | **Available** — the query lives inline in `routers/transactions.py`; extract | `transactions_search` (9) |
+| 8 | "Which subscriptions should I cancel?" | Recurring merchants, cadence, price changes | **Buildable** — only as complete as the imports (CSV until 075). Cannot know whether you *use* a subscription | `spend_recurring` (9) |
+| 9 | "How many months of runway?" | Liquid assets per scope, trailing gross burn | **Available** — `services/runway` | `runway_get` (9) |
+| 10 | "What's my savings rate?" / "net burn?" | Income by month | **Buildable** — income is classified (`categories.kind`) but never displayed | `cashflow_get` (9) |
+| 11 | "Which card credits am I about to lose?" | Perks, current periods, redemptions | **Available** — logic lives in `routers/cards.py`; extract | `cards_upcoming_perks` (9) |
+| 12 | "Is the Travel card worth its fee?" | Realised value vs annual fee | **Available** (ticket 059), in the router; utilisation is new | `cards_value` (9) |
+| 13 | "Which balances are out of date?" | Staleness, last snapshot and last transaction per account | **Available** in pieces | `data_health` (9) |
+| 14 | "Are transfers being counted as spending?" | Unmatched equal-and-opposite pairs | **Buildable** as a *suggestion*; marking stays manual (PRODUCT Later) | `data_health` + a finding (9) |
+| 15 | "Am I on track for X?" | Goals, targets, dates | **GAP** — no goals | `goals_evaluate` (11) |
+| 16 | "How much should I keep in cash?" | Burn (have) and a target (don't) | **Partial** | `runway_get` + goals (11) |
+| 17 | "Pay down the car loan or invest?" | APR, minimum payment, term; a return assumption | **GAP** — liabilities carry balances only | `debt_prepay_vs_invest` (12) |
+| 18 | "Avalanche or snowball?" | APR and minimum payment per debt | **GAP** | `debt_compare_strategies` (12) |
 | 19 | "What's my credit utilisation?" | Credit limits | **GAP** | via liability terms (12) |
-| 20 | "What's my asset allocation?" | Per-account asset mix | **GAP** — `kind`/`subtype` only. The liquid/illiquid split is a proxy, not an allocation | `get_allocation` (12) |
-| 21 | "Am I on track to retire at 50?" | Tax treatment per account, allocation, spending, assumptions, healthcare, sequence risk | **GAP** — PRODUCT's FIRE bar needs all of it | `project_retirement` (12) |
+| 20 | "What's my asset allocation?" | Per-account asset mix | **GAP** — `kind`/`subtype` only. The liquid/illiquid split is a proxy, not an allocation | `allocation_get` (12) |
+| 21 | "Am I on track to retire at 50?" | Tax treatment per account, allocation, spending, assumptions, healthcare, sequence risk | **GAP** — PRODUCT's FIRE bar needs all of it | `projection_retirement` (12) |
 | 22 | "Should I do a Roth conversion?" | Tax treatment, income, current law | **GAP and out of scope** — escalates to a tax professional | `note_limitation` (10) |
 | 23 | "Which card should I use for groceries?" | Reward multipliers per category | **GAP** — PRODUCT Later | `note_limitation` (10) |
 | 24 | "How many shares of X do I hold?" | Holdings | **GAP**, deliberately — see [allocation](#account-level-allocation-not-holdings) | `note_limitation` (10) |
@@ -82,7 +82,7 @@ Cross-cutting limits the tools must report rather than paper over:
   `coverage.insufficient`, and the answer says so.
 - **Transaction freshness.** Transactions arrive by CSV until 075. A month with no import looks
   like a month of no spending. Runway already skips months with no transactions; every analysis
-  reuses that rule, and `get_data_health` reports the last transaction per account.
+  reuses that rule, and `data_health` reports the last transaction per account.
 - **Staleness.** Balances carried forward past 90 days are included and flagged
   ([ARCHITECTURE](ARCHITECTURE.md#closed-accounts-and-carry-forward)). The advisor must say so
   before recommending anything that depends on one.
@@ -226,10 +226,16 @@ Verified against Anthropic's documentation on 2026-09-27.
 - **Bounded everything.** Date spans are capped, pages are capped, enums replace free text.
   **The only free-text argument in the catalog is `merchant_query`**, and its pattern cannot
   express a URL.
-- **Aggregates by default, rows when asked.** Two tools return rows (`search_transactions`,
-  `get_perk_history`); both are paginated and count against the turn's row budget.
+- **Aggregates by default, rows when asked.** Two tools return rows (`transactions_search`,
+  `cards_perk_history`); both are paginated and count against the turn's row budget.
 - **Scope is a parameter, identity is not.** A tool takes `scope: mine | household` and resolves
   the viewer from the authenticated user. No tool accepts a user id.
+- **Designed for the model, per Anthropic's tool-writing guidance.** Names are namespaced by area
+  (`networth_*`, `spend_*`, `cards_*`), so related tools sort together and the right one is easy
+  to pick. Descriptions are written as for a new teammate — what it answers, what it does not,
+  which tool to use instead. Heavier tools take `detail: concise | full`, so a lookup does not pay
+  for a per-account breakdown it will not use. Errors say what to do next. Descriptions are tuned
+  against the free local-model evals, where iterating costs nothing.
 - **Wrap, never re-implement.** A tool calls the same service the dashboard does. Where that
   logic currently lives in a router, ticket 082 moves it into a service first, so the screen and
   the advisor cannot disagree — the lesson of [ADR 0006](adr/0006-contract-changes-during-wave-2.md)'s
@@ -242,37 +248,38 @@ Every date is `YYYY-MM-DD`, validated against the turn's `today`. `period` is
 
 | Tool | Parameters (all bounded) | Returns | Wraps | Shape | Scope |
 |---|---|---|---|---|---|
-| `get_net_worth` | `scope`, `as_of` ≤ today | Totals, by kind, per-account contribution (id, name, subtype, %, raw, adjusted, balance date, stale) | `net_worth.net_worth` | Aggregate | Yes |
-| `get_net_worth_series` | `scope`, `start`, `end`, `interval` (month·week·day); ≤ 120 points; `day` only for ≤ 92 days | Points with stale counts; coverage | `net_worth.net_worth_series` | Aggregate | Yes |
-| `explain_net_worth_change` | `scope`, `from_date`, `to_date` | Per-account delta, reasons (opened, closed, stake changed, not updated, stale), kind subtotals that reconcile exactly | `analysis/networth_change` over `net_worth` | Aggregate | Yes |
-| `list_accounts` | `scope`, `include_closed` | Accounts with raw and adjusted balance, stake, staleness | `accounts.list_accounts` | Aggregate | Yes |
-| `get_account_history` | `account_id`, `start`, `end` ≤ 10 years; ≤ 120 points, monthly-downsampled | Snapshots and every stake row | `accounts.snapshot_history`, `stake_history` | Rows (bounded) | Raw and stake shown |
-| `get_runway` | `scope` | Liquid assets, 3/6/12-month burn, months of runway, months counted and excluded | `runway.runway` | Aggregate | Liquid assets only; burn is never split |
-| `get_spend_by_category` | `period` ≤ 366 days, `group_by` | Buckets with prior period, uncategorised, transfers excluded | `spend.spend_by_category` | Aggregate | None |
-| `compare_spend` | `period_a`, `period_b`, `group_by`, `category_id`? | Per bucket: a, b, change, change % | `analysis/spend_trends` | Aggregate | None |
-| `get_spend_trend` | `category_id`?, `months` 3–24 | Monthly totals, trailing median, anomaly flags | `analysis/spend_trends` | Aggregate | None |
-| `get_top_merchants` | `period` ≤ 366 days, `category_id`?, `limit` ≤ 10 | Merchant, count, total, share | `analysis/spend_trends` | Aggregate by merchant | None |
-| `find_recurring_charges` | `lookback_months` 6–24 | Merchant, cadence, typical amount, last and next charge, annualised cost, price change, confidence | `analysis/recurring` | Aggregate by merchant | None |
-| `search_transactions` | `start`, `end` ≤ 366 days apart, `account_id`?, `category_id`?, `uncategorised`?, `merchant_query`? (`^[A-Za-z0-9 &'.*#-]{2,40}$`), `min_cents`?, `max_cents`?, `page` 1–20, `page_size` ≤ 25 | Rows: id, date, amount, merchant, description (≤ 80 chars), category, account, transfer flag | `services/transactions.search` | **Rows** | None |
-| `get_cashflow` | `months` 1–24 | Monthly income, spend, net, savings rate | `analysis/cashflow` | Aggregate | None |
-| `list_categories` | — | Two-level tree with kinds | `categories` query | Aggregate | — |
-| `list_rules` | — | Ordered rules: pattern, match type, category | `rules` query | Rows (small, bounded) | — |
-| `list_cards` | — | Cards, perks, current periods, unused value, fee, realised this year | `services/cards` | Aggregate | — |
-| `get_upcoming_perks` | `within_days` 0–366 | Unused perks ending soon, urgency | `services/cards.upcoming` | Aggregate | — |
-| `get_perk_history` | `account_id`?, `perk_id`?, `start`?, `end`? ≤ 3 years | Realised, missed periods, ≤ 50 redemptions with notes | `services/cards.history` | **Rows** | — |
-| `get_card_value` | `year` | Per card: fee, realised, available, utilisation, net value, missed periods | `analysis/cards_value` | Aggregate | — |
-| `get_data_health` | — | Stale balances, last snapshot and transaction per account, uncategorised share, possible unmarked transfers, history coverage | `analysis/data_quality` | Aggregate | — |
-| `get_findings` | `scope`, `kinds`? (≤ 10 from the enum) | Findings, ranked | `services/findings` | Aggregate | Yes |
+| `networth_get` | `scope`, `as_of` ≤ today | Totals, by kind, per-account contribution (id, name, subtype, %, raw, adjusted, balance date, stale) | `net_worth.net_worth` | Aggregate | Yes |
+| `networth_series` | `scope`, `start`, `end`, `interval` (month·week·day); ≤ 120 points; `day` only for ≤ 92 days | Points with stale counts; coverage | `net_worth.net_worth_series` | Aggregate | Yes |
+| `networth_explain_change` | `scope`, `from_date`, `to_date` | Per-account delta, reasons (opened, closed, stake changed, not updated, stale), kind subtotals that reconcile exactly | `analysis/networth_change` over `net_worth` | Aggregate | Yes |
+| `accounts_list` | `scope`, `include_closed` | Accounts with raw and adjusted balance, stake, staleness | `accounts.list_accounts` | Aggregate | Yes |
+| `accounts_history` | `account_id`, `start`, `end` ≤ 10 years; ≤ 120 points, monthly-downsampled | Snapshots and every stake row | `accounts.snapshot_history`, `stake_history` | Rows (bounded) | Raw and stake shown |
+| `runway_get` | `scope` | Liquid assets, 3/6/12-month burn, months of runway, months counted and excluded | `runway.runway` | Aggregate | Liquid assets only; burn is never split |
+| `spend_by_category` | `period` ≤ 366 days, `group_by` | Buckets with prior period, uncategorised, transfers excluded | `spend.spend_by_category` | Aggregate | None |
+| `spend_compare` | `period_a`, `period_b`, `group_by`, `category_id`? | Per bucket: a, b, change, change % | `analysis/spend_trends` | Aggregate | None |
+| `spend_trend` | `category_id`?, `months` 3–24 | Monthly totals, trailing median, anomaly flags | `analysis/spend_trends` | Aggregate | None |
+| `spend_top_merchants` | `period` ≤ 366 days, `category_id`?, `limit` ≤ 10 | Merchant, count, total, share | `analysis/spend_trends` | Aggregate by merchant | None |
+| `spend_recurring` | `lookback_months` 6–24 | Merchant, cadence, typical amount, last and next charge, annualised cost, price change, confidence | `analysis/recurring` | Aggregate by merchant | None |
+| `transactions_search` | `start`, `end` ≤ 366 days apart, `account_id`?, `category_id`?, `uncategorised`?, `merchant_query`? (`^[A-Za-z0-9 &'.*#-]{2,40}$`), `min_cents`?, `max_cents`?, `page` 1–20, `page_size` ≤ 25 | Rows: id, date, amount, merchant, description (≤ 80 chars), category, account, transfer flag | `services/transactions.search` | **Rows** | None |
+| `cashflow_get` | `months` 1–24 | Monthly income, spend, net, savings rate | `analysis/cashflow` | Aggregate | None |
+| `categories_list` | — | Two-level tree with kinds | `categories` query | Aggregate | — |
+| `rules_list` | — | Ordered rules: pattern, match type, category | `rules` query | Rows (small, bounded) | — |
+| `cards_list` | — | Cards, perks, current periods, unused value, fee, realised this year | `services/cards` | Aggregate | — |
+| `cards_upcoming_perks` | `within_days` 0–366 | Unused perks ending soon, urgency | `services/cards.upcoming` | Aggregate | — |
+| `cards_perk_history` | `account_id`?, `perk_id`?, `start`?, `end`? ≤ 3 years | Realised, missed periods, ≤ 50 redemptions with notes | `services/cards.history` | **Rows** | — |
+| `cards_value` | `year` | Per card: fee, realised, available, utilisation, net value, missed periods | `analysis/cards_value` | Aggregate | — |
+| `data_health` | — | Stale balances, last snapshot and transaction per account, uncategorised share, possible unmarked transfers, history coverage | `analysis/data_quality` | Aggregate | — |
+| `findings_list` | `scope`, `kinds`? (≤ 10 from the enum) | Findings, ranked | `services/findings` | Aggregate | Yes |
 | `note_limitation` | `capability` (enum) | Acknowledgement | none — audit only | — | — |
 
-Waves 11–12 add `list_goals`, `evaluate_goals`, `get_planning_profile`, `get_liability_terms`,
-`compare_debt_strategies`, `compare_prepay_vs_invest`, `get_allocation`, `project_retirement`
-and `what_if`, specified in their tickets. Twenty-odd tools is about 5K tokens of definitions
+Waves 11–12 add `goals_list`, `goals_evaluate`, `planning_profile`, `debt_terms`,
+`debt_compare_strategies`, `debt_prepay_vs_invest`, `allocation_get`, `projection_retirement`
+and `projection_what_if`, specified in their tickets. Twenty-odd tools is about 5K tokens of definitions
 and sits in the cached prefix.
 
 `note_limitation` deserves a word. It is a no-op the model calls when a question needs data the
 app does not have — holdings, liability terms, tax treatment, goals, reward multipliers, a
-credit score. It makes "I don't have that" **gradeable** without an LLM judge, and it turns the
+credit score, or **market data** (today's mortgage rates, a fund's price), which this app
+deliberately never fetches. It makes "I don't have that" **gradeable** without an LLM judge, and it turns the
 audit log into a ranked list of what the advisor was asked and could not answer. That list
 decides the order of Waves 11 and 12 — see [data model additions](#data-model-additions).
 
@@ -302,7 +309,7 @@ float. **The model never sees that result.** It sees a rendering of it:
 
 ```json
 {
-  "tool": "get_net_worth",
+  "tool": "networth_get",
   "call": "c2",
   "as_of": "2026-09-27",
   "scope": "household",
@@ -458,37 +465,64 @@ enforced here, deterministically, rather than asked of a prompt.
 
 ## Grounding
 
-**Every figure an answer states must appear in a tool output from this conversation.** Checked
-in Python after generation, in milliseconds, on every answer.
+**Every figure an answer states must come from a tool output in this conversation, and the
+server — not the model — writes it into the answer.** The approach matches *Proof-Carrying
+Numbers* (2025): numbers travel as references to the data that proves them, verification happens
+where the answer is rendered, and anything unproven is shown as unverified. Fail closed.
 
-1. **Extract** money (`$1,234.56`, `$1,235`, `$1.2k`, `$1.23M`), percentages, and counts with a
-   unit (`3 months`, `14 days`). Ignore dates and years, list ordinals, figures inside screen
-   tokens, and figures the user typed in their own question.
-2. **Allow** each typed value from the conversation's tool results in its canonical forms only:
-   exact, whole dollars (half-up), and one-decimal `k`/`M`. Magnitude may drop its sign ("a drop
-   of $1,200" against a change of −$1,200). Percentages at the precision given or rounded to a
-   whole percent. Nothing else — **"about $1,200" for $1,234.56 fails**, and the system prompt
-   says to quote figures as given.
-3. **Mismatch:** one regeneration, with a mid-conversation system message naming the unmatched
-   figures and the instruction to restate them from tool outputs or call a tool that computes
-   them. A second mismatch delivers the answer with those figures marked **unverified** and the
-   turn recorded as `grounding: flagged`.
+1. **Figures are references.** Every rendered tool result gives each figure a short id —
+   `c2.net_worth`, `c4.buckets.3.change` — and the system prompt tells the model to write
+   `{{c2.net_worth}}` rather than the number. The server resolves each reference to the value's
+   canonical display form **as the text streams**, and records the figure as **verified** with its
+   source call and path. The model never types a figure, so it cannot mistype one.
+2. **A reference that does not resolve** — a wrong id, a path that does not exist — is shown as
+   unverified and triggers the retry in step 4.
+3. **Bare numbers are the backstop.** Money (`$1,234.56`, `$1,235`, `$1.2k`), percentages and
+   unit counts the model typed itself are extracted and matched against the conversation's typed
+   tool results in canonical forms only — exact, whole dollars half-up, one-decimal `k`/`M`,
+   magnitude without sign. A match is accepted and marked **matched** rather than verified; a
+   miss is **unverified**. Dates, years, list ordinals and figures from the user's own question
+   are ignored. **"About $1,200" for $1,234.56 fails.**
+4. **On any unverified figure:** one regeneration, with a mid-conversation system message naming
+   the figures and the instruction to reference them or call a tool that computes them. A second
+   failure delivers the answer with those figures visibly marked and the turn recorded as
+   `grounding: flagged`.
+
+Referencing is a convention the model must follow, and a small local model may follow it less
+well; the backstop means a lapse degrades to checking, not to trusting. The local-model evals
+measure how often each path is taken.
+
+### Policy checks on every answer
+
+The cheap, deterministic graders from the evals also run on every live answer, in
+`advisor/policy.py`, shared by both — a scaled-down version of the compliance gateway regulated
+advisers run before a response is shown:
+
+- no tickers, fund names or fund issuers (a maintained list; the owner's own institution names
+  are exempt where they name an account);
+- no claim of having done something ("I've marked", "done", "I moved");
+- no tax limit, bracket or rate stated as a number (the model's may be stale);
+- a scoped figure labelled Mine or Household, and spend never described as someone's share.
+
+A failure gets the same single retry; a second failure ships with a visible note and is flagged
+for the monthly review. Heuristics, not a boundary — they catch the common failures cheaply.
 
 This is what enforces "the model never does money arithmetic". A model that subtracts two
-quarters itself produces a figure no tool returned; the retry pushes it to `compare_spend`,
+quarters itself produces a figure no tool returned; the retry pushes it to `spend_compare`,
 which returns the difference.
 
 **What it does not check:** that a *claim* about a figure is right ("because of dining"). That
 is the evals' job. The checker proves provenance, not reasoning, and the doc should never be
 read as saying more.
 
-**Streaming and verification together:** text streams as it is generated, marked "checking
-figures"; the `answer` event carries the checked text and a status per figure span; a
-regeneration replaces the text.
+**Streaming and verification together:** text streams as it is generated with references
+already resolved and marked; bare numbers show as "checking" until the `answer` event, which
+carries the final text and a status and source per figure span. A regeneration replaces the text.
 
 **Citations are assembled by the system, not written by the model.** Every tool call of the turn
 becomes a source line under the answer — what was looked up, as of when, in which scope, and
-whether anything was stale. The model cannot omit a source or invent one.
+whether anything was stale — and a **"show lookups"** control on the answer lists each call with
+its arguments, row count and time. The model cannot omit a source or invent one.
 
 ## Prompt injection
 
@@ -501,7 +535,7 @@ redemption notes. The attacker is whoever can get a string into a bank export.
 | Goal | Channel | Defence |
 |---|---|---|
 | Exfiltrate data | An egress the model controls | **None exists.** No fetch tool, no server tools, no write tools. The model API is the only egress, and it only talks back to us |
-| Exfiltrate via the browser | A markdown image or link the UI fetches or the user clicks | Three independent layers: the API strips image, link, autolink and HTML syntax from answers; the renderer supports a fixed subset with **no `a` and no `img`**; the page's CSP limits `img-src` and `connect-src` to `'self'` |
+| Exfiltrate via the browser | A markdown image or link the UI fetches or the user clicks | Three independent layers: the API strips image, link, autolink and HTML syntax from answers — **inline and reference-style, and the reference definitions themselves**; the renderer supports a fixed subset with **no `a` and no `img`**; the page's CSP limits `img-src` and `connect-src` to `'self'` |
 | Steer advice | Persuasive or instructive text inside a merchant name | Data framing (`_text` fields, stated in the system prompt); findings computed in Python; figures grounded; canary-tagged corpus in the evals. **Residual risk:** persuasive wording can still colour an explanation |
 | Burn money | Instructions to call tools in a loop | Turn budget, per-turn and monthly caps |
 | Poison later turns | Instructions stored in the transcript | Replayed with the same framing; 30-day TTL |
@@ -516,12 +550,20 @@ screens are untouched (React escapes them). In order:
 3. Truncate: names 60, merchant 60, description 80, notes and patterns 120 characters.
 4. **Withhold instruction-like text** — phrases addressed to an assistant ("ignore previous
    instructions", "system prompt", role markers, chat-template tokens) **and the name of any tool
-   in the registry**. A bank memo has no reason to say `search_transactions`. The value becomes
+   in the registry**. A bank memo has no reason to say `transactions_search`. The value becomes
    `[text withheld: resembled instructions]`, the result carries `withheld_count`, and the audit
    row records which table and row — never the text.
 
 Heuristics are not a boundary, and the design does not rely on them: the boundary is that there
 is nowhere to send data. They reduce how often the model reads an injection at all.
+
+**Lessons from EchoLeak** (Microsoft 365 Copilot, 2025), the first zero-click exfiltration from a
+production assistant. It got past a link filter with **reference-style** markdown
+(`![x][1]` … `[1]: https://…`), which is why the stripping above names that form explicitly and
+the tests plant it. And it got past a CSP by routing the image through a **trusted domain that
+proxied to the outside**. `img-src 'self'` is only as strong as "nothing on this origin fetches or
+redirects to another host". That is true today — `route.ts` forwards only to `INTERNAL_API_URL`
+with `redirect: "manual"` — and a test in 106 keeps it true.
 
 **Write intent is answered, not attempted.** "Mark my Uber credit used", "recategorise these",
 "move $500 to savings": there is no tool to call. The model says so and offers an in-app
@@ -635,6 +677,11 @@ alternatives.
 
 ## Audit and observability
 
+- **Named for OpenTelemetry.** The audit columns map one-to-one onto the OpenTelemetry GenAI
+  attributes (`gen_ai.tool.name`, `gen_ai.tool.call.id`, `gen_ai.usage.input_tokens`, …), with the
+  mapping written in `models/advisor.py`. Nothing exports traces anywhere — a tracing service
+  would be a new place the data goes — but if a self-hosted viewer is ever wanted, it is an
+  exporter, not a migration.
 - **Tool-call log** (`advisor_tool_calls`) — every call with its validated arguments, as
   SECURITY.md requires. Arguments can include a figure (`min_cents`) and a merchant search; that
   is why they live in the database, which already holds every figure, and not in stdout.
@@ -832,7 +879,7 @@ up as a diff someone reads rather than as a live eval failing mysteriously.
 | Category | ~Cases | Example | Graded by |
 |---|---|---|---|
 | Lookup | 10 | "What's our net worth?" | Facts present; every figure grounded |
-| Comparison | 8 | "Dining this quarter vs last?" | Facts; `compare_spend` called; no model-computed difference |
+| Comparison | 8 | "Dining this quarter vs last?" | Facts; `spend_compare` called; no model-computed difference |
 | Trend | 6 | "Is grocery spending trending up?" | Facts; anomaly month named |
 | Multi-hop | 6 | "What drove the spending increase, and which merchants?" | Facts from two tools |
 | Mine vs household | 6 | The same question in both scopes | Scoped figures differ and are labelled; spend identical |
@@ -863,6 +910,23 @@ escalation when due, a stale-data caveat when due — each scored 1–5.
 **A passing run is the release gate** — before `ADVISOR_ENABLED=true` in production, and again
 after any change of model, effort, system prompt or tool schema. Runs are recorded below.
 
+### Learning from real use, without committing real data
+
+Production teams build evals from their own traffic: read real traces, name and count the
+failures, and turn them into tests. Real conversations here hold real figures and can never
+become fixtures, so the loop is adapted:
+
+1. **Flag an answer.** A control on every answer records *good* or *flagged*, with an optional
+   note, on the turn itself. It stays in the app; nothing is sent anywhere.
+2. **Monthly review**, inside the 30-day retention window: read the flagged turns and their
+   lookups, name each failure (wrong tool, missed limitation, unverified figure, bad advice,
+   stale-data miss), and count them.
+3. **Re-express each failure as a synthetic case** against the eval overlay, reproducing its shape
+   with made-up numbers. The golden set grows from real failures without holding real data.
+4. **Calibrate the advice grader.** The rubric grader is itself a model, and a model grading a
+   model needs checking. The owner labels a set of recorded synthetic answers (`make eval-label`),
+   and the grader is trusted only where it agrees with those labels.
+
 ### What CI runs
 
 Tools against hand-computed fixtures; the schema lint; read-only enforcement; the sanitizer
@@ -883,6 +947,32 @@ aborts past a spend (default $10). One run of about 70 cases is roughly $7 on th
 the everyday development loop, and it measures whether a free model is good enough, which is
 ADR 0009's first revisit condition. Release gates for production still run against the model
 being deployed.
+
+## Prior art, and where this departs from it
+
+Compared on 2026-09-27 with published practice: Anthropic's agent and tool guidance, OWASP's Top 10
+for LLM applications, the prompt-injection design-patterns paper, EchoLeak, Origin (an
+SEC-registered AI adviser) and Monarch's assistant, and the semantic-layer benchmarks from dbt and
+Cube. The design matches them on the load-bearing points — deterministic maths around the model,
+curated tools instead of model-written SQL, no path out for injected instructions, minimal data
+to the provider — and departs deliberately where a household is not a company:
+
+- **One agent, not a router over specialists.** Origin routes between spending, investing and
+  planning agents over 150+ tools. Routing pays at that size; at about 25 tools it is overhead.
+- **No web or market-data tools.** They would reopen the path out that this design removes.
+  Market questions are recorded as a limitation.
+- **No vector database.** Retrieval by similarity suits piles of documents; this data is tables
+  with exact answers. Revisit only if unstructured documents (statements, card terms) arrive.
+- **No tracing service**, for the same reason as no web tools. Audit fields use the standard
+  names instead.
+- **No MCP server for an outside assistant.** Community servers for YNAB and Monarch let people
+  use their own Claude subscription at no API cost. But an outside assistant can have web tools
+  switched on, which restores the private-data + untrusted-text + path-out combination this app
+  cannot then prevent. Fine for the demo's synthetic data; not for real data. The tool registry is
+  MCP-shaped, so this stays a transport away if that changes.
+- **Short retention and no zero-data-retention agreement.** Origin keeps history 12 months and
+  audit logs 7 years, as a regulated adviser, and has enterprise retention agreements with its
+  providers. A household keeps less and has the standard terms.
 
 ## Decisions
 

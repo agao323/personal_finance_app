@@ -17,12 +17,16 @@ for switching the advisor on and for every later change of model, effort, prompt
       `provider=anthropic` with the **eval** key (`EVAL_ANTHROPIC_API_KEY`, the `pfa-eval`
       workspace — never the production one). It supports `n=` repeats, `only=` filtering and
       `max_cost=` (default $10, aborting cleanly past it).
-- [ ] `api/evals/graders.py`, deterministic first: grounding re-run; required facts present in an
+- [ ] `api/evals/graders.py`, deterministic first: grounding re-run, reporting how many figures
+      were verified references, matched bare numbers, or unverified; required facts present in an
       allowed form; tool assertions; the expected limitation; no canary, URL, image or HTML in the
-      answer; no claimed action ("I've marked…", "done"); scope labelled where a scoped figure is
-      stated, and spend never described as a share. One rubric grader, for advice cases only,
-      scores educational framing, stated assumptions, no tickers or issuers, escalation when due
-      and a stale-data caveat when due, 1–5 each.
+      answer; and **098's `advisor/policy.py` checks, imported, not copied**. One rubric grader,
+      for advice cases only, scores educational framing, stated assumptions, no tickers or issuers,
+      escalation when due and a stale-data caveat when due, 1–5 each.
+- [ ] **Grader calibration.** `make eval-label` shows the owner recorded synthetic answers one at a
+      time and stores a pass or fail label for each; the report prints the rubric grader's
+      agreement with those labels, and advice-category results are marked untrusted below 90%
+      agreement.
 - [ ] Output: a per-case table, per-category pass rates against the thresholds, tokens by class,
       **cost**, and a non-zero exit below any threshold. A JSON report goes to `data/evals/`
       (gitignored, like everything under `data/`).

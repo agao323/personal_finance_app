@@ -25,6 +25,16 @@ match a value from this conversation's tool results, in a canonical form — exa
 or one-decimal `k`/`M`. On a mismatch the answer is regenerated once with the unmatched figures
 named; a second mismatch is delivered with those figures marked unverified and the turn flagged.
 
+### Amendment, the same day: figures by reference
+
+A comparison with published practice found *Proof-Carrying Numbers* (2025), which goes one step
+further: the model does not type figures at all. It writes a reference (`{{c2.net_worth}}`), the
+server writes the value in, and only resolved references count as verified. Adopted as the primary
+mechanism; the pattern-matching check above stays as the backstop for any number the model types
+itself, which is then marked `matched` or `unverified` rather than verified. The same pass also
+runs the cheap policy checks from the evals — tickers, claimed actions, tax figures, scope labels —
+on every live answer. Neither changes the decision; both make it harder to get around.
+
 ## Alternatives considered
 
 **A prompt instruction alone.** Unverifiable, and it fails silently: a plausible wrong subtraction

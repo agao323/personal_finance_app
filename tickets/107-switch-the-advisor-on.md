@@ -28,8 +28,10 @@ runbook for the day something goes wrong.
       estimate, and the `note_limitation` ranking — written into ADVISOR.md#cost and ticket 080, and
       used to order Waves 11 and 12.
 - [ ] `docs/runbooks/advisor.md`: enabling and disabling; rotating the key; reading month-to-date
-      spend; running `make advisor-purge`; and on a suspected injection — switch off, find the
-      turn's tool calls, find the withheld rows by table and id, fix or remove the source text.
+      spend; running `make advisor-purge`; on a suspected injection — switch off, find the turn's
+      tool calls, find the withheld rows by table and id, fix or remove the source text; and the
+      **monthly review** from ADVISOR.md — read flagged answers inside the 30-day window, name and
+      count the failures, re-express each as a synthetic eval case.
 
 ## Files
 - `docs/runbooks/advisor.md` (new)

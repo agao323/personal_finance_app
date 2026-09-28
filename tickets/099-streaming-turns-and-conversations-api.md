@@ -20,6 +20,10 @@ between here and a phone, and stops costing money the moment the phone gives up.
       `GET /advisor/conversations/{id}`: rendered turns — question, answer, figure checks,
       citations, limitations — never raw tool payloads. `DELETE`: immediate, hard; `404` for
       another member's conversation.
+- [ ] The conversation detail includes each turn's **lookups** (tool, arguments summary, rows,
+      latency, as-of) for the "show lookups" control, and its feedback.
+- [ ] `PUT /advisor/turns/{turn_id}/feedback` records `good` or `flagged` with an optional note on
+      the current user's own turn; `404` for anyone else's.
 - [ ] `GET /advisor/stream-check`: three heartbeats one second apart, nothing else.
 - [ ] Under `DEMO_MODE` every advisor route refuses with reason `demo`; the middleware already
       turns POST and DELETE into `405`.

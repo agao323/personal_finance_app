@@ -24,7 +24,7 @@ the assumptions named — rather than a rule of thumb from the model.
 - [ ] Credit utilisation per card and overall, from balances and limits.
 - [ ] Findings `high_interest_debt` (APR ≥ 8% and balance ≥ $500) and `credit_utilisation_high`
       (> 30%).
-- [ ] Tools `compare_debt_strategies(extra_monthly_cents)`, `compare_prepay_vs_invest(...)`; bounds
+- [ ] Tools `debt_compare_strategies(extra_monthly_cents)`, `debt_prepay_vs_invest(...)`; bounds
       on every argument.
 - [ ] Tests: a hand-computed amortisation for a known loan to the cent; avalanche and snowball on a
       three-debt fixture where they order differently; a promo APR that ends mid-schedule; a

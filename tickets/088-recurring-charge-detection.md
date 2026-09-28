@@ -23,7 +23,7 @@ say.
       interval is reported as lapsed. A cancelled subscription must not read as a cost you still
       carry.
 - [ ] Confidence `high` (fixed amount, ≥ 90% of intervals in cadence) or `medium`.
-- [ ] Tool `find_recurring_charges(lookback_months 6–24)`.
+- [ ] Tool `spend_recurring(lookback_months 6–24)`.
 - [ ] Tests: fixtures with a monthly subscription that rose from $15.49 to $17.99, an annual charge
       seen twice, a weekly habit, a quarterly service, one that stopped four months ago (lapsed),
       and a merchant with irregular charges that must **not** be called recurring.
@@ -38,5 +38,5 @@ This pulls the read-only half of PRODUCT's Later "subscriptions I should cancel"
 cancelling stays with the owner, at the merchant.
 
 Detection is only as complete as the imports: a card whose CSV has not been imported for two
-months has no recent charges to find. `get_data_health` (090) reports that, and the advisor is
+months has no recent charges to find. `data_health` (090) reports that, and the advisor is
 expected to say so.

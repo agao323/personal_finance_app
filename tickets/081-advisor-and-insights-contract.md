@@ -16,16 +16,21 @@ frozen contract, the way ticket 012 let Wave 2 run three lanes at once.
       `InsightsRead`, and the enums `FindingKind`, `Severity`, `EvidenceUnit`, `ActionKind`,
       `Screen`. **`FindingKind` and `LimitationKind` ship complete** — every kind planned for
       Waves 9–12 — so later waves add findings without a contract change, as `enums.py` does.
+      `LimitationKind` includes `market_data`.
 - [ ] …and the advisor models: `AdvisorStatus` (enabled, refusal reason, month spent and cap in
       cents, model), `ConversationCreate` (scope), `ConversationSummary`, `ConversationDetail`
-      (turns with question, answer, figure checks, citations, limitations, status), `TurnCreate`
-      (question, 1–2,000 characters), `Citation`, `FigureCheck`, and **`AdvisorEvent`** — a
-      discriminated union of `turn_started`, `tool_call`, `text_delta`, `answer`, `regenerating`,
-      `error`, `heartbeat`, `turn_complete`.
+      (turns with question, answer, figure checks, citations, **lookups**, limitations, policy
+      notes, feedback, status), `TurnCreate` (question, 1–2,000 characters), `TurnFeedback`
+      (`good` or `flagged`, note ≤ 500), `Citation`, `Lookup` (tool, arguments summary, rows,
+      latency, as-of), and **`AdvisorEvent`** — a discriminated union of `turn_started`,
+      `tool_call`, `text_delta`, `answer`, `regenerating`, `error`, `heartbeat`, `turn_complete`.
+- [ ] `FigureCheck` carries a span, a status — `verified` (a resolved reference), `matched` (a bare
+      number found in a tool result) or `unverified` — and, when known, its **source**: call id and
+      path. This is the Proof-Carrying Numbers shape in ADVISOR.md#grounding.
 - [ ] Routes, all `501`: `GET /insights`; `GET /advisor/status`; `GET POST /advisor/conversations`;
       `GET DELETE /advisor/conversations/{conversation_id}`;
       `POST /advisor/conversations/{conversation_id}/turns` (declared `text/event-stream`);
-      `GET /advisor/stream-check`.
+      `PUT /advisor/turns/{turn_id}/feedback`; `GET /advisor/stream-check`.
 - [ ] `AdvisorEvent` appears under `components` in `api-types.ts` although it is only ever sent as
       SSE. If `openapi-typescript` does not emit it from the route's `responses`, fix
       `scripts/export_openapi.py` — never hand-edit the generated file.

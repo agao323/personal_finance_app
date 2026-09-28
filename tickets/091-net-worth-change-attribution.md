@@ -23,7 +23,7 @@ hands, or a balance nobody updated.
       is absent rather than zero.
 - [ ] `coverage`: if `from_date` precedes the first snapshot, the result says the history does not
       reach that far instead of treating the account as zero.
-- [ ] Tool `explain_net_worth_change(scope, from_date, to_date)`.
+- [ ] Tool `networth_explain_change(scope, from_date, to_date)`.
 - [ ] Tests: reconciliation as a property test (`hypothesis`) over generated snapshot histories; a
       stake change inside the window; a car closed inside it; an account updated in January and not
       since; the seed's 50% rental in both scopes.

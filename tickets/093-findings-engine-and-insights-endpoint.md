@@ -8,7 +8,7 @@ Read first: docs/ADVISOR.md#findings, docs/adr/0011-findings-are-computed-and-fi
 ## Goal
 The analyses become ranked, structured findings — what needs attention, how urgently, on what
 evidence, and where in the app to act — served by `GET /insights` and available to the advisor as
-`get_findings`. Recommendations become testable with no model involved.
+`findings_list`. Recommendations become testable with no model involved.
 
 ## Acceptance criteria
 - [ ] `services/findings.py` implements every Wave 9 kind in ADVISOR.md#findings, with thresholds as
@@ -22,7 +22,7 @@ evidence, and where in the app to act — served by `GET /insights` and availabl
 - [ ] `runway_low` states its three-month threshold as a default in its evidence, until goals exist.
 - [ ] `GET /insights?scope=` implemented; spend-based findings are identical in both scopes.
 - [ ] Works under `DEMO_MODE` — a read, no model.
-- [ ] Tool `get_findings(scope, kinds?)`.
+- [ ] Tool `findings_list(scope, kinds?)`.
 - [ ] Tests: unit — each kind at and either side of its threshold; ranking; the stale-demotion rule
       and its exception; ids stable across two runs. Functional — `/insights` against the synthetic
       seed returns the expected kinds in order in both scopes.

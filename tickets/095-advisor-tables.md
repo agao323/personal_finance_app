@@ -15,13 +15,19 @@ export — so the guard test holds and `make backup` carries them.
       (≤ 120, the first question truncated), `created_at`, `last_turn_at`, `expires_at`;
       `advisor_turns` — uuid id, conversation `CASCADE`, `seq`, `status`
       (streaming · complete · cancelled · failed · refused), `grounding` (verified · flagged ·
-      none), `model`, `prompt_version`, `error_code`, `started_at`, `finished_at`;
+      none), `model`, `prompt_version`, `error_code`, `started_at`, `finished_at`, and the owner's
+      **feedback**: `feedback` (good · flagged · null), `feedback_note_text` (≤ 500),
+      `feedback_at`;
       `advisor_messages` — turn `CASCADE`, `seq`, `role`, `content` JSONB (content blocks exactly
       as sent or received);
-      `advisor_tool_calls` — conversation and turn `SET NULL`, `tool`, `args` JSONB, `status`,
+      `advisor_tool_calls` — conversation and turn `SET NULL`, `tool_name`, `tool_call_id`, `args` JSONB, `status`,
       `latency_ms`, `row_count`, `result_bytes`, `withheld_count`, `created_at`;
       `advisor_usage` — turn `SET NULL`, `model`, `request_id`, input, cache-write-5m,
       cache-write-1h, cache-read and output token counts, `stop_reason`, `latency_ms`, `created_at`.
+- [ ] Column names map one-to-one onto the OpenTelemetry GenAI attributes where one exists
+      (`gen_ai.tool.name` → `tool_name`, `gen_ai.tool.call.id` → `tool_call_id`,
+      `gen_ai.usage.input_tokens` → `input_tokens`, …); the mapping is written in the module
+      docstring.
 - [ ] **No money column in any of them.** Cost is computed from token counts (ADVISOR.md#numbers);
       a test asserts no `Numeric` column exists in these models.
 - [ ] Revision 0007 written and reviewed by hand; upgrade and downgrade both exercised by a test.

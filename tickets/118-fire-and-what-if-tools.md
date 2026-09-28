@@ -10,17 +10,17 @@ The advisor can answer retirement questions with the projection engine's band, a
 saved $500 more a month" with two computed scenarios and a computed difference.
 
 ## Acceptance criteria
-- [ ] Tool `project_retirement(scope, retire_year?, annual_spend_cents?)`: the band, the earliest
+- [ ] Tool `projection_retirement(scope, retire_year?, annual_spend_cents?)`: the band, the earliest
       90%-success year, the assumptions used, and the data gaps (unknown allocation, missing tax
       treatment).
-- [ ] Tool `what_if(change, value)`, `change` from an enum — `extra_monthly_saving`,
+- [ ] Tool `projection_what_if(change, value)`, `change` from an enum — `extra_monthly_saving`,
       `spend_change_bps`, `retire_year_shift` — each bounded; returns base and scenario and the
       differences, computed here.
 - [ ] System prompt addition: projections are ranges; never state a single retirement number; name
       the assumptions and their version; say what the model ignores (the 59½ rule, deductibility).
 - [ ] Six FIRE eval cases: facts from the engine (band endpoints, earliest year), the rubric, and a
       grader that fails any answer stating one figure as "the number you need".
-- [ ] Tests: tool bounds; `what_if` differences equal the engine run twice; a question asked with
+- [ ] Tests: tool bounds; `projection_what_if` differences equal the engine run twice; a question asked with
       no tax treatment recorded produces the limitation rather than a projection.
 
 ## Files

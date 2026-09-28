@@ -18,7 +18,7 @@ balances, split so the classes add up exactly to the accounts they came from.
       planning assumptions' target mix in percentage points; cash beyond the emergency-fund target
       (or six months of burn without one) as cash drag.
 - [ ] Findings `allocation_drift` (any class more than 5 points from target) and `cash_drag`.
-- [ ] Tool `get_allocation(scope)`, which states each allocation's effective date ("as entered on
+- [ ] Tool `allocation_get(scope)`, which states each allocation's effective date ("as entered on
       3 March").
 - [ ] Tests: `split` as a `hypothesis` property — parts always sum to the whole, each part within one
       cent of its exact share; the 50% rental in both scopes; an account with unknown allocation

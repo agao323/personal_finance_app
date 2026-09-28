@@ -19,7 +19,7 @@ uncategorised, and which transactions look like transfers nobody marked.
       opposite amounts** of at least $50, posted within 3 days, neither in a transfer group nor in a
       `transfer`-kind category. Each transaction belongs to at most one pair, matched by closest
       date.
-- [ ] Tool `get_data_health()`.
+- [ ] Tool `data_health()`.
 - [ ] Tests: a stale balance at 90 and 91 days; an account with no transactions in 36 days; a true
       pair; a near-miss (different amount by a cent, same account, four days apart) that must not
       pair; three candidates competing for one partner.

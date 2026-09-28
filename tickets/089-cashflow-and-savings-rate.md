@@ -17,7 +17,7 @@ the Insights panel can report it.
       reported as negative, not clamped.
 - [ ] Transfers are excluded from both sides. Months with no transactions are skipped.
 - [ ] Not ownership-adjusted, exactly like spend. No scope parameter.
-- [ ] Tool `get_cashflow(months)`.
+- [ ] Tool `cashflow_get(months)`.
 - [ ] Tests: hand-computed months including a bonus month, a month with a refund, a month with a
       transfer pair (excluded), a month with no income (no savings rate), and one with no data
       (skipped).

@@ -14,8 +14,8 @@ moved — generated only when asked, and read in the app.
 - [ ] On the first visit to `/advisor` in a new month, an offer: "Review September — about $0.15."
       Nothing is generated until it is accepted.
 - [ ] A review is a conversation of `kind: review`, started with a fixed prompt that calls
-      `get_findings`, `compare_spend` (last month against the one before), `get_cashflow`,
-      `get_card_value` and `explain_net_worth_change`. Follow-up questions work as in any
+      `findings_list`, `spend_compare` (last month against the one before), `cashflow_get`,
+      `cards_value` and `networth_explain_change`. Follow-up questions work as in any
       conversation; the same caps, grounding and retention apply.
 - [ ] **No email, no push, no scheduler.** A notification is egress, and a scheduled job is the
       thing ADR 0008 learned not to trust.
