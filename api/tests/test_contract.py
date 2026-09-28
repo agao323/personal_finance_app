@@ -73,6 +73,8 @@ LIVE_PATHS = {
     "/advisor/conversations/{conversation_id}/turns",  # 099
     "/advisor/turns/{turn_id}/feedback",  # 099
     "/advisor/stream-check",  # 099
+    "/goals",  # 108
+    "/goals/{goal_id}",  # 108
 }
 
 

@@ -98,12 +98,14 @@ def _types(events: list[dict[str, Any]]) -> list[str]:
 
 
 @pytest.fixture
-def as_partner(monkeypatch: pytest.MonkeyPatch, partner_id: int) -> Callable[[], None]:
+def as_partner(monkeypatch: pytest.MonkeyPatch, partner_id: int) -> Iterator[Callable[[], None]]:
     def switch() -> None:
         monkeypatch.setenv("DEV_IDENTITY_EMAIL", PARTNER)
         get_settings.cache_clear()
 
-    return switch
+    yield switch
+    # The environment is restored after this; the cached settings must not outlive it.
+    get_settings.cache_clear()
 
 
 # ── the streamed turn ─────────────────────────────────────────────────────────

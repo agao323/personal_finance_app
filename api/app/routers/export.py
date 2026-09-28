@@ -72,6 +72,8 @@ EXPORTED = (
     "advisor_messages",
     "advisor_tool_calls",
     "advisor_usage",
+    "goals",
+    "goal_accounts",
 )
 
 

@@ -49,3 +49,5 @@ class ExportRead(Schema):
     advisor_messages: list[dict[str, Any]]
     advisor_tool_calls: list[dict[str, Any]]
     advisor_usage: list[dict[str, Any]]
+    goals: list[dict[str, Any]]
+    goal_accounts: list[dict[str, Any]]

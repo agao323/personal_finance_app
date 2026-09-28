@@ -26,6 +26,7 @@ from app.routers import (
     cards,
     categories,
     export,
+    goals,
     import_csv,
     insights,
     net_worth,
@@ -108,6 +109,7 @@ for _router in (
     users.router,
     insights.router,
     advisor.router,
+    goals.router,
 ):
     app.include_router(_router)
 

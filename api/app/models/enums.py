@@ -124,3 +124,19 @@ class MatchType(enum.StrEnum):
     EQUALS = "equals"
     STARTS_WITH = "starts_with"
     REGEX = "regex"
+
+
+class GoalKind(enum.StrEnum):
+    """What a goal measures. `debt_free` and `retirement` arrive with Wave 12, deliberately:
+    adding a label to a Postgres enum is a migration, so it happens when there is code for it.
+    """
+
+    SPENDING_LIMIT = "spending_limit"
+    EMERGENCY_FUND = "emergency_fund"
+    SAVINGS_TARGET = "savings_target"
+
+
+class GoalStatus(enum.StrEnum):
+    ACTIVE = "active"
+    ACHIEVED = "achieved"
+    ARCHIVED = "archived"

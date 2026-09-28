@@ -26,9 +26,12 @@ from app.models.enums import (
     CategoryKind,
     CategorySource,
     DataSource,
+    GoalKind,
+    GoalStatus,
     MatchType,
     PerkCadence,
 )
+from app.models.goal import Goal, GoalAccount
 from app.models.system import DataMarker, ImportMapping
 from app.models.transaction import CategorizationRule, Category, Transaction
 from app.models.user import User
@@ -51,6 +54,10 @@ __all__ = [
     "CategorySource",
     "DataMarker",
     "DataSource",
+    "Goal",
+    "GoalAccount",
+    "GoalKind",
+    "GoalStatus",
     "ImportMapping",
     "Institution",
     "MatchType",
