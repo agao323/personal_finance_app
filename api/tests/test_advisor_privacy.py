@@ -54,7 +54,7 @@ class Captured(Transport):
         self.envelopes.append(envelope)
 
     def events(self) -> list[dict[str, Any]]:
-        return [e for e in (env.get_event() for env in self.envelopes) if e is not None]
+        return [dict(e) for e in (env.get_event() for env in self.envelopes) if e is not None]
 
     def text(self) -> str:
         return json.dumps(self.events(), default=str)
