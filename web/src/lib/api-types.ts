@@ -1781,6 +1781,26 @@ export interface components {
       accounts: {
         [key: string]: unknown;
       }[];
+      /** Advisor Conversations */
+      advisor_conversations: {
+        [key: string]: unknown;
+      }[];
+      /** Advisor Messages */
+      advisor_messages: {
+        [key: string]: unknown;
+      }[];
+      /** Advisor Tool Calls */
+      advisor_tool_calls: {
+        [key: string]: unknown;
+      }[];
+      /** Advisor Turns */
+      advisor_turns: {
+        [key: string]: unknown;
+      }[];
+      /** Advisor Usage */
+      advisor_usage: {
+        [key: string]: unknown;
+      }[];
       /** Balance Snapshots */
       balance_snapshots: {
         [key: string]: unknown;
