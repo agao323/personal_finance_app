@@ -45,6 +45,7 @@ export function CategoryBreakdown({
   caption,
   onSelect,
   selectedId,
+  limits,
 }: {
   buckets: Bucket[];
   totalCents: number;
@@ -52,6 +53,11 @@ export function CategoryBreakdown({
   /** Omit to render a static chart — ticket 030 reuses it that way. */
   onSelect?: (bucket: Bucket) => void;
   selectedId?: number | null;
+  /**
+   * Monthly spending limits by category id, from the household's goals (ticket 110).
+   * Shown beside the category they limit, where the owner already looks each month.
+   */
+  limits?: ReadonlyMap<number, number>;
 }) {
   // Negative buckets are possible: a month whose only Travel row is a refund. They
   // get no bar rather than a backwards one, and the amount still reads correctly.
@@ -64,6 +70,11 @@ export function CategoryBreakdown({
         const share = shareOfTotal(bucket.spend_cents, totalCents);
         const width = `${Math.max(0, (bucket.spend_cents / widest) * 100)}%`;
         const selected = selectedId !== undefined && selectedId === (bucket.category_id ?? null);
+        const limit =
+          bucket.category_id !== null && bucket.category_id !== undefined
+            ? limits?.get(bucket.category_id)
+            : undefined;
+        const over = limit !== undefined && bucket.spend_cents > limit;
 
         const body = (
           <>
@@ -73,6 +84,13 @@ export function CategoryBreakdown({
                 <span className="truncate text-sm">{bucket.category_name}</span>
               </span>
               <span className="flex shrink-0 items-baseline gap-2 text-sm">
+                {limit !== undefined ? (
+                  <span
+                    className={`text-xs tabular-nums ${over ? "text-warning-text" : "text-ink-muted"}`}
+                  >
+                    limit {formatCurrency(limit, { showCents: false })}
+                  </span>
+                ) : null}
                 <span className="font-medium tabular-nums">
                   {formatCurrency(bucket.spend_cents)}
                 </span>
@@ -100,7 +118,10 @@ export function CategoryBreakdown({
           `${bucket.category_name}: ${formatCurrency(bucket.spend_cents)}, ${share} of spending` +
           (bucket.change_cents === null || bucket.change_cents === undefined
             ? ""
-            : `, ${formatSignedCurrency(bucket.change_cents)} versus the prior period`);
+            : `, ${formatSignedCurrency(bucket.change_cents)} versus the prior period`) +
+          (limit === undefined
+            ? ""
+            : `, against a monthly limit of ${formatCurrency(limit)}${over ? ", over it" : ""}`);
 
         return (
           <li key={bucket.category_id ?? "uncategorised"}>

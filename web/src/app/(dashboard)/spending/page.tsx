@@ -13,6 +13,9 @@
  * quietly re-implement the transfer, refund, and income rules that make these numbers
  * trustworthy, and the two would disagree the first time one of them changed.
  *
+ * A spending-limit goal's monthly limit shows beside its category (ticket 110), and a goal's
+ * link opens the screen on that category with `?category=<id>`.
+ *
  * No Mine/Household toggle here, deliberately. Spend is the one figure in the app
  * that is never ownership-adjusted — a $60 grocery charge on a joint card is $60 of
  * spending, not $30, because the groceries were bought once. Offering the toggle
@@ -114,6 +117,57 @@ export default function SpendingPage() {
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [spendLoaded, setSpendLoaded] = useState<Loaded<SpendResponse> | null>(null);
   const [rowsLoaded, setRowsLoaded] = useState<Loaded<TransactionRow[]> | null>(null);
+  const [limits, setLimits] = useState<ReadonlyMap<number, number>>(() => new Map());
+
+  // Monthly limits from active spending-limit goals, shown beside the category they limit.
+  // Optional: the screen stands without them, so a failure here is not an error on it.
+  useEffect(() => {
+    let live = true;
+    apiFetch("/goals")
+      .then((goals) => {
+        if (!live) return;
+        const pairs: [number, number][] = [];
+        for (const goal of goals) {
+          if (
+            goal.kind === "spending_limit" &&
+            goal.status === "active" &&
+            goal.category_id != null &&
+            goal.target_amount_cents != null
+          ) {
+            pairs.push([goal.category_id, goal.target_amount_cents]);
+          }
+        }
+        setLimits(new Map(pairs));
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  // `?category=<id>` — a goal's "See it on Spending" link — opens on that category: drilled
+  // into its parent with it selected, or drilled into it when it is itself a parent.
+  useEffect(() => {
+    const wanted = Number(new URLSearchParams(globalThis.location?.search ?? "").get("category"));
+    if (!wanted) return;
+    let live = true;
+    apiFetch("/categories")
+      .then((all) => {
+        const category = all.find((c) => c.id === wanted);
+        if (!live || !category) return;
+        const parent = all.find((c) => c.id === category.parent_id);
+        if (parent) {
+          setDrill({ id: parent.id, name: parent.name });
+          setSelection({ id: category.id, name: category.name });
+        } else {
+          setDrill({ id: category.id, name: category.name });
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const groupBy = drill ? "category" : "parent_category";
   const spendKey = `${period.from}|${period.to}|${groupBy}`;
@@ -257,6 +311,7 @@ export default function SpendingPage() {
                 caption={`Spending by category, ${period.from} to ${period.to}`}
                 onSelect={onBucketSelect}
                 selectedId={selection?.id ?? undefined}
+                limits={limits}
               />
               <SpendTable
                 buckets={sorted}

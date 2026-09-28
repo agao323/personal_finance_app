@@ -1344,3 +1344,156 @@ export function mockConversation(
   );
   return calls;
 }
+
+// ── goals and planning ────────────────────────────────────────────────────────
+
+type GoalBody = ResponseOf<"/goals", "get">[number];
+type AssumptionsBody = ResponseOf<"/planning/assumptions", "get">[number];
+
+export const goals: GoalBody[] = [
+  {
+    id: 3,
+    kind: "savings_target",
+    name: "House deposit",
+    view: "mine",
+    category_id: null,
+    category_name: null,
+    target_amount_cents: 6_000_000,
+    target_months_tenths: null,
+    target_date: "2028-06-30",
+    status: "active",
+    account_ids: [2],
+    created_at: "2026-09-27T12:00:00Z",
+    updated_at: "2026-09-27T12:00:00Z",
+    progress: {
+      as_of: "2026-09-27",
+      on_track: false,
+      stale: true,
+      saved_cents: 1_500_000,
+      remaining_cents: 4_500_000,
+      monthly_needed_cents: 214_286,
+      progress_bps: 2500,
+    },
+  },
+  {
+    id: 2,
+    kind: "emergency_fund",
+    name: "Six months",
+    view: "household",
+    category_id: null,
+    category_name: null,
+    target_amount_cents: null,
+    target_months_tenths: 60,
+    target_date: null,
+    status: "active",
+    account_ids: [],
+    created_at: "2026-09-26T12:00:00Z",
+    updated_at: "2026-09-26T12:00:00Z",
+    progress: null,
+  },
+  {
+    id: 1,
+    kind: "spending_limit",
+    name: "Dining under $400",
+    view: "household",
+    category_id: 12,
+    category_name: "Restaurants",
+    target_amount_cents: 40_000,
+    target_months_tenths: null,
+    target_date: null,
+    status: "active",
+    account_ids: [],
+    created_at: "2026-09-25T12:00:00Z",
+    updated_at: "2026-09-25T12:00:00Z",
+    progress: null,
+  },
+];
+
+export type GoalCalls = { created: unknown[]; updated: { id: string; body: unknown }[] };
+
+/** The goals list, create and update. Returns what was sent. */
+export function mockGoals(rows: GoalBody[] = goals): GoalCalls {
+  const calls: GoalCalls = { created: [], updated: [] };
+  server.use(
+    http.get("/api/goals", () => HttpResponse.json(rows)),
+    http.post("/api/goals", async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      calls.created.push(body);
+      const created: GoalBody = {
+        ...goals[2],
+        id: 99,
+        kind: body.kind as GoalBody["kind"],
+        name: String(body.name),
+        view: body.view as GoalBody["view"],
+        category_id: (body.category_id as number | null) ?? null,
+        category_name: body.category_id ? "Restaurants" : null,
+        target_amount_cents: (body.target_amount_cents as number | null) ?? null,
+        target_months_tenths: (body.target_months_tenths as number | null) ?? null,
+        target_date: (body.target_date as string | null) ?? null,
+        account_ids: (body.account_ids as number[]) ?? [],
+        progress: null,
+      };
+      return HttpResponse.json(created, { status: 201 });
+    }),
+    http.patch("/api/goals/:id", async ({ request, params }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      calls.updated.push({ id: String(params.id), body });
+      const current = rows.find((goal) => goal.id === Number(params.id)) ?? rows[0];
+      return HttpResponse.json({ ...current, ...body });
+    }),
+  );
+  return calls;
+}
+
+export const defaultAssumptions: AssumptionsBody = {
+  id: 1,
+  effective_from: "2026-09-01T00:00:00Z",
+  is_default: true,
+  created_by_user_id: null,
+  expected_real_return_bps: 500,
+  inflation_bps: 250,
+  withdrawal_low_bps: 300,
+  withdrawal_high_bps: 450,
+  pre65_healthcare_annual_cents: null,
+  tax_deferred_withdrawal_tax_bps: 1500,
+  risk_tolerance: "moderate",
+  target_us_equity_bps: 4000,
+  target_intl_equity_bps: 2000,
+  target_bonds_bps: 3500,
+  target_cash_bps: 500,
+  target_other_bps: 0,
+};
+
+export type PlanningCalls = { versions: unknown[]; profiles: unknown[] };
+
+/** The profile and the assumptions history. Returns what was sent. */
+export function mockPlanning(history: AssumptionsBody[] = [defaultAssumptions]): PlanningCalls {
+  const calls: PlanningCalls = { versions: [], profiles: [] };
+  server.use(
+    http.get("/api/planning/profile", () =>
+      HttpResponse.json({ birth_year: null, target_retirement_year: null }),
+    ),
+    http.put("/api/planning/profile", async ({ request }) => {
+      const body = await request.json();
+      calls.profiles.push(body);
+      return HttpResponse.json(body);
+    }),
+    http.get("/api/planning/assumptions", () => HttpResponse.json(history)),
+    http.post("/api/planning/assumptions", async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      calls.versions.push(body);
+      return HttpResponse.json(
+        {
+          ...defaultAssumptions,
+          ...body,
+          id: history.length + 1,
+          is_default: false,
+          created_by_user_id: 1,
+          effective_from: "2026-09-28T09:00:00Z",
+        },
+        { status: 201 },
+      );
+    }),
+  );
+  return calls;
+}

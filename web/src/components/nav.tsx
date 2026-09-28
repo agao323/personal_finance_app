@@ -9,6 +9,7 @@ import { AccountMenu } from "@/components/account-menu";
 export const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/spending", label: "Spending" },
+  { href: "/goals", label: "Goals" },
   { href: "/accounts", label: "Accounts" },
   { href: "/transactions", label: "Transactions" },
   { href: "/cards", label: "Cards" },

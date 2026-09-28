@@ -5,11 +5,21 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import SpendingPage, { DEFAULT_SORT, nextSort, sortBuckets } from "./page";
 import type { Bucket } from "@/components/charts/category-breakdown";
-import { mockFailure, mockSpend, mockTransactions, parentSpend, server } from "@/test/msw";
+import {
+  goals,
+  mockCategories,
+  mockFailure,
+  mockGoals,
+  mockSpend,
+  mockTransactions,
+  parentSpend,
+  server,
+} from "@/test/msw";
 
 beforeEach(() => {
   mockSpend();
   mockTransactions();
+  mockGoals([]);
 });
 
 /** The sortable table, by its caption — the page has more than one table. */
@@ -369,5 +379,48 @@ describe("spending", () => {
     render(<SpendingPage />);
 
     expect(await screen.findByText("No spending in this period")).toBeInTheDocument();
+  });
+});
+
+describe("spending limits from goals", () => {
+  it("shows a category's monthly limit beside its bar, and says when it is over", async () => {
+    mockGoals([
+      { ...goals[2], category_id: 10, category_name: "Food", target_amount_cents: 100_000 },
+    ]);
+
+    render(<SpendingPage />);
+
+    const chart = await screen.findByRole("list", { name: /Spending by category/ });
+    const food = await within(chart).findByRole("button", { name: /^Food:/ });
+    await waitFor(() => expect(food).toHaveTextContent("limit $1,000"));
+    expect(food).toHaveAccessibleName(/against a monthly limit of \$1,000\.00, over it/);
+    expect(within(chart).getByRole("button", { name: /^Housing:/ })).not.toHaveTextContent("limit");
+  });
+
+  it("ignores archived goals", async () => {
+    mockGoals([{ ...goals[2], category_id: 10, status: "archived" }]);
+
+    render(<SpendingPage />);
+
+    const chart = await screen.findByRole("list", { name: /Spending by category/ });
+    expect(await within(chart).findByRole("button", { name: /^Food:/ })).not.toHaveTextContent(
+      "limit",
+    );
+  });
+
+  it("opens on a goal's category from its link", async () => {
+    mockCategories();
+    window.history.pushState({}, "", "/spending?category=12");
+    try {
+      render(<SpendingPage />);
+
+      await waitFor(() =>
+        expect(screen.getByRole("navigation", { name: "Category drill-down" })).toHaveTextContent(
+          "Food",
+        ),
+      );
+    } finally {
+      window.history.pushState({}, "", "/");
+    }
   });
 });
