@@ -31,6 +31,11 @@ EXPECTED_TABLES = {
     "data_marker",
     "card_perks",
     "perk_redemptions",
+    "advisor_conversations",
+    "advisor_turns",
+    "advisor_messages",
+    "advisor_tool_calls",
+    "advisor_usage",
 }
 
 

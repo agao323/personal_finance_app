@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.db import Base
 from app.routers.export import EXPORTED
 from app.schemas.export import ExportRead
-from scripts.restore_local import _ordered, insert_order
+from scripts.restore_local import _coerced, _ordered, insert_order
 
 
 def test_every_mapped_table_is_exported() -> None:
@@ -144,3 +144,16 @@ def test_ordering_leaves_a_table_without_a_self_reference_alone() -> None:
     rows = [{"id": 2}, {"id": 1}]
 
     assert _ordered(accounts, rows) == rows
+
+
+def test_uuids_come_back_as_uuids() -> None:
+    """The export writes a uuid as a string; restore must not hand the string to the driver."""
+    import uuid
+
+    table = Base.metadata.tables["advisor_conversations"]
+    value = "00000000-0000-4000-8000-000000000001"
+
+    (row,) = _coerced(table, [{"id": value, "title_text": "x", "view": "mine"}])
+
+    assert row["id"] == uuid.UUID(value)
+    assert row["title_text"] == "x"

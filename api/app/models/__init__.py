@@ -12,6 +12,13 @@ from app.models.account import (
     Institution,
     OwnershipStake,
 )
+from app.models.advisor import (
+    AdvisorConversation,
+    AdvisorMessage,
+    AdvisorToolCall,
+    AdvisorTurn,
+    AdvisorUsage,
+)
 from app.models.card_perk import CardPerk, PerkRedemption
 from app.models.enums import (
     AccountKind,
@@ -31,6 +38,11 @@ __all__ = [
     "Account",
     "AccountKind",
     "AccountSubtype",
+    "AdvisorConversation",
+    "AdvisorMessage",
+    "AdvisorToolCall",
+    "AdvisorTurn",
+    "AdvisorUsage",
     "BalanceSnapshot",
     "CardPerk",
     "CategorizationRule",

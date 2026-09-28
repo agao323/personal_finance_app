@@ -14,10 +14,11 @@ import argparse
 import json
 import os
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Table, create_engine, delete, func, insert, select
+from sqlalchemy import Table, Uuid, create_engine, delete, func, insert, select
 
 from app.db import Base
 from app.routers.export import EXPORTED
@@ -82,6 +83,26 @@ def _ordered(table: Table, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def _coerced(table: Table, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Rows with uuid columns turned back from the export's strings into `uuid.UUID`.
+
+    The export writes a uuid as a string, because JSON has no uuid; the advisor's tables
+    (ticket 095) are the first to use one. Left as strings, the insert relies on the driver
+    and the server agreeing on a text-to-uuid cast, which is the kind of agreement a
+    restore drill finds out about too late.
+    """
+    columns = [c.name for c in table.columns if isinstance(c.type, Uuid)]
+    if not columns:
+        return rows
+    return [
+        {
+            key: uuid.UUID(value) if key in columns and isinstance(value, str) else value
+            for key, value in row.items()
+        }
+        for row in rows
+    ]
+
+
 def insert_order() -> list[Table]:
     """The exported tables, parents first.
 
@@ -111,7 +132,7 @@ def restore(database_url: str, payload: dict[str, Any], *, force: bool) -> dict[
         for table in order:
             rows = payload.get(table.name, [])
             if rows:
-                connection.execute(insert(table), _ordered(table, rows))
+                connection.execute(insert(table), _ordered(table, _coerced(table, rows)))
             counts[table.name] = len(rows)
     engine.dispose()
     return counts

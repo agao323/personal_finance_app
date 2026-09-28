@@ -9,6 +9,7 @@ does not depend on the backup job working.
 from __future__ import annotations
 
 import datetime as dt
+import uuid
 from decimal import Decimal
 from typing import Any
 
@@ -36,6 +37,8 @@ def _jsonable(value: Any) -> Any:
         return str(value)
     if isinstance(value, dt.datetime | dt.date):
         return value.isoformat()
+    if isinstance(value, uuid.UUID):
+        return str(value)
     return value
 
 
@@ -64,6 +67,11 @@ EXPORTED = (
     "perk_redemptions",
     "users",
     "data_marker",
+    "advisor_conversations",
+    "advisor_turns",
+    "advisor_messages",
+    "advisor_tool_calls",
+    "advisor_usage",
 )
 
 

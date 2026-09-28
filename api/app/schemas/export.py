@@ -41,3 +41,11 @@ class ExportRead(Schema):
     perk_redemptions: list[dict[str, Any]]
     users: list[dict[str, Any]]
     data_marker: list[dict[str, Any]]
+    # The advisor's tables (ticket 095). Transcripts expire after 30 days, so a backup
+    # holds at most that much — and a conversation deleted today survives in any backup
+    # file written before today, which the delete confirmation says.
+    advisor_conversations: list[dict[str, Any]]
+    advisor_turns: list[dict[str, Any]]
+    advisor_messages: list[dict[str, Any]]
+    advisor_tool_calls: list[dict[str, Any]]
+    advisor_usage: list[dict[str, Any]]

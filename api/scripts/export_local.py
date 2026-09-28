@@ -21,6 +21,7 @@ import datetime as dt
 import json
 import os
 import sys
+import uuid
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -56,6 +57,8 @@ def _jsonable(value: Any) -> Any:
         return str(value)
     if isinstance(value, dt.datetime | dt.date):
         return value.isoformat()
+    if isinstance(value, uuid.UUID):
+        return str(value)
     return value
 
 
