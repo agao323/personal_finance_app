@@ -3,6 +3,11 @@
 Date: 2026-08-17
 Status: accepted
 
+> **The backup layer this ADR counts on was replaced on 2026-09-27** by
+> [ADR 0008](0008-local-backups.md): the second layer beside Neon's PITR is a local JSON
+> export (`make backup`), not the nightly `pg_dump` named below. The hosting decision
+> itself stands.
+
 ## Context
 
 The app is two services and a Postgres database, serving one household. It has to be
@@ -60,7 +65,7 @@ once, before the new version takes traffic, and a failure aborts the deploy inst
 half-migrating under live requests.
 
 **Kubernetes.** Covered in
-[ARCHITECTURE.md#why-not-kubernetes](../ARCHITECTURE.md#why-not-kubernetes). Wrong tool
+[design-docs/hosting.md#why-not-kubernetes](../design-docs/hosting.md#why-not-kubernetes). Wrong tool
 by two orders of magnitude at one household of traffic.
 
 ## Amendments

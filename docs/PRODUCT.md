@@ -77,9 +77,12 @@ Grouped by conviction. **v1** is committed. **Later** is intended but unschedule
   edit rules and to override a category by hand.**
 - A transactions screen with filtering and inline recategorisation.
 - Dashboard: current net worth, runway/burn, net worth over time, spend by category MTD/YTD.
-- Passkey auth + Cloudflare Access.
+- Cloudflare Access as the authentication, with the `users` table as the allowlist.
+  (Passkeys in the app were built too, then removed — [ADR 0007](adr/0007-drop-passkeys.md).)
 - Public demo deployment on synthetic data.
-- Nightly encrypted backups with a restore that has actually been performed.
+- Backups with a restore that has actually been performed: Neon's point-in-time recovery
+  plus a full local export. (Originally nightly encrypted dumps offsite —
+  [ADR 0008](adr/0008-local-backups.md) has why that changed.)
 
 ### Burn and runway
 
@@ -95,7 +98,7 @@ is not displayed in v1.
   explained and recommendations grounded in figures the app computed rather than the model.
   Two halves: a deterministic **Insights panel** that needs no model and ships first, and a chat
   that calls one, which still ships last under the constraints in
-  [SECURITY.md](SECURITY.md#ai-agent). Plan in ticket 080; design in [ADVISOR.md](ADVISOR.md).
+  [SECURITY.md](SECURITY.md#ai-agent). Plan 122; design in [ADVISOR.md](ADVISOR.md).
 
   It pulls the read-only half of three Later items forward: **subscriptions I should cancel**
   (recurring-charge detection), **income** (a savings rate, as an insight rather than a view),
@@ -129,7 +132,7 @@ is not displayed in v1.
   edit the code.
 - **Multi-currency.** `currency` is stored but constrained to USD. Summing mixed currencies
   silently produces a wrong number; a stored field the math ignores is worse than no field.
-- **Kubernetes as initial infrastructure.** See [ARCHITECTURE.md](ARCHITECTURE.md#why-not-kubernetes).
+- **Kubernetes as initial infrastructure.** See [design-docs/hosting.md](design-docs/hosting.md#why-not-kubernetes).
   Optionally revisited later as a deliberate learning exercise, after the app works.
 - **Real-time balance updates.** Not a thing that exists. Aggregators are daily batch.
   The mental model is nightly sync plus a manual refresh button.

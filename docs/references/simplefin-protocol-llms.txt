@@ -1,0 +1,45 @@
+SimpleFIN — protocol and Bridge limits (for ticket 075)
+======================================================
+
+Pinned version: SimpleFIN protocol 2.0.0-draft (changelog dated 2026-03-19)
+Sources: https://www.simplefin.org/protocol.html
+         https://beta-bridge.simplefin.org/info/developers  (Bridge limits)
+Verified: 2026-09-27. Ticket 075 verified the same sources the same day and adds cost
+          ($1.50/month or $15/year) and American Express coverage from the Bridge.
+Status in this repo: PLANNED, NOT BUILT. Nothing here is implemented yet.
+
+THE FLOW
+1. The user gets a SimpleFIN Token from the Bridge: a base64-encoded claim URL.
+2. The app base64-decodes it and POSTs to that URL once. The response is an ACCESS URL with
+   Basic Auth credentials embedded in it. The token is spent by the claim; a 403 there means
+   it may have been used by someone else — say so, never swallow it.
+3. The app keeps the Access URL (a credential: store encrypted, never log it, never return it
+   in a response) and GETs {access_url}/accounts.
+
+GET /accounts
+- Query: start-date, end-date (Unix timestamps), pending=1 (include pending; excluded by
+  default), account=<id> (filter), balances-only=1 (skip transactions), version=2.
+- Account: id, name, balance, available-balance, balance-date, transactions[].
+- Transaction: id, posted (Unix timestamp), transacted_at (optional), amount (a NUMERIC
+  STRING — parse straight to Decimal, never float), description, pending (boolean).
+- Errors: `errlist` array of {code, msg, optional conn_id / account_id}; codes look like
+  "con.auth" or "act.failed". The older `errors` field is deprecated.
+
+BRIDGE LIMITS (the architecture follows from these)
+- About 24 requests a day or fewer, with some leeway during setup. Exceeding it produces
+  warnings in the error list, and sustained excess can DISABLE the token — not throttle it.
+  So: one scheduled sync; never fetch upstream on page load or from a refresh button.
+- At most 90 days per request. Backfill is a paged job walking windows backwards; history
+  depth varies by institution — report how far back it actually got.
+- Overlap sync windows by about 5 days so late-posting transactions are not missed. This
+  repo's upsert on (account_id, external_id) makes re-fetching free.
+- Sync at a random minute rather than on the hour.
+
+WHAT 075 DECIDED BECAUSE OF THIS
+- Match credits on transacted_at when present, falling back to posted, and record which: a
+  purchase on 31 January that posts on 2 February belongs to January's credit.
+- The matcher proposes; a person confirms. It never overwrites a human mark and never
+  un-marks.
+- Fixtures are recorded responses hand-edited to synthetic values; no test talks to the
+  network.
+See docs/exec-plans/active/075-simplefin-connector.md and docs/design-docs/account-sources.md.

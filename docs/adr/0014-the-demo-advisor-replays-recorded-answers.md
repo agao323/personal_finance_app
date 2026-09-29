@@ -1,6 +1,6 @@
 # ADR 0014 — The demo's advisor replays recorded answers; it never calls a model
 
-Status: proposed · 2026-09-27 · Ticket 080
+Status: proposed · 2026-09-27 · Plan 122
 
 ## Context
 

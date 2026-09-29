@@ -82,6 +82,11 @@ jobs:
       - name: Contract drift
         run: make types-check
 
+      # The same idea for docs/generated/: the schema and endpoint references are
+      # regenerated from the code and must match what was committed.
+      - name: Generated docs drift
+        run: make docs-check
+
       # ── architectural guards ───────────────────────────────────────────────
       # Guards are tested first: one that never fires looks exactly like one that
       # is broken.
@@ -99,6 +104,16 @@ jobs:
 
       - name: No model key outside the private API
         run: ./scripts/check_no_model_key_outside_api.sh
+
+      # ── the docs ───────────────────────────────────────────────────────────
+      # The docs are the system of record for every agent working here, so a doc that
+      # lies fails the build: broken links and anchors, docs unreachable from AGENTS.md,
+      # stale indexes, malformed plans. Self-tests first, for the same reason as above.
+      - name: Doc check self-tests
+        run: ./scripts/test_check_docs.sh
+
+      - name: Docs are true
+        run: uv run --project api python scripts/check_docs.py
 
       # ── secrets ────────────────────────────────────────────────────────────
       # --redact so a finding never prints the secret into a build log, which would

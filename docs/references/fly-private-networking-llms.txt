@@ -1,0 +1,44 @@
+Fly.io private networking — .internal, 6PN, and why not Flycast
+================================================================
+
+Pinned to: Fly.io documentation as of the verified date (a hosted service; no version)
+Sources: https://docs.fly.io/networking/private-networking/
+         https://docs.fly.io/networking/flycast/
+         (fly.io/docs/... now redirects to docs.fly.io/...)
+Verified: 2026-09-27
+
+WHY THIS APP CARES
+The API has no public address, by design: that is what makes the origin lock structural
+rather than configured (ADR 0001, docs/design-docs/request-path.md). The web app reaches it
+over Fly's private network.
+
+WHAT THE SOURCES SAY
+- 6PN: every machine in an organization gets a private IPv6 address on a WireGuard mesh.
+  Machines talk to each other directly over it, BYPASSING the Fly Proxy.
+- DNS: <app>.internal resolves to all of an app's machines; <region>.<app>.internal and
+  <machine_id>.vm.<app>.internal narrow it. `FLY_PRIVATE_IP` holds a machine's 6PN address.
+- To be reachable over 6PN a process must listen on IPv6 — the `fly-local-6pn` alias or the
+  address itself (binding :: covers it).
+- Flycast (<app>.flycast) routes private traffic THROUGH the Fly Proxy, which brings load
+  balancing and autostop/autostart. It requires an [http_service] or [[services]] section in
+  fly.toml plus a private IPv6 from `fly ips allocate-v6 --private`.
+- If an app with services in fly.toml has public IPs assigned, those services are exposed to
+  the internet. `fly ips list` shows what is allocated.
+
+HOW THIS REPO USES IT
+- web -> api: INTERNAL_API_URL = http://pfa-api.internal:8000 (fly.web.toml),
+  http://pfa-demo-api.internal:8000 (fly.demo-web.toml). Locally, http://api:8000 on the
+  compose network.
+- The API must listen on IPv6. The deployed image runs api/app/serve.py, which binds one
+  dual-stack socket on :: itself, because `--host 0.0.0.0` is IPv4-only and a plain
+  `--host ::` came up IPv6-only; serve.py's docstring has the detail. The dev override runs
+  uvicorn --host :: with reload.
+- fly.api.toml and fly.demo-api.toml declare NO [http_service], NO [[services]], NO ports.
+  scripts/check_fly_api_private.sh fails the build if one appears (comments stripped first).
+- Consequence of choosing .internal over Flycast: no Fly Proxy in front of the API, so no
+  autostart — the API machine stays running. Accepted: public exposure would otherwise be one
+  allocated IP away (ADR 0001, "Alternatives considered").
+- Verify in production: `fly ips list -a pfa-api` shows no v4/v6 public address (a
+  private_v6 entry is expected), and pfa-api.fly.dev does not resolve. Recorded in ADR 0002.
+- Health checks: [checks.health] probes /health from inside the machine and carries no
+  Access assertion, which is why /health and /ready need no identity.

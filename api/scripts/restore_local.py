@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import Table, Uuid, create_engine, delete, func, insert, select
+from sqlalchemy.engine import Engine
 
 from app.db import Base
 from app.routers.export import EXPORTED
@@ -33,6 +34,18 @@ def _driver(url: str) -> str:
     if url.startswith("postgresql://"):
         return url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
+
+
+def _engine(url: str) -> Engine:
+    """An engine that works against either Neon endpoint.
+
+    `prepare_threshold=None` disables psycopg's implicit prepared statements, matching
+    `app/db.py`. Neon's pooled endpoint runs PgBouncer in transaction mode, which hands
+    each transaction a different backend, so a statement prepared on one is not there for
+    the next. The unpooled endpoint is still the better choice here — this opens one long
+    connection and reads every table — but pasting the wrong one should not be a puzzle.
+    """
+    return create_engine(_driver(url), connect_args={"prepare_threshold": None})
 
 
 #: Tables whose emptiness decides whether a target counts as fresh.
@@ -117,7 +130,7 @@ def insert_order() -> list[Table]:
 
 
 def restore(database_url: str, payload: dict[str, Any], *, force: bool) -> dict[str, int]:
-    engine = create_engine(_driver(database_url))
+    engine = _engine(database_url)
     order = insert_order()
     counts: dict[str, int] = {}
     with engine.begin() as connection:

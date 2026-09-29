@@ -7,7 +7,7 @@ doesn't rewrite last year's charts.
 Next.js and FastAPI on Fly.io, Neon Postgres, behind Cloudflare Access.
 
 [![CI](https://github.com/agao323/personal_finance_app/actions/workflows/ci.yml/badge.svg)](https://github.com/agao323/personal_finance_app/actions/workflows/ci.yml)
-[![Nightly backup](https://github.com/agao323/personal_finance_app/actions/workflows/backup.yml/badge.svg)](https://github.com/agao323/personal_finance_app/actions/workflows/backup.yml)
+[![Demo isolation](https://github.com/agao323/personal_finance_app/actions/workflows/demo-guard.yml/badge.svg)](https://github.com/agao323/personal_finance_app/actions/workflows/demo-guard.yml)
 
 ![The dashboard: net worth, runway, and net worth over time](docs/images/dashboard.png)
 
@@ -74,6 +74,8 @@ compile error rather than a runtime surprise.
 
 ## Running it locally
 
+Working on it with an agent? Start at [`AGENTS.md`](AGENTS.md) — the map of every doc.
+
 From a clean clone, with Docker and `make`:
 
 ```bash
@@ -99,19 +101,16 @@ are — it is ignored on any https origin. See [ADR 0007](docs/adr/0007-drop-pas
 |---|---|
 | `make dev` | Full stack, hot reload |
 | `make seed` | Synthetic data. Resets the database, leaving household members alone |
-| `make test` | Guards, pytest, vitest |
+| `make test` | Guards, doc checks, pytest, vitest |
 | `make e2e` | Playwright against the running stack |
 | `make lint` | ruff + mypy + eslint + tsc + prettier |
 | `make smoke` | Builds the deploy images and asserts the whole request path works |
 | `make types` | Regenerate `api-types.ts` from the Pydantic models |
+| `make docs` | Regenerate `docs/generated/`: the schema, the endpoints, the plan index |
 
-Two things that will otherwise cost you twenty minutes:
-
-- **Adding a dependency needs a container rebuild.** `docker compose restart` reuses the
-  old image and the new import fails at runtime. `make dev` rebuilds, as does
-  `docker compose up -d --build <service>`.
-- **A brand new route directory** under `web/src/app` is often missed by the dev server's
-  file watcher through the bind mount, and 404s until `docker compose restart web`.
+Adding a dependency, creating a new route directory, and running two checkouts at once
+each have a trap that costs twenty minutes the first time —
+[docs/RELIABILITY.md#pitfalls](docs/RELIABILITY.md#pitfalls) lists them.
 
 ## Trade-offs
 
@@ -142,8 +141,10 @@ and a Makefile; anything more would be operational work that exists to be operat
 connection, break on bank UI changes, and require handing a third party credentials to
 every account. CSV export is universal, free, and works offline. The cost is that
 importing is a deliberate act rather than automatic — which, for a monthly review, is
-arguably the right cadence anyway. A `SourceAdapter` interface exists so a connector
-could be added later without a migration.
+arguably the right cadence anyway. Every account carries a `source` whose aggregator
+values have been in the enum since the first migration, so a connector needs no migration;
+the `SourceAdapter` interface it plugs into was specified for v1 and is built by the first
+connector, ticket 075.
 
 **The demo is a separate deployment against a separate Neon project**, not a runtime flag
 over real data. A flag is one bad conditional away from serving real balances to the
@@ -173,7 +174,7 @@ is totals that disagree with the rows above them.
 after them is scripted.
 
 1. **Register a domain.** [Cloudflare Registrar](https://domains.cloudflare.com) is
-   at-cost and puts DNS, Access and R2 in one account.
+   at-cost and puts DNS and Access in one account.
 2. **Create a Neon project** at [neon.tech](https://neon.tech). Copy the **pooled**
    connection string — the host containing `-pooler`.
 3. **Install flyctl:** `brew install flyctl && fly auth signup`
@@ -185,9 +186,11 @@ fly apps create pfa-api
 fly apps create pfa-web
 
 fly secrets set -a pfa-api DATABASE_URL='postgresql+psycopg://…-pooler…/neondb?sslmode=require'
-fly secrets set -a pfa-api SESSION_SECRET="$(openssl rand -base64 32)"
-fly secrets set -a pfa-api RP_ID=allofmymoney.com WEB_ORIGIN=https://allofmymoney.com
+fly secrets set -a pfa-api WEB_ORIGIN=https://allofmymoney.com \
+  CF_ACCESS_TEAM_DOMAIN=<team>.cloudflareaccess.com CF_ACCESS_AUD='<Access application AUD tag>'
 
+# The API refuses to start on a deployment without the Access pair (ticket 047a), and
+# there is no SESSION_SECRET or RP_ID any more — the app holds no credential of its own.
 # API first — the web app needs it reachable on the private network.
 make deploy-api
 make deploy-web
@@ -217,14 +220,18 @@ each one worked.
 
 | Path | What |
 |---|---|
+| `AGENTS.md` | The map: where every doc is, the workflow, the non-negotiables. Start here |
 | `api/` | FastAPI, SQLAlchemy, Alembic. `uv` for packages |
 | `web/` | Next.js App Router, TypeScript, Tailwind. `pnpm` |
-| `docs/ARCHITECTURE.md` | Request path, data model, ownership and snapshot design |
+| `docs/ARCHITECTURE.md` | Shape, request path, layers, domain map, invariants |
+| `docs/design-docs/` | Why each part is built the way it is, with the checks that enforce it |
+| `docs/product-specs/` | What each feature does, its rules and edge cases |
 | `docs/SECURITY.md` | Threat model, auth, demo isolation, rules for handling real data |
 | `docs/DECISIONS.md` | Project-level decisions, newest first |
 | `docs/adr/` | Implementation decisions, written as they were made |
 | `docs/runbooks/` | Procedures with steps someone has actually run |
-| `tickets/` | The build plan — 40 tickets, each with its outcome recorded |
+| `docs/generated/` | Schema, endpoints and the plan index, regenerated by `make docs` |
+| `docs/exec-plans/` | The build plan — every plan, active and completed, each with its outcome recorded |
 | `data/` | Real financial exports. Gitignored. Never leaves this directory |
 
 ## Testing
@@ -235,16 +242,16 @@ each one worked.
 | Web | vitest + Testing Library + MSW, with fixtures typed from the generated contract |
 | Integration | The pipeline through HTTP: import, categorise, read the figure back |
 | E2E | Playwright against the compose stack, signed in as `DEV_IDENTITY_EMAIL` |
-| Guards | Shell checks with their own self-tests: no float in a money column, no public API URL in the browser bundle, no public Fly service on the API |
+| Guards | Checks with their own self-tests: no float in a money column, no public API URL in the browser bundle, no public Fly service on the API, the layer rules (`test_architecture.py`, ESLint), and docs that are true, reachable from `AGENTS.md` and indexed (`scripts/check_docs.py`) |
 
 Coverage is reported in CI and deliberately not gated on a percentage — a coverage gate
 is satisfied by tests that execute code without asserting anything.
 
 ## Running cost
 
-Roughly **$0–10/month plus a domain**: Neon free tier, Fly with `auto_stop_machines`,
-Cloudflare Zero Trust and R2 free tiers, Sentry and healthchecks.io free tiers, GitHub
-Actions free on a public repo. Verify current pricing before committing — these tiers
+Roughly **$4–7/month plus a domain**: one always-on shared-cpu-1x Fly machine each for
+the API and the web app (the web app stopped sleeping in ticket 048), Neon free tier,
+Cloudflare Zero Trust free tier, Sentry free tier, GitHub Actions free on a public repo. Verify current pricing before committing — these tiers
 drift.
 
 ## Done

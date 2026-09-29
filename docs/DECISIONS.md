@@ -29,7 +29,7 @@ the data, on terms worse than the paid tiers'.
 ## 2026-09-27 — The AI advisor: the half without a model ships first, the half with one still ships last
 
 PRODUCT listed the AI agent as Later, and SECURITY.md said it **ships last**: highest risk, lowest
-marginal value, and easier to add safely once the data model is stable. Planning it (ticket 080,
+marginal value, and easier to add safely once the data model is stable. Planning it (plan 122,
 [docs/ADVISOR.md](ADVISOR.md)) showed the feature is two features with different risk, and the
 rule should apply to only one of them.
 
@@ -84,7 +84,7 @@ proactive insights (egress); a scheduler for anything the advisor does.
 the level of allocation and fund types, never tickers; spending analysis first; conversations
 private to each person; findings computed and figures checked
 ([ADR 0011](adr/0011-findings-are-computed-and-figures-are-grounded.md), accepted); and the
-remaining recommendations in ticket 080 adopted as the working plan, confirmed at ticket 107. And, after an
+remaining recommendations in plan 122 adopted as the working plan, confirmed at ticket 107. And, after an
 investigation of self-hosted open-weight models, the Anthropic API behind a provider-neutral
 seam, recorded with its revisit conditions in
 [ADR 0009](adr/0009-advisor-model-provider.md) — pending the owner's acceptance.
@@ -196,12 +196,16 @@ room to spare, so the separation costs nothing.
 The one live constraint is demo compute: a publicly indexed demo that crawlers keep awake can
 burn its CU-hour budget. Handled by edge-caching the demo at Cloudflare, which also removes
 the cold start an uncached first visit would otherwise pay — see
-[ARCHITECTURE.md](ARCHITECTURE.md#demo-caching) and ticket 037.
+[design-docs/hosting.md](design-docs/hosting.md#demo-caching) and ticket 037.
 
 *Rules out:* Fly Postgres. Also rules out using two **branches** of one Neon project for
 real and demo, which is the conventional advice for dev/prod and the wrong answer here —
 branches share a project and an account, and this is a trust boundary rather than an
 environment split.
+
+> **Partly superseded 2026-09-27 by [ADR 0008](adr/0008-local-backups.md).** The second
+> backup layer is a local JSON export (`make backup`) rather than a nightly `pg_dump`.
+> Neon, and separate projects for real and demo, stand.
 
 ### Five capabilities the plan assumed but never built
 
@@ -210,6 +214,10 @@ designed for but nothing ever wrote it), **a transactions screen** (in the nav, 
 **a rules management screen** (PRODUCT.md commits to a user-editable rule set; editable by
 curl is not that), **observability** (structlog + Sentry + log redaction), and **backup
 failure alerting**.
+
+> **Backup failure alerting superseded 2026-09-27 by [ADR 0008](adr/0008-local-backups.md).**
+> There is no scheduled backup left to alert on: a manual `make backup` that is run beats a
+> schedule that silently stops.
 
 ---
 

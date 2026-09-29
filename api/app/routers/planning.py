@@ -13,7 +13,6 @@ from __future__ import annotations
 from decimal import Decimal
 
 from fastapi import APIRouter, status
-from sqlalchemy import select
 
 from app.deps import CurrentUser, DbSession
 from app.models.planning import MemberProfile, PlanningAssumptions
@@ -24,6 +23,7 @@ from app.schemas.planning import (
     MemberProfileRead,
     MemberProfileUpdate,
 )
+from app.services import planning as planning_service
 
 router = APIRouter(
     prefix="/planning",
@@ -96,12 +96,7 @@ def put_profile(
 @router.get("/assumptions", response_model=list[AssumptionsRead])
 def list_assumptions(session: DbSession, user: CurrentUser) -> list[AssumptionsRead]:
     """Every version, newest first. The first is the one in force."""
-    rows = session.execute(
-        select(PlanningAssumptions).order_by(
-            PlanningAssumptions.effective_from.desc(), PlanningAssumptions.id.desc()
-        )
-    ).scalars()
-    return [to_read(row) for row in rows]
+    return [to_read(row) for row in planning_service.assumption_versions(session)]
 
 
 @router.post("/assumptions", response_model=AssumptionsRead, status_code=status.HTTP_201_CREATED)

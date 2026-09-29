@@ -1,5 +1,11 @@
 # Architecture
 
+The map of the system: its shape, how a request travels, the layers and which files own
+each domain, and the invariants — each linking to the design doc that argues it and the
+check that enforces it. Rationale lives in [design-docs/](design-docs/index.md); columns and
+routes are generated into [generated/](generated/db-schema.md). **If this file and the code
+disagree, the code wins** — fix this file in the same commit.
+
 ## Shape
 
 ```
@@ -41,444 +47,98 @@ security boundary — not a feature flag. See [SECURITY.md](SECURITY.md#demo-iso
 
 ## Request path
 
-**The browser only ever talks to `<domain>`.** Next.js route handlers under `/api/*`
-proxy to the FastAPI service over Fly's private network. The API has no public address at
-all.
-
-This is a deliberate choice with four consequences, all of them the reason for it:
-
-1. **Origin lock is structural.** There is no public API hostname to leave unprotected. A Fly
-   app is publicly addressable by default; putting Cloudflare Access in front of a
-   reachable origin is a false sense of security. Here there is nothing to reach.
-2. **No CORS, anywhere.** Same origin. The API ships no CORS middleware, and CI fails if
-   `NEXT_PUBLIC_API_URL` or an absolute API origin appears in `web/`.
-3. **One Cloudflare Access application, not two.** Access answers unauthenticated requests
-   with a redirect to the identity provider. A `fetch()` cannot meaningfully follow that —
-   an expired session would surface as an opaque network failure instead of a `401`. With
-   the API behind the BFF, only page navigations ever hit Access, which is exactly what
-   Access is designed for.
-4. **Sessions are simple.** One origin means one cookie scope and no cross-site negotiation.
-
-What it costs: a thin proxy route handler, and server-side code has to know the internal API
-URL while the browser knows no API URL at all. That split has to be right from ticket 002 —
-locally the API is `http://api:8000`, in production `http://pfa-api.internal:8000`.
-Not `.flycast`: that needs an `[http_service]` block, and the moment one exists public
-exposure is one allocated IP away. See [ADR 0001](adr/0001-hosting.md).
-
-The two-service split itself is unchanged: two Dockerfiles, two deploys, two ecosystems.
+**The browser only ever talks to `<domain>`.** Next.js route handlers under `/api/*` proxy
+to FastAPI over Fly's private network (`.internal`); the API has no public address. That is
+what makes the origin lock structural, removes CORS, and keeps Cloudflare Access to one
+application. [design-docs/request-path.md](design-docs/request-path.md).
 
 ## The API contract
 
-The decision was to not hand-write or maintain an OpenAPI spec. We don't. FastAPI *emits*
-`openapi.json` from the Pydantic models we write anyway, and the frontend generates
-TypeScript types from it:
+**The Pydantic models are the contract.** `openapi.json` is emitted from them and
+`web/src/lib/api-types.ts` is generated from that; `make types-check` fails on drift.
+[design-docs/api-contract.md](design-docs/api-contract.md).
+
+## Layers
+
+### API — `api/app/`
 
 ```
-Pydantic response models  →  openapi.json  →  openapi-typescript  →  web/src/lib/api-types.ts
-        (source of truth)      (generated)        (generated, committed)
+models ──► schemas ──► services ──► routers ──► main.py
 ```
 
-`make types` runs the pipeline. CI regenerates and fails on diff.
-
-Why this matters more here than usual: tickets are implemented across sessions with no shared
-memory, and in Wave 2 they run **in three parallel lanes**. Without a frozen contract, a
-frontend session writes a component against a response shape a backend session never built,
-and nothing catches it until runtime. Ticket 012 declares every model and every route up
-front — stubbed at `501` — so the contract exists before any implementation does. After that,
-drift is a failed CI check rather than a merge conflict.
-
-**The Pydantic models are the contract.** The frontend never hand-writes an API response type.
-
-## Users and ownership
-
-### `users`
-
-```
-id, email, display_name, is_active
-```
-
-v1 ships with one row. The second row is a partner: insert it, add the identity to the
-Cloudflare Access policy. That is the whole procedure — no passkey, no invitation, no
-roles, no sharing UI. Miss the Access step and they never reach the origin, which from
-their side is indistinguishable from being refused.
-
-The `users` table is also the auth allowlist — there is no separate allowlist config.
-
-### ★ `ownership_stakes`
-
-The requirement: *if I own 50% of an asset, only 50% counts toward my net worth.* Same for
-liabilities.
-
-```
-account_id, owner_user_id → users.id, percentage, effective_from, effective_to (nullable)
-```
-
-**Every account gets an explicit 100% stake row when it is created.** There is no implicit
-"an account with no stake row is fully owned" default — with two possible owners that default
-is ambiguous, and removing it deletes a special case from the lookup helper rather than
-adding one.
-
-**Effective-dated.** A stake that changes on 2027-03-01 closes the old row and opens a new
-one. Without this, changing a stake silently rewrites your historical net worth — the charts
-would retroactively lie. This costs almost nothing now and cannot be added cheaply later.
-
-Invariant, enforced in code and by test: for any account, stakes overlapping any given date
-sum to ≤ 100%.
-
-### Visibility: household-shared
-
-Both users see every account. Only the *money* splits:
-
-- `net_worth(as_of, viewer_id)` returns that user's ownership-adjusted share.
-- `net_worth(as_of, viewer_id=None)` returns the household total across all stakes.
-- The dashboard has a **Mine / Household** toggle. That is the entire multi-user surface.
-
-Per-account privacy was rejected: it means filtering every query by viewer, which is a
-multi-tenancy tax on an app that will never have tenants.
-
-**Spend and runway are per-account and are never fractionally attributed by ownership.** A
-$60 grocery charge on a jointly-owned card is $60 of spend, not $30. Splitting spend by
-ownership stake is a rabbit hole with no correct answer, and it isn't what the number is for.
-
-### Ownership is applied in exactly one place
-
-**Every** net worth figure is ownership-adjusted. There is no code path that sums raw
-balances. The adjustment — and the rounding it implies — happens in a single helper in
-`api/app/services/ownership.py`, and everything calls it. If you find yourself writing
-`SUM(balance)`, stop.
-
-## Money
-
-`Decimal` in Python, `NUMERIC(19,2)` in Postgres, **integer cents** over the wire. Never
-float, anywhere, for any reason. There is a CI check that fails if `Float` appears in a
-SQLAlchemy column definition.
-
-Two decimal places everywhere is deliberate. Balances are dollars-and-cents; the extra
-precision would be spurious for a number that changes daily anyway, and 2dp storage
-round-trips exactly through integer cents, so the wire format needs no scale field and no
-decimal strings.
-
-### Rounding
-
-Ownership math produces fractional cents — 50% of $1,234.57 is $617.285. The rule:
-
-> **Round half-up, per account, immediately after applying the stake. Then sum.**
-
-Rounding per account rather than on the total means the figure on screen always equals the
-sum of the rows above it. Rounding at the end produces a dashboard where the numbers visibly
-don't add up, which destroys trust in every other number on the page.
-
-This is the only rounding site in the codebase. Its companion, `split` in the same module,
-divides an already-rounded figure — an account's balance by asset class — by largest remainder,
-so the parts sum exactly to it and nothing is rounded twice.
-
-If holdings-level tracking (shares × price) is ever added, prices need their own precision —
-2dp is correct for balances and wrong for unit prices. That's a Later concern, called out so
-nobody assumes 2dp generalises.
-
-## Data model
-
-Eleven tables, all created in **one hand-reviewed migration** (ticket 009). The two marked ★
-are load-bearing — they are the reason this app is not a spreadsheet, and getting them wrong
-means rewriting every aggregate query later.
-
-One upfront migration is a deliberate trade. Alembic's revision chain is linear, so parallel
-branches each adding a migration produce a branched head that has to be merged by hand. A
-single v1 schema removes that from the critical path entirely and is what makes Wave 2's
-three lanes safe. Post-v1 schema changes are incremental and serialised through one lane.
-
-### `institutions`
-Banks, brokerages, lenders, 401k and HSA providers. Mostly a display grouping.
-
-### `accounts`
-Every asset and liability. Key columns:
-
-- `kind` — `liquid_asset | illiquid_asset | liability`
-- `subtype` — `checking | savings | brokerage | 401k | hsa | real_estate | credit_card | mortgage | auto_loan | ...`
-- `source` — `manual | csv | teller | plaid | simplefin` ← see [Account sources](#account-sources)
-- `currency` — `CHECK (currency = 'USD')` in v1. Stored so the constraint can be relaxed later.
-- `closed_at` — nullable. See [Closed accounts](#closed-accounts-and-carry-forward).
-
-Liabilities are stored as **positive** balances with `kind = liability`. Net worth subtracts
-them. Do not store negative balances to represent debt — it makes every aggregate ambiguous.
-
-### ★ `balance_snapshots`
-```
-account_id, as_of (date), balance, source     -- unique (account_id, as_of)
-```
-
-Aggregators return *current* balances; essentially nobody backfills years of history.
-Which means: **history that isn't captured is lost permanently.** Snapshots start on first
-deploy and every balance write appends one.
-
-"Net worth over time" is a derived view over this table. It is not computable any other way.
-The Google Sheet import exists to seed this table with the history that predates the app.
-
-Current balance is **derived** as the latest snapshot, never duplicated onto `accounts`. That
-removes a whole class of consistency bug; accept the join.
-
-### Closed accounts and carry-forward
-
-You will not snapshot every account every day, so a net worth series has to carry the last
-known balance forward. Carry-forward without a close date is a correctness bug: sell the car,
-stop updating the account, and its final balance sits in your net worth forever. Same for a
-paid-off loan or a rolled-over 401k.
-
-Two mechanisms, both required:
-
-- **`closed_at`** — an account is excluded from any `as_of` at or after its close date.
-- **A 90-day staleness cap** — a snapshot carries forward at most 90 days. Past that the
-  account still counts, but the value is flagged stale in the API response and surfaced in
-  the UI as a prompt to update it.
-
-### `transactions`
-```
-external_id (nullable, unique per account), account_id, posted_at, amount, merchant,
-description, category_id, category_source, transfer_group_id (nullable)
-```
-
-`external_id` + account is the idempotency key. Ingestion is **upsert, never insert**.
-Duplicate transactions after a re-sync are the single most common bug class in this category
-of app; design it out on day one rather than debugging it later.
-
-Where the source provides no id, `external_id` is derived deterministically from the row's
-content **plus an occurrence index** within `(account, posted_at, amount, merchant)`. The
-index matters: two coffees at the same shop on the same day for the same amount are two real
-transactions that a naive content hash would silently collapse into one.
-
-**Sign convention: outflows are negative, inflows positive.** Institutions disagree about
-this, so CSV import carries a per-mapping sign-normalisation step.
-
-`category_source` (`import | rule | manual`) records where a category came from — so
-re-running rules never clobbers a human decision.
-
-### Transfers
-
-A transfer from checking to brokerage is not spending. If it shows up as spending, every
-number on the dashboard loses credibility, and runway is wrong in the direction that matters.
-
-Two mechanisms:
-
-- **`categories.kind`** — `income | expense | transfer`. Spend rollups filter to `expense`.
-  Income is classified so it stays *out* of the rollups; it isn't displayed in v1.
-- **`transactions.transfer_group_id`** — nullable, links the two sides of a matched pair.
-  Set by hand in v1 from the transactions screen. Automatic pair detection is a Later ticket.
-
-### `categories` + `categorization_rules`
-Imported categories are mediocre. A user-editable rule set (merchant pattern → category,
-ordered, first match wins) is what makes the spend breakdowns trustworthy enough to act on.
-Without it every spending chart is subtly wrong and the app quietly stops getting used.
-
-Manual per-transaction overrides always win over rules, and re-running rules over the whole
-history is idempotent.
-
-### `import_mappings`
-Per-account CSV column mapping and sign convention, persisted so a recurring import from the
-same institution is one click.
-
-### `card_perks` + `perk_redemptions`
-A recurring benefit on a credit card, and one row per period it was used in. A perk stores
-`anchor_on` — the date its first period began — and every period is that date stepped by its
-cadence, so a calendar-year credit and one that resets on the cardmember anniversary are the
-same arithmetic. `period_start` is stored on the redemption rather than recomputed, because it
-is the fact being recorded. Ticket 049.
-
-### `data_marker`
-A single row recording whether this database holds real or synthetic data. The synthetic seed
-script refuses to run against a database marked real.
-
-## Endpoints
-
-The complete v1 surface. Declared by ticket 012 and stubbed at `501` until the named
-ticket implements it.
-
-**This table is checked against the running app by a test.** Adding a route without
-listing it here, or listing one that does not exist, fails the suite — a stale
-inventory is worse than none, because it is trusted.
-
-| Method | Path | Ticket |
+| Layer | Holds | Must not import |
 |---|---|---|
-| GET | `/health` | 003 |
-| GET | `/ready` | 003 |
-| GET | `/net-worth` | 014 |
-| GET | `/net-worth/series` | 014 |
-| GET | `/spend` | 015 |
-| GET | `/runway` | 016 |
-| GET | `/export` | 017 |
-| GET POST | `/accounts` | 019 |
-| GET PATCH | `/accounts/{account_id}` | 019 |
-| GET | `/accounts/{account_id}/history` | 019 |
-| GET | `/accounts/{account_id}/deletion-preview` | 063 |
-| DELETE | `/accounts/{account_id}` | 063 |
-| POST | `/accounts/{account_id}/balances` | 019 |
-| POST | `/accounts/{account_id}/stakes` | 019 |
-| POST | `/import/csv/preview` | 020 |
-| POST | `/import/csv/commit` | 021 |
-| GET POST | `/rules` | 022 |
-| PATCH DELETE | `/rules/{rule_id}` | 022 |
-| POST | `/rules/apply` | 022 |
-| POST | `/rules/preview` | 033 |
-| GET | `/categories` | 030 |
-| GET | `/transactions` | 023 |
-| PATCH | `/transactions/{transaction_id}` | 023 |
-| POST | `/transactions/bulk-categorise` | 023 |
-| POST | `/transactions/bulk-transfer` | 030 |
-| GET | `/auth/session` | 034 |
-| GET | `/cards` | 050 |
-| POST | `/cards/{account_id}/perks` | 050 |
-| PATCH | `/perks/{perk_id}` | 050 |
-| POST DELETE | `/perks/{perk_id}/redemptions` | 050 |
-| GET | `/perks/upcoming` | 050 |
-| DELETE | `/perks/{perk_id}` | 054 |
-| GET | `/perks/{perk_id}/history` | 054 |
-| GET | `/cards/history` | 054 |
-| GET | `/perks/{perk_id}/periods` | 068 |
-| GET | `/perks/schedule` | 079 |
-| GET POST | `/members` | 043 |
-| PATCH | `/members/{member_id}` | 043 |
-| GET | `/insights` | 093 |
-| GET | `/advisor/status` | 097 |
-| GET POST | `/advisor/conversations` | 099 |
-| GET DELETE | `/advisor/conversations/{conversation_id}` | 099 |
-| POST | `/advisor/conversations/{conversation_id}/turns` | 099 |
-| PUT | `/advisor/turns/{turn_id}/feedback` | 099 |
-| GET | `/advisor/stream-check` | 099 |
-| GET POST | `/goals` | 108 |
-| PATCH DELETE | `/goals/{goal_id}` | 108 |
-| GET PUT | `/planning/profile` | 109 |
-| GET POST | `/planning/assumptions` | 109 |
-| GET PUT | `/accounts/{account_id}/terms` | 112 |
-| GET POST | `/accounts/{account_id}/allocations` | 113 |
+| `models/` | SQLAlchemy tables and enums; sees only `db.Base` | services, schemas, routers |
+| `schemas/` | Pydantic request/response models — the contract; may use `models.enums` | services, routers |
+| `services/` | Domain logic and queries: ownership, rounding, balances, periods | routers, `fastapi` |
+| `routers/` | HTTP: validate, call services, shape the response | other routers |
+| `main.py` | Wires routers, middleware, logging, Sentry | — |
 
-Query parameters, request bodies, and response shapes are defined in
-`api/app/schemas/` and generated into `web/src/lib/api-types.ts`. They are deliberately
-not duplicated here — a hand-maintained copy would go stale, which is the whole reason
-the contract is generated.
+Cross-cutting concerns enter at the edges. Routers get the session and the identity only
+through `deps.py` (`DbSession`, `CurrentUser`), which is where `config`, `db` and
+`services/access.py` meet. `main.py` installs `middleware.py` (request context, demo
+read-only), `logging.py` and `observability.py`. As the code actually is: eight of twelve
+routers still build SQL themselves rather than calling a service — allowlisted as debt
+(TD-001), and new queries go in services. Enforced by `api/tests/test_architecture.py`,
+whose allowlist may only shrink.
 
-## Account sources
+### Web — `web/src/`
 
-Every account carries a `source`. v1 ships `manual` and `csv` only.
+```
+lib/api-types.ts ──► lib/api.ts ──► components/ ──► app/ (routes)
+```
 
-This is deliberate and it is the single most important sequencing decision in the project.
-Institution aggregation is the part of this app we have the *least* control over:
+`app/api/[...path]/route.ts` is the only code that knows the API URL; `lib/api.ts` is the
+only fetcher; `api-types.ts` is generated and imported as types only; `proxy.ts` is Next
+16's middleware and verifies Access. Enforced by `web/eslint.config.mjs` and
+`scripts/check_no_public_api_url.sh`. [FRONTEND.md](FRONTEND.md).
 
-- Plaid's free trial caps at ~10 live Items.
-- Teller's free tier is generous but covers no investment accounts.
-- SimpleFIN is ~$15/yr, read-only, daily refresh.
-- Fidelity has actively blocked aggregator access; Fidelity, Schwab, and JPMorgan have
-  pushed aggregators into paid data deals. **401k and HSA are the worst-covered account
-  categories in the entire ecosystem** — and they're a large share of the net worth here.
-- CFPB's Section 1033 open banking rule was finalized Oct 2024, **enjoined** Oct 2025, and is
-  mid-rewrite with "may data providers charge fees?" reopened.
+## Domain map
 
-Manual + CSV covers 100% of institutions including the ones no aggregator handles, works on
-day one, and proves the entire application. Connectors then become strictly additive tickets
-behind a `SourceAdapter` interface: `fetch_accounts()`, `fetch_balances()`, `fetch_transactions()`.
+API paths are under `api/app/`, tests under `api/tests/`, web under `web/src/`. Specs:
+[product-specs/](product-specs/index.md).
 
-Build the interface in v1. Implement only `manual` and `csv` behind it.
+| Domain | API: models · schemas · services · routers | Web: routes · components | Tests |
+|---|---|---|---|
+| Net worth | `account` · `net_worth` · `net_worth`, `ownership`, `balances` · `net_worth` | `/` · `tiles/net-worth`, `charts/net-worth-chart`, `view-toggle` | `test_net_worth`, `test_net_worth_series`, `test_api_net_worth`, `test_ownership`; `charts/net-worth-chart.test` |
+| Runway | — · `runway` · `runway`, `spend`, `ownership` · `runway` | `/` · `tiles/runway` | `test_runway`; `(dashboard)/page.test` |
+| Spending | `transaction` · `spend` · `spend` · `spend` | `/spending` · `charts/category-breakdown`, `period-selector`, `transaction-table` | `test_api_spend`; `spending/page.test`, `category-breakdown.test` |
+| Accounts & stakes | `account` · `account` · `accounts`, `ownership`, `balances` · `accounts` | `/accounts`, `/accounts/[id]`, `/accounts/new` · `account-row`, `forms/*` | `test_api_accounts`, `test_ownership`, `test_balances`; `accounts/**/page.test`, `forms.test` |
+| Transactions & rules | `transaction` · `transaction`, `rule` · `categorize` · `transactions`, `rules`, `categories` | `/transactions`, `/rules` · `transaction-*`, `category-picker`, `rules/*` | `test_api_transactions`, `test_categorize`, `test_api_categories`; `transactions/`, `rules/` page tests |
+| CSV import | `system` (`ImportMapping`) · `import_csv` · `csv_import`, `balances` · `import_csv` | `/import` · `import/*` | `test_csv_import`; `import/page.test` |
+| Sheet import | script `api/scripts/import_sheet_history.py` + `api/config/sheet_mapping.example.toml` | — | `test_sheet_import` |
+| Cards & perks | `card_perk`, `account` · `card_perk` · `perks` · `cards` | `/cards`, `/cards/[id]` · `cards/*` | `test_perks`, `test_cards`; `components/cards/*.test`, `cards/*.test` |
+| Export & backup | — · `export` · — · `export`; scripts `export_local.py`, `restore_local.py` | — | `test_export` |
+| Household & auth | `user` · `user`, `auth` · `access` · `users`, `auth`; `deps.py` | `/settings/household` · `account-menu`; `lib/access.ts`, `proxy.ts` | `test_auth`, `test_deps_access_auth`; `household/page.test`, `proxy.test` |
+| Demo | `config.py`, `middleware.py` | `demo-banner`, `lib/demo.ts` | `test_demo_mode`; `demo-banner.test`; `scripts/check_demo_isolation.sh` |
+| Platform | `main.py`, `config.py`, `db.py`, `logging.py`, `observability.py`, `serve.py` | `app/api/[...path]`, `healthz`, `lib/api.ts`, `lib/sentry.ts`, `nav` | `test_health`, `test_db`, `test_config`, `test_logging`, `test_contract`, `test_schema`; `api.test`, `route.test` |
 
-## Hosting
+## Invariants
 
-**Neon** for Postgres, **Fly.io** for both services, **Cloudflare** for DNS, TLS, and Access.
+| Invariant | Enforced by | Design doc |
+|---|---|---|
+| <a id="users-and-ownership"></a>**Users and ownership.** Every net worth figure is ownership-adjusted. Stakes are effective-dated and half-open, sum to ≤ 100% on any date, and every account has an explicit 100% row — no implicit default. Both users see everything; only money splits (Mine / Household). Spend and burn are never split | `test_ownership`, `ck_stakes_*` | [ownership-and-rounding](design-docs/ownership-and-rounding.md) |
+| <a id="ownership-is-applied-in-exactly-one-place"></a>**Ownership is applied in exactly one place:** `services/ownership.adjust()`. No net worth figure comes from raw balances | `test_architecture`, `test_net_worth_series` | [ownership-and-rounding](design-docs/ownership-and-rounding.md#ownership-is-applied-in-exactly-one-place) |
+| <a id="money"></a>**Money** is `Decimal` / `NUMERIC(19,2)` / integer cents on the wire. Never float | `check_no_float.sh`, `test_contract` | [ownership-and-rounding](design-docs/ownership-and-rounding.md#money) |
+| <a id="rounding"></a>**Rounding:** half-up, per account, right after applying the stake, then sum | `test_ownership` | [ownership-and-rounding](design-docs/ownership-and-rounding.md#rounding) |
+| <a id="accounts"></a>**Liabilities are stored positive**; current balance is derived, never stored | `test_balances` | [data-model](design-docs/data-model.md#accounts) |
+| <a id="closed-accounts-and-carry-forward"></a>**Every balance write appends a snapshot.** Carry-forward is capped at 90 days (flagged, not dropped); `closed_at` stops an account counting | `test_balances`, `test_net_worth` | [snapshots-and-carry-forward](design-docs/snapshots-and-carry-forward.md) |
+| <a id="transactions"></a>**Ingestion is upsert, never insert**, keyed on `external_id` + an occurrence index | `test_csv_import` | [transactions-and-ingestion](design-docs/transactions-and-ingestion.md) |
+| <a id="transfers"></a>**Transfers and income never count as spend** (`categories.kind`) | `test_api_spend` | [transfers-and-categories](design-docs/transfers-and-categories.md) |
+| <a id="categories--categorization_rules"></a>**Rules never overwrite a manual category**; first match wins; re-running is idempotent | `test_categorize`, `test_api_transactions` | [transfers-and-categories](design-docs/transfers-and-categories.md#categories-and-rules) |
+| <a id="card_perks--perk_redemptions"></a>**`services/perks.py` alone decides which period a date is in**; `period_start` is stored; nothing reads the clock | `test_perks`, `test_cards` | [card-perks-period-engine](design-docs/card-perks-period-engine.md) |
+| The request is the transaction boundary: endpoints flush, `get_session` commits | `test_db` | [ADR 0005](adr/0005-request-scoped-transactions.md) |
 
-Neon over a self-operated Fly Postgres VM for one reason: [SECURITY.md](SECURITY.md#backups)
-argues that moving a financial picture out of Google Sheets into a self-run database is a
-durability downgrade until backups are proven. Operating a single-node Postgres myself
-maximises exactly that downgrade. Neon's automatic backups and PITR, *plus* the nightly
-`pg_dump` in ticket 017, give two independent layers for $0 on the free tier.
+The full list of golden principles, with what enforces each, is
+[design-docs/core-beliefs.md](design-docs/core-beliefs.md).
 
-Practical notes:
+## Everything else
 
-- Use Neon's **pooled** connection endpoint; configure the SQLAlchemy pool accordingly.
-  Serverless Postgres plus a long-lived connection pool has sharp edges.
-- Neon autosuspends on idle. First request after a suspend pays a cold start.
-- Real and demo are **separate Neon projects**, not two branches of one. Branches share a
-  project and an account; that is a weaker boundary than the separate-credentials guarantee
-  ticket 037 exists to provide. Branching is the right tool for dev/prod convenience and the
-  wrong one for a public-facing trust boundary.
-- Free-tier allowances are **per project**: 0.5 GB storage, 100 CU-hours/month, 5 GB egress,
-  10 branches. Two projects on the free plan covers this app. Storage and egress are not
-  close to binding — a household's finance data is tens of megabytes.
-- **Compute hours are the one limit worth watching, and only on the demo.** At minimum
-  sizing that budget is roughly 400 wall-clock hours of awake compute per month against a
-  ~730-hour month. The real app, used by one household with a 5-minute autosuspend, will not
-  come near it. The public demo can: it is indexed by design, and a crawler hitting it
-  regularly keeps the database permanently awake.
-
-  The fix is the same thing that makes the demo good — see [demo caching](#demo-caching).
-- Use a **branch of the real project** as the scratch target for ticket 017's tested restore.
-  That is exactly what branches are for, and it costs nothing.
-
-### Demo caching
-
-The demo is read-only over a static synthetic dataset, which means nearly every response can
-be cached at the edge with a long TTL. Doing so buys three things at once:
-
-1. **Keeps demo compute inside the free tier** — crawlers and repeat visitors are served by
-   Cloudflare and never wake Neon.
-2. **Removes the cold start on a first visit.** Neon autosuspends after 5 minutes idle and
-   Fly machines auto-stop, so an uncached click on a fully idle demo pays both. A public
-   link that takes several seconds to render a blank page is a broken link as far as whoever
-   clicked it is concerned. A cached page is instant.
-3. Costs nothing and needs no extra infrastructure.
-
-Cache at the Cloudflare layer on the demo hostname only. The real app must never be cached
-at the edge — it is behind Access and its responses are personal.
-- Fly machines run `auto_stop_machines` so idle cost stays near zero.
-- Migrations run as a Fly **release command**, not on boot — two booting instances would
-  race the same migration.
-
-Running cost: roughly $0–10/month plus a domain. See ticket 008.
-
-## Why not Kubernetes
-
-The learning goal explicitly includes containers and orchestration, so this needs a real answer.
-
-K8s for a single-household app is the wrong tool by roughly two orders of magnitude. It would
-consume weeks that v1 needs, and the operational complexity it adds buys nothing at one
-household of traffic — there is no scaling event to absorb, no rolling deploy worth
-orchestrating, no bin-packing problem to solve.
-
-The sequencing that serves both goals:
-
-- **Now:** Docker + Fly.io + managed Postgres. You still write Dockerfiles and handle
-  migrations, secrets, health checks, private networking, and release commands. Real, not a sink.
-- **Later, optional, after the app works:** redeploy the same app to k3s on a VPS purely as
-  a learning exercise. The written retro of what it cost versus what it bought is a better
-  artifact than the cluster itself.
-
-The things that will actually teach the most about databases live in the app, not the infra:
-hand-reviewed migrations, the effective-dated ownership model, and the snapshot history.
-
-## Operations
-
-- **Logs:** structlog, JSON, with request id, method, path, status, duration. **Financial
-  values are never logged** — there is a redaction filter and a test asserting it works.
-  Structured logs are useless if reading them means reading your own balances out of a log
-  aggregator.
-- **Errors:** Sentry on both services, DSN from env, disabled when unset.
-- **Liveness vs readiness:** `/health` reports process liveness and touches no database.
-  `/ready` reports database reachability. Fly probes `/health` only — probing `/ready` would
-  let a transient database blip restart otherwise-healthy instances.
-- **Backups:** Neon's own point-in-time recovery, plus `make backup` writing a full JSON
-  export to the owner's machine. Nothing we operate holds an offsite copy — see
-  [ADR 0008](adr/0008-local-backups.md). A silently-failing scheduled backup is worse than
-  no backup because it is trusted, which is why there is no schedule.
-
-## Testing
-
-Every ticket ships both unit and functional tests. See [tickets/README.md](../tickets/README.md#tests).
-
-- **Backend unit:** pure service functions. Every aggregate (net worth, runway, spend
-  rollups) gets a test with hand-computed expected values. Ownership math gets property
-  tests — stakes summing over 100%, stakes changing mid-history, rounding at the half-cent.
-- **Backend functional:** httpx against the app with a real test database, migrated with
-  `alembic upgrade head`. Tests never use `metadata.create_all()` — if they did, tests and
-  production would drift and broken migrations would ship green.
-- **Frontend unit:** vitest for formatters, hooks, and query builders.
-- **Frontend functional:** Testing Library against MSW mocks typed from `api-types.ts`.
-- **E2E:** two Playwright smoke tests — the dashboard against the synthetic seed, and the
-  CSV import wizard end to end.
-- **Coverage is reported in CI but not gated on a percentage.** Coverage gates get satisfied
-  by tests that assert nothing.
-- **Fixtures are always synthetic.** No test ever contains a real balance.
+| Topic | In one line | Where |
+|---|---|---|
+| <a id="data-model"></a>Data model | Twelve tables; the v1 eleven came from one reviewed migration so Wave 2's lanes could not collide | [data-model](design-docs/data-model.md), [db-schema](generated/db-schema.md) |
+| <a id="endpoints"></a>Endpoints | Every route with the ticket that landed it, checked against the app by `test_contract.py` | [api-contract#endpoints](design-docs/api-contract.md#endpoints), [api-endpoints](generated/api-endpoints.md) |
+| <a id="account-sources"></a>Account sources | `manual` and `csv` only, deliberately; SimpleFIN is planned | [account-sources](design-docs/account-sources.md) |
+| <a id="hosting"></a>Hosting | Neon (pooled; separate projects for real and demo), Fly (API on `.internal` only), Cloudflare | [hosting](design-docs/hosting.md) |
+| <a id="operations"></a>Operations | `/health` vs `/ready`, logs without values, Sentry, backups, booting the app | [RELIABILITY.md](RELIABILITY.md) |
+| <a id="testing"></a>Testing | Unit + functional per plan, real migrated Postgres, coverage reported not gated | [PLANS.md#tests](PLANS.md#tests), [QUALITY_SCORE.md](QUALITY_SCORE.md) |

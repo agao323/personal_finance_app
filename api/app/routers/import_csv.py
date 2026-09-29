@@ -6,7 +6,7 @@ the first until it doesn't.
 
 Nothing here declares extra responses or edits a docstring. The route signatures and
 their descriptions are part of the frozen OpenAPI that `web/src/lib/api-types.ts` is
-generated from — see tickets/README.md#wave-2-lanes.
+generated from — see docs/PLANS.md#wave-2-lanes.
 """
 
 from __future__ import annotations

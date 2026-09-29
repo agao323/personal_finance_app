@@ -28,21 +28,21 @@ Tickets that call for an ADR by name:
 | ADR | Ticket | Subject | Status |
 |---|---|---|---|
 | `0001-hosting.md` | 008 | Fly + Neon, release-command migrations, private networking | written |
-| `0002-auth.md` | 036 | Cloudflare Access + passkeys, and why the origin is private | written |
-| `0003-demo-isolation.md` | 037 | Separate Neon projects rather than branches | pending 037 |
+| `0002-auth.md` | 036 | Cloudflare Access + passkeys, and why the origin is private | written; passkey half **superseded by 0007** |
+| `0003-demo-isolation.md` | 037 | Separate Neon projects rather than branches | written; verification table pending 037's manual half |
 | `0004-backups.md` | 017 | Encrypted dumps to R2, and the restore drill | **superseded by 0008** |
 | `0005-request-scoped-transactions.md` | — | The request is the transaction boundary | backfilled by 039 |
 | `0006-contract-changes-during-wave-2.md` | — | Re-freezing the contract four times | backfilled by 039 |
 | `0007-drop-passkeys.md` | 047 | Access is the authentication; the passkey layer is removed | written |
 | `0008-local-backups.md` | 017 | Local exports on the owner's machine; no offsite copy | written |
-| `0009-advisor-model-provider.md` | 080 | Anthropic's API behind a neutral seam; self-hosting investigated | proposed |
-| `0010-the-advisor-loop-runs-in-the-api.md` | 080 | Hand-written loop in pfa-api, SSE through the BFF | proposed |
-| `0011-findings-are-computed-and-figures-are-grounded.md` | 080 | Findings engine before the model, grounding check after | accepted |
-| `0012-transcripts-live-in-postgres-for-30-days.md` | 080 | Where transcripts live, and for how long | proposed |
-| `0013-allocation-is-recorded-per-account-not-per-holding.md` | 080 | Account-level allocation instead of holdings | proposed |
-| `0014-the-demo-advisor-replays-recorded-answers.md` | 080 | No model on the public demo | proposed |
+| `0009-advisor-model-provider.md` | 122 | Anthropic's API behind a neutral seam; self-hosting investigated | proposed |
+| `0010-the-advisor-loop-runs-in-the-api.md` | 122 | Hand-written loop in pfa-api, SSE through the BFF | proposed |
+| `0011-findings-are-computed-and-figures-are-grounded.md` | 122 | Findings engine before the model, grounding check after | accepted |
+| `0012-transcripts-live-in-postgres-for-30-days.md` | 122 | Where transcripts live, and for how long | proposed |
+| `0013-allocation-is-recorded-per-account-not-per-holding.md` | 122 | Account-level allocation instead of holdings | proposed |
+| `0014-the-demo-advisor-replays-recorded-answers.md` | 122 | No model on the public demo | proposed |
 
-0009–0014 were written at planning time, ahead of implementation, because ticket 080 is a
+0009–0014 were written at planning time, ahead of implementation, because plan 122 is a
 plan whose choices between viable options would otherwise be re-litigated ticket by ticket.
 They are **proposed**: each becomes accepted when the owner signs off, or is revised by the
 ticket that implements it — in which case the ticket says what changed and why.

@@ -12,19 +12,17 @@ from __future__ import annotations
 
 import datetime as dt
 from decimal import Decimal
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response, status
-from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.deps import CurrentUser, DbSession
-from app.models.account import Account
 from app.models.enums import GoalKind
 from app.models.goal import Goal, GoalAccount
 from app.models.transaction import Category
 from app.schemas.common import ErrorResponse, ViewScope, to_cents
 from app.schemas.goal import GoalCreate, GoalProgress, GoalRead, GoalUpdate
+from app.services import goals as goal_service
 from app.services.analysis import goals as goal_analysis
 
 router = APIRouter(
@@ -38,14 +36,8 @@ def _unprocessable(detail: str) -> HTTPException:
     return HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
 
 
-def _visible(user_id: int) -> Any:
-    return or_(Goal.owner_user_id.is_(None), Goal.owner_user_id == user_id)
-
-
 def _require(session: Session, goal_id: int, user_id: int) -> Goal:
-    goal = session.execute(
-        select(Goal).where(Goal.id == goal_id, _visible(user_id))
-    ).scalar_one_or_none()
+    goal = goal_service.visible_goal(session, goal_id, user_id)
     if goal is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Goal not found")
     return goal
@@ -120,9 +112,7 @@ def _check_fields(
             raise _unprocessable(
                 "A savings target needs at least one account that counts toward it."
             )
-        accounts = (
-            session.execute(select(Account).where(Account.id.in_(account_ids))).scalars().all()
-        )
+        accounts = goal_service.accounts(session, account_ids)
         if len(accounts) != len(set(account_ids)):
             raise _unprocessable("One of those accounts does not exist.")
         closed = [a.name for a in accounts if a.closed_at is not None]
@@ -145,10 +135,7 @@ def _months(tenths: int | None) -> Decimal | None:
 @router.get("", response_model=list[GoalRead])
 def list_goals(session: DbSession, user: CurrentUser) -> list[GoalRead]:
     """Household goals and your own, newest first."""
-    goals = session.execute(
-        select(Goal).where(_visible(user.id)).order_by(Goal.created_at.desc(), Goal.id.desc())
-    ).scalars()
-    return [_to_read(session, goal) for goal in goals]
+    return [_to_read(session, goal) for goal in goal_service.visible_goals(session, user.id)]
 
 
 @router.post("", response_model=GoalRead, status_code=status.HTTP_201_CREATED)

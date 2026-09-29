@@ -1,6 +1,6 @@
 # ADR 0013 — Asset allocation is recorded per account, not per holding
 
-Status: proposed · 2026-09-27 · Ticket 080
+Status: proposed · 2026-09-27 · Plan 122
 
 ## Context
 

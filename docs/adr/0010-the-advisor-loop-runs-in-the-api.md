@@ -1,6 +1,6 @@
 # ADR 0010 — The advisor loop runs in pfa-api, hand-written, streamed over SSE
 
-Status: proposed · 2026-09-27 · Ticket 080
+Status: proposed · 2026-09-27 · Plan 122
 
 ## Context
 

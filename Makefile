@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help dev advisor-local down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade backup restore eval eval-label eval-examples eval-fixtures advisor-purge deploy-demo
+.PHONY: help dev advisor-local down logs smoke deploy-api deploy-web test test-api test-web e2e guards lint lint-api lint-web format types types-check seed migrate upgrade backup restore eval eval-label eval-examples eval-fixtures advisor-purge deploy-demo docs docs-check
 
 # Compose merges docker-compose.override.yml automatically. PROD_COMPOSE opts out,
 # so smoke tests exercise the deploy-shaped images rather than the dev ones.
@@ -104,13 +104,15 @@ smoke: .env ## Bring up the deploy-shaped stack and assert it actually works
 # ── Test ──────────────────────────────────────────────────────────────────────
 test: guards test-api test-web ## Run both test suites and the guard self-tests
 
-guards: ## Run the architectural guards and their self-tests
+guards: ## Run the architectural guards, the doc checks, and their self-tests
 	@./scripts/test_guards.sh
 	@./scripts/check_no_float.sh
 	@./scripts/check_no_public_api_url.sh
 	@./scripts/check_fly_api_private.sh
 	@./scripts/check_fly_api_private.sh fly.demo-api.toml
 	@./scripts/check_no_model_key_outside_api.sh
+	@./scripts/test_check_docs.sh
+	@uv run --project api --quiet python scripts/check_docs.py
 
 test-api: .env
 	@# The suite runs against real Postgres, not SQLite — see api/tests/conftest.py.
@@ -175,6 +177,17 @@ types-check: types ## Fail if the committed types drift from the Pydantic models
 	fi
 	@echo "contract is in sync"
 
+# ── Docs ──────────────────────────────────────────────────────────────────────
+# docs/generated/ is derived from the code, the same way api-types.ts is: `docs` writes it,
+# `docs-check` fails on drift. Neither needs a database.
+docs: ## Regenerate docs/generated/ (schema, endpoints, plan index) from the code
+	@cd api && uv run python scripts/generate_docs.py
+	@uv run --project api --quiet python scripts/check_docs.py --write-plan-index
+
+docs-check: ## Fail if docs/generated/ drifts from what the code would generate
+	@cd api && uv run python scripts/generate_docs.py --check
+	@uv run --project api --quiet python scripts/check_docs.py plan-index
+
 # ── Deploy ────────────────────────────────────────────────────────────────────
 # The directory argument sets the Docker build context. Without it flyctl looks for
 # a Dockerfile at the repo root and uploads the whole tree, node_modules included.
@@ -211,8 +224,8 @@ upgrade: .env ## Apply migrations up to head
 	@cd api && ALEMBIC_DATABASE_URL="$(LOCAL_DB_URL)" uv run alembic upgrade head
 
 backup: .env ## Write the whole database to data/backups/ on this machine (ADR 0008)
-	@# Reads BACKUP_DATABASE_URL from .env — the production Neon string. Falls back to the
-	@# local database, which is useful for rehearsing but is not a backup of anything.
+	@# Takes BACKUP_DATABASE_URL (the production Neon string), then DATABASE_URL, from the
+	@# environment. It does NOT load .env yet — TD-016 in docs/exec-plans/tech-debt-tracker.md.
 	@cd api && uv run python scripts/export_local.py $(ARGS)
 
 restore: .env ## Load an export back: make restore f=data/backups/pfa-2026-09-27.json

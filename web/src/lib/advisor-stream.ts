@@ -1,16 +1,16 @@
 /**
  * Ask a question and read the answer as it is written.
  *
- * `EventSource` cannot POST, so this is `fetch` plus a small server-sent-events reader
- * (docs/ADVISOR.md#request-path). The path is built with `apiPath()` like every other call —
- * relative, through this origin's proxy, never the API directly.
+ * `EventSource` cannot POST, so this is `apiStream()` plus a small server-sent-events reader
+ * (docs/ADVISOR.md#request-path). `apiStream` lives beside `apiFetch` in the one fetcher, so
+ * the path is relative, through this origin's proxy, never the API directly.
  *
  * **Cancelling is aborting.** The signal aborts this fetch; the proxy forwards the abort to
  * the API (ticket 100); the API cancels the turn and closes the model's stream, so a Stop
  * press or a closed screen stops the spending too.
  */
 
-import { ApiError, apiPath, fillPath } from "@/lib/api";
+import { apiStream } from "@/lib/api";
 import type { components } from "@/lib/api-types";
 
 export type AdvisorEvent = components["schemas"]["AdvisorEvent"];
@@ -37,29 +37,13 @@ export async function streamTurn(
   question: string,
   { signal, onEvent }: { signal?: AbortSignal; onEvent: (event: AdvisorEvent) => void },
 ): Promise<void> {
-  const url = apiPath(
-    fillPath("/advisor/conversations/{conversation_id}/turns", { conversation_id: conversationId }),
-  );
-  const response = await fetch(url, {
-    method: "POST",
+  const body = await apiStream("/advisor/conversations/{conversation_id}/turns", {
+    params: { conversation_id: conversationId },
+    body: { question },
     signal,
-    headers: { accept: "text/event-stream", "content-type": "application/json" },
-    body: JSON.stringify({ question }),
   });
-  if (!response.ok || !response.body) {
-    let detail = response.statusText;
-    try {
-      const body: unknown = await response.json();
-      if (body && typeof body === "object" && "detail" in body) {
-        detail = String((body as { detail: unknown }).detail);
-      }
-    } catch {
-      // Not JSON: the status line is all there is.
-    }
-    throw new ApiError(response.status, detail);
-  }
 
-  const reader = response.body.getReader();
+  const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   for (;;) {

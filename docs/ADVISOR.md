@@ -1,7 +1,8 @@
 # AI advisor
 
-Status: **planned**, not built. Ticket [080](../tickets/080-ai-advisor-plan.md) is the plan;
-081–119 are the work. Constraints that are not negotiable live in
+Status: **built**, switched off until [plan 107](exec-plans/active/107-switch-the-advisor-on.md)'s
+gates are met. Plan [122](exec-plans/completed/122-ai-advisor-plan.md) is the plan; 081–121 are the
+work. Constraints that are not negotiable live in
 [SECURITY.md#ai-agent](SECURITY.md#ai-agent); the choices between viable options are ADRs
 [0009](adr/0009-advisor-model-provider.md)–[0014](adr/0014-the-demo-advisor-replays-recorded-answers.md).
 
@@ -347,7 +348,7 @@ Scoped tools default to it; the model may pass the other scope when a question p
 ("what's the household total?"), and every scoped figure in an answer is labelled.
 
 **Spend, burn, income and cashflow are never split by ownership**
-([ARCHITECTURE](ARCHITECTURE.md#visibility-household-shared)). Those tools take no scope, so the
+([ARCHITECTURE](design-docs/ownership-and-rounding.md#visibility-household-shared)). Those tools take no scope, so the
 model cannot ask for "my share of groceries". Runway takes a scope for its liquid assets only.
 The evals include both scopes of the same question and assert that spend figures do not move.
 

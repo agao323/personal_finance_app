@@ -1,6 +1,6 @@
 # ADR 0009 — The advisor's model is Anthropic's API, behind a seam that could take another
 
-Status: proposed · 2026-09-27 · Ticket 080
+Status: proposed · 2026-09-27 · Plan 122
 
 ## Context
 

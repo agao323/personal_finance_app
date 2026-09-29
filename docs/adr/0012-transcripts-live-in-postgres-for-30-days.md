@@ -1,6 +1,6 @@
 # ADR 0012 — Advisor transcripts live in Postgres for 30 days
 
-Status: proposed · 2026-09-27 · Ticket 080 — the retention choice was made by the owner on this date
+Status: proposed · 2026-09-27 · Plan 122 — the retention choice was made by the owner on this date
 
 ## Context
 

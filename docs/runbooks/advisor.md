@@ -165,7 +165,7 @@ Inside the 30-day window, while the transcripts still exist:
 1. On `/advisor`, read every answer flagged in the month (the flag and its note are on the
    answer). `advisor_turns.feedback = 'flagged'` lists them.
 2. **Name each failure** — wrong tool, missed limitation, unverified figure, bad advice, a
-   stale-data miss — and count them. Write the counts in ticket 080 or a dated note.
+   stale-data miss — and count them. Write the counts in plan 122 or a dated note.
 3. **Re-express each failure as a synthetic eval case** in `api/evals/cases/`, reproducing its
    shape with the eval world's made-up numbers. Never copy a real figure, merchant or account
    name into a case: the golden set grows from real failures without holding real data.

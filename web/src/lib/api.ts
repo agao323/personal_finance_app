@@ -173,22 +173,52 @@ export async function apiFetch<M extends HttpMethod = "get", P extends PathsWith
     ...(payload === undefined ? {} : { body: payload }),
   });
 
-  if (!response.ok) {
-    let detail = response.statusText;
-    try {
-      const errorBody: unknown = await response.json();
-      if (errorBody && typeof errorBody === "object" && "detail" in errorBody) {
-        detail = String((errorBody as { detail: unknown }).detail);
-      }
-    } catch {
-      // Non-JSON error body — the status line is all we have.
-    }
-    if (response.status === 401) {
-      globalThis.dispatchEvent?.(new Event(SESSION_EXPIRED_EVENT));
-    }
-    throw new ApiError(response.status, detail);
-  }
+  if (!response.ok) throw await failure(response);
 
   if (response.status === 204) return undefined as ResponseOf<P & keyof paths, M>;
   return (await response.json()) as ResponseOf<P & keyof paths, M>;
+}
+
+/** The `ApiError` for a failed response, reading the server's `detail` when there is one. */
+async function failure(response: Response): Promise<ApiError> {
+  let detail = response.statusText;
+  try {
+    const errorBody: unknown = await response.json();
+    if (errorBody && typeof errorBody === "object" && "detail" in errorBody) {
+      detail = String((errorBody as { detail: unknown }).detail);
+    }
+  } catch {
+    // Non-JSON error body — the status line is all we have.
+  }
+  if (response.status === 401) {
+    globalThis.dispatchEvent?.(new Event(SESSION_EXPIRED_EVENT));
+  }
+  return new ApiError(response.status, detail);
+}
+
+/**
+ * POST to a streaming route through the proxy and return the response body as it arrives.
+ *
+ * The advisor's turns answer with `text/event-stream`, which `apiFetch` cannot parse as one
+ * JSON value. The path and body are typed from the contract as for `apiFetch`, failures raise
+ * the same `ApiError`, and `signal` aborts the request — the proxy forwards the abort, so
+ * the API stops generating (ticket 100).
+ */
+export async function apiStream<P extends PathsWith<"post">>(
+  path: P,
+  options: {
+    params?: PathParams;
+    body: BodyOf<P & keyof paths, "post">;
+    signal?: AbortSignal;
+  },
+): Promise<ReadableStream<Uint8Array>> {
+  const response = await fetch(apiPath(fillPath(path as string, options.params)), {
+    method: "POST",
+    signal: options.signal,
+    headers: { accept: "text/event-stream", "content-type": "application/json" },
+    body: JSON.stringify(options.body),
+  });
+  if (!response.ok) throw await failure(response);
+  if (!response.body) throw new ApiError(response.status, "The stream had no body.");
+  return response.body;
 }

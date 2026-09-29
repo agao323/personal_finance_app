@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import create_engine, select
+from sqlalchemy.engine import Engine
 
 from app.db import Base
 from app.routers.export import EXPORTED
@@ -44,6 +45,18 @@ def _driver(url: str) -> str:
     if url.startswith("postgresql://"):
         return url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
+
+
+def _engine(url: str) -> Engine:
+    """An engine that works against either Neon endpoint.
+
+    `prepare_threshold=None` disables psycopg's implicit prepared statements, matching
+    `app/db.py`. Neon's pooled endpoint runs PgBouncer in transaction mode, which hands
+    each transaction a different backend, so a statement prepared on one is not there for
+    the next. The unpooled endpoint is still the better choice here — this opens one long
+    connection and reads every table — but pasting the wrong one should not be a puzzle.
+    """
+    return create_engine(_driver(url), connect_args={"prepare_threshold": None})
 
 
 def _jsonable(value: Any) -> Any:
@@ -64,7 +77,7 @@ def _jsonable(value: Any) -> Any:
 
 def dump(database_url: str) -> dict[str, Any]:
     """Every exported table, as plain JSON-ready data."""
-    engine = create_engine(_driver(database_url))
+    engine = _engine(database_url)
     tables = Base.metadata.tables
     with engine.connect() as connection:
         rows = {
@@ -102,8 +115,14 @@ def main(argv: list[str] | None = None) -> int:
     if not args.database_url:
         # Naming what is missing rather than failing obscurely, and never printing the
         # value of anything.
+        # Naming what is missing and where it comes from. The previous message named the
+        # variable and left you to work out what value it wanted.
         print(
-            "No database URL. Set BACKUP_DATABASE_URL in .env, or pass --database-url.",
+            "No database URL.\n\n"
+            "Set BACKUP_DATABASE_URL in .env to the production Neon connection string —\n"
+            "Neon console -> your project -> Connection Details -> the direct (unpooled)\n"
+            "string, the hostname without `-pooler`. See .env.example.\n\n"
+            "Or pass --database-url explicitly.",
             file=sys.stderr,
         )
         return 2
