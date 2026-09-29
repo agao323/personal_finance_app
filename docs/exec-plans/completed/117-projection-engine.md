@@ -1,5 +1,5 @@
 # 117 — Projections to PRODUCT's FIRE bar
-Status: done — except the returns dataset, an owner step
+Status: done
 Wave: 12   Lane: —
 Touches: none
 Blocked by: 089, 109, 113, 116
@@ -11,10 +11,9 @@ across historical sequences of returns, with taxable, tax-deferred and Roth mone
 healthcare before 65 costed — every assumption returned alongside.
 
 ## Acceptance criteria
-- [ ] `api/app/services/analysis/returns.csv`: annual real returns by asset class from a public
+- [x] `api/app/services/analysis/returns.csv`: annual real returns by asset class from a public
       dataset, committed, with its source and licence in the file header. **Nothing fetched at
-      runtime.** — **Owner step:** choose the dataset and accept its licence; the loader and its
-      header rules are built.
+      runtime.**
 - [x] `services/analysis/projections.py`, annual steps in `Decimal`, rounded once at output:
       three buckets from `tax_treatment` (HSA Roth-like after 65, education excluded);
       contributions from the trailing twelve months' savings (089) unless overridden; spending from
@@ -66,3 +65,16 @@ float. Rule 5 does not have a performance exception.
   Savings go to taxable, which falls back to the overall mix when there is none. Spending and
   savings come from the last twelve complete months' cashflow, annualised.
 - The 59½ rule is applied from the year the person turns 60, since only the birth year is known.
+
+## Update — 2026-09-29: the returns table
+
+The owner asked for a source to be chosen and downloaded. `returns.csv` is Aswath Damodaran's
+"Historical Returns on Stocks, Bonds and Bills" (NYU Stern, `histretSP.xls`, the Annual Real
+Returns columns), 1928–2025. His usage rules welcome use, ask no attribution and exclude legal
+proceedings and policy debates; the header credits him anyway. Mapping: US stocks the S&P 500
+with dividends; bonds the 10-year Treasury; cash the 3-month T-bill; real estate US home prices;
+other gold. **International stocks are the S&P 500**, because the workbook has no international
+series — a proxy the header names. `api/scripts/build_returns.py` rebuilds the table from the
+workbook (`uv run --with xlrd`, not a project dependency); the workbook is not committed. A test
+holds the table real, contiguous from 1928, attributed and within plausible bounds. A full run on
+it — 98 historical windows and 1,000 bootstrap paths — takes about half a second.

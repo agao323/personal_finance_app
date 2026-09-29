@@ -848,8 +848,9 @@ Wave 12, against PRODUCT's FIRE bar, which rules out a calculator that multiplie
   before 59½**; 72(t) and Roth-ladder strategies are not modelled, and every result says so. A
   simplification, stated, beats a tax engine that would be wrong in ways nobody can see.
 - **Sequence-of-returns sensitivity** by replaying fixed historical return sequences (a committed
-  table of annual real returns by asset class) starting in every available year, plus a seeded
-  shuffle for a wider band. No live data, no fetch.
+  table of annual real returns by asset class — Damodaran's, 1928 on, with the S&P 500 standing
+  in for international stocks) starting in every available year, plus a seeded shuffle for a
+  wider band. No live data, no fetch.
 - **Pre-65 healthcare** as its own spending line from the profile, until 65.
 - **Output is a band**: success rates across withdrawal rates from `withdrawal_low_bps` to
   `withdrawal_high_bps`, and the range of retirement years — never a single number.

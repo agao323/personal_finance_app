@@ -333,3 +333,18 @@ def test_no_birth_year_means_no_projection(db_session: Session, owner_id: int) -
         projections.plan_for(db_session, TODAY, owner_id, None)
 
     assert raised.value.reason == "no_birth_year"
+
+
+def test_the_committed_returns_table_is_real_whole_and_attributed() -> None:
+    table = projections.default_returns()
+
+    assert table.synthetic is False
+    assert table.source.startswith("Aswath Damodaran")
+    assert "datahistory.html#rules" in table.licence
+    assert table.years == list(range(1928, table.years[-1] + 1))
+    assert table.years[-1] >= 2025
+    for row in table.rows:
+        assert set(row) == set(AssetClass)
+        assert all(Decimal("-0.7") < value < Decimal("2") for value in row.values())
+    # International stocks are the S&P 500, a proxy the header names.
+    assert all(row[AssetClass.INTL_EQUITY] == row[AssetClass.US_EQUITY] for row in table.rows)

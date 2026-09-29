@@ -132,7 +132,7 @@ Every plan, generated from its header. How to work one: [PLANS.md](../PLANS.md).
 | 114 | [Account detail: terms, tax treatment and allocation, where the account is](../exec-plans/completed/114-account-terms-tax-and-allocation-panels.md) | done | 12 |
 | 115 | [Debt: avalanche or snowball, prepay or invest, and utilisation](../exec-plans/completed/115-debt-strategies.md) | done | 12 |
 | 116 | [Allocation: the household's mix, drift from target, and cash drag](../exec-plans/completed/116-allocation-analysis.md) | done | 12 |
-| 117 | [Projections to PRODUCT's FIRE bar](../exec-plans/completed/117-projection-engine.md) | done — except the returns dataset, an owner step | 12 |
+| 117 | [Projections to PRODUCT's FIRE bar](../exec-plans/completed/117-projection-engine.md) | done | 12 |
 | 118 | [FIRE and what-if tools, and their evals](../exec-plans/completed/118-fire-and-what-if-tools.md) | done | 12 |
 | 120 | [A local model for development and evals, so building the advisor costs nothing](../exec-plans/completed/120-local-model-adapter.md) | done | 10 |
 | 121 | [The single-date net worth lists accounts in id order](../exec-plans/completed/121-net-worth-account-order.md) | done | 10 |

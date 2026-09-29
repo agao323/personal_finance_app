@@ -5,6 +5,9 @@ data/*
 *.csv
 !**/tests/fixtures/*.csv
 !**/fixtures/*.csv
+# Public and synthetic market returns for the projections (plan 117), never personal data.
+!api/app/services/analysis/returns.csv
+!api/evals/returns_synthetic.csv
 
 # ── Secrets ───────────────────────────────────────────────────────────────────
 .env
