@@ -24,7 +24,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.advisor import policy, sse
+from app.advisor import policy, review, sse
 from app.advisor.loop import MESSAGES, TurnDeps, configured, refusal, run_turn
 from app.advisor.model import AnthropicModelClient, Effort, ModelClient
 from app.advisor.model_local import LocalModelClient
@@ -43,11 +43,14 @@ from app.schemas.advisor import (
     AdvisorStatus,
     ConversationCreate,
     ConversationDetail,
+    ConversationKind,
     ConversationSummary,
     ErrorEvent,
+    ReviewOffer,
     TurnCreate,
     TurnFeedback,
     TurnRead,
+    TurnStatus,
 )
 from app.schemas.common import ErrorResponse, ViewScope
 
@@ -139,6 +142,8 @@ def _summary(conversation: AdvisorConversation, turn_count: int) -> Conversation
     return ConversationSummary(
         id=conversation.id,
         view=ViewScope(conversation.view),
+        kind=ConversationKind(conversation.kind),
+        review_month=conversation.review_month,
         title=conversation.title_text or NEW_TITLE,
         created_at=conversation.created_at,
         last_turn_at=conversation.last_turn_at,
@@ -167,14 +172,25 @@ def get_status(session: DbSession, user: CurrentUser) -> AdvisorStatus:
     if reason is None and spent >= cap:
         reason = AdvisorErrorCode.MONTHLY_CAP
     local = settings.advisor_provider == "local"
+    model = settings.local_model if local else settings.advisor_model
+    month = review.month_under_review(today)
+    offer = None
+    if reason is None and store.review_for(user.id, month) is None:
+        offer = ReviewOffer(
+            month=month,
+            estimated_cost_cents=review.estimated_cost_cents(
+                model, settings.advisor_provider, today
+            ),
+        )
     return AdvisorStatus(
         enabled=reason is None,
         reason=reason,
         provider=AdvisorProvider(settings.advisor_provider),
-        model=settings.local_model if local else settings.advisor_model,
+        model=model,
         month_spent_cents=display_cents(spent),
         month_cap_cents=cap,
         resets_on=next_month(today),
+        review_offer=offer,
     )
 
 
@@ -191,10 +207,21 @@ def list_conversations(session: DbSession, user: CurrentUser) -> list[Conversati
 def create_conversation(
     session: DbSession, user: CurrentUser, payload: ConversationCreate
 ) -> ConversationSummary:
-    """Start a conversation in the Mine or Household view."""
+    """Start a conversation in the Mine or Household view — or the review of last month."""
     _refuse_in_demo()
     store = Store(nested_in(session))
-    created = store.create_conversation(user.id, payload.view, "", dt.datetime.now(dt.UTC))
+    now = dt.datetime.now(dt.UTC)
+    if payload.kind is ConversationKind.REVIEW:
+        month = review.month_under_review(now.date())
+        if store.review_for(user.id, month) is not None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, detail=f"{review.title(month)} has already been started."
+            )
+        created = store.create_conversation(
+            user.id, payload.view, review.title(month), now, review_month=month
+        )
+    else:
+        created = store.create_conversation(user.id, payload.view, "", now)
     conversation = store.conversation(created, user.id)
     assert conversation is not None
     return _summary(conversation, 0)
@@ -273,12 +300,23 @@ async def create_turn(
             tool_sessions=tool_sessions,
             settings=settings,
         )
+        # A review's first answer looks up the same things every month (plan 119). Until a
+        # turn completes — a failed or stopped first try — the fixed prompt goes out again.
+        opening = conversation.review_month is not None and not any(
+            t.turn.status == TurnStatus.COMPLETE.value
+            for t in checks.transcript(conversation.id).turns
+        )
         events = run_turn(
             deps,
             conversation_id=conversation.id,
             user_id=user.id,
             view=ViewScope(conversation.view),
             question=payload.question,
+            instructions=(
+                review.instructions(conversation.review_month)
+                if opening and conversation.review_month is not None
+                else None
+            ),
         )
     return EventStreamResponse(
         stream_events(events, is_disconnected=request.is_disconnected), headers=sse.HEADERS

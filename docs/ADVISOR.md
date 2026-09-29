@@ -1001,7 +1001,10 @@ development until ticket 107.
 4. **Refusal fallbacks.** On. A request may then be served by another Claude model.
 5. **Proactive insights.** The Insights panel always on (it is deterministic), chat on demand, a
    monthly review only if Wave 13 is wanted — user-initiated and in-app, never email or push,
-   which would be egress.
+   which would be egress. Wanted, and built in [plan 119](exec-plans/completed/119-monthly-review.md):
+   the advisor screen offers last month's review while the advisor is on and none exists yet;
+   taking it starts a `review` conversation whose first answer carries a fixed prompt
+   (`advisor/prompts/review.md`) with six lookups and five sections, under the usual caps.
 6. **Wave 11–12 order.** Decided by `note_limitation` counts after a month of use; spending-limit
    goals first by default, matching the spending-first priority.
 7. **Demo.** Recorded examples ([ADR 0014](adr/0014-the-demo-advisor-replays-recorded-answers.md)).

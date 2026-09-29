@@ -96,7 +96,7 @@ Fields marked `?` are optional in the contract.
 - **AdvisorErrorCode** — enum: `disabled` | `demo` | `not_configured` | `monthly_cap` | `conversation_cap` | `turn_cap` | `turn_in_progress` | `budget_exhausted` | `timeout` | `refusal` | `truncated` | `cancelled` | `model_error`
 - **AdvisorEvent**
 - **AdvisorProvider** — enum: `anthropic` | `local` | `scripted`
-- **AdvisorStatus** — `enabled`: boolean, `reason?`: AdvisorErrorCode | null, `provider`: AdvisorProvider, `model?`: string | null, `month_spent_cents`: integer, `month_cap_cents`: integer, `resets_on`: string (date)
+- **AdvisorStatus** — `enabled`: boolean, `reason?`: AdvisorErrorCode | null, `provider`: AdvisorProvider, `model?`: string | null, `month_spent_cents`: integer, `month_cap_cents`: integer, `resets_on`: string (date), `review_offer?`: ReviewOffer | null
 - **AllocationCreate** — `effective_from`: string (date), `shares`: list[AllocationShare]
 - **AllocationRead** — `status`: `recorded` | `derived` | `unknown` | `not_applicable`, `shares`: list[AllocationShare], `history`: list[AllocationRow]
 - **AllocationRow** — `asset_class`: AssetClass, `percentage_bps`: integer, `effective_from`: string (date), `effective_to?`: string (date) | null
@@ -119,9 +119,10 @@ Fields marked `?` are optional in the contract.
 - **CategorySource** — enum: `import` | `rule` | `manual`
 - **Citation** — `call_id`: string, `tool`: string, `label`: string, `as_of?`: string (date) | null, `view?`: ViewScope | null, `stale`: boolean
 - **ColumnMapping** — `posted_at`: string, `amount`: string, `merchant?`: string | null, `description?`: string | null, `external_id?`: string | null, `invert_amount?`: boolean | null
-- **ConversationCreate** — `view`: ViewScope
-- **ConversationDetail** — `id`: string (uuid), `view`: ViewScope, `title`: string, `created_at`: string (date-time), `last_turn_at?`: string (date-time) | null, `expires_at`: string (date-time), `turn_count`: integer, `turns`: list[TurnRead]
-- **ConversationSummary** — `id`: string (uuid), `view`: ViewScope, `title`: string, `created_at`: string (date-time), `last_turn_at?`: string (date-time) | null, `expires_at`: string (date-time), `turn_count`: integer
+- **ConversationCreate** — `view`: ViewScope, `kind?`: ConversationKind
+- **ConversationDetail** — `id`: string (uuid), `view`: ViewScope, `kind?`: ConversationKind, `review_month?`: string (date) | null, `title`: string, `created_at`: string (date-time), `last_turn_at?`: string (date-time) | null, `expires_at`: string (date-time), `turn_count`: integer, `turns`: list[TurnRead]
+- **ConversationKind** — enum: `chat` | `review`
+- **ConversationSummary** — `id`: string (uuid), `view`: ViewScope, `kind?`: ConversationKind, `review_month?`: string (date) | null, `title`: string, `created_at`: string (date-time), `last_turn_at?`: string (date-time) | null, `expires_at`: string (date-time), `turn_count`: integer
 - **DataSource** — enum: `manual` | `csv` | `teller` | `plaid` | `simplefin`
 - **DeletionPreview** — `account_id`: integer, `name`: string, `balance_snapshots`: integer, `transactions`: integer, `ownership_stakes`: integer, `card_perks`: integer, `perk_redemptions`: integer, `earliest_snapshot?`: string (date) | null
 - **ErrorDetail** — `field?`: string | null, `message`: string, `code?`: string | null
@@ -186,6 +187,7 @@ Fields marked `?` are optional in the contract.
 - **RedemptionCreate** — `on?`: string (date) | null, `amount_cents?`: integer | null, `note?`: string | null
 - **RedemptionRead** — `perk_id`: integer, `perk_name`: string, `account_id`: integer, `card_name`: string, `period_start`: string (date), `period_end`: string (date), `cadence`: PerkCadence, `realised_cents`: integer, `is_face_value`: boolean, `note?`: string | null, `recorded_at`: string (date-time)
 - **RegeneratingEvent** — `type`: string, `reason`: string
+- **ReviewOffer** — `month`: string (date), `estimated_cost_cents`: integer | null
 - **RiskTolerance** — enum: `conservative` | `moderate` | `aggressive`
 - **RuleApplyRequest** — `only_uncategorised?`: boolean | null
 - **RuleApplyResult** — `examined`: integer, `categorised`: integer, `manual_preserved`: integer

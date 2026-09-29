@@ -1,0 +1,25 @@
+# The monthly review (plan 119). Each asks for the review of the month before the eval's today —
+# July 2026 — with the review's fixed prompt, as taking the offer does. Graded like a lookup:
+# every figure grounded, the fixed lookups made, and every section present.
+- id: review-household
+  category: review
+  scope: household
+  question: "Review July."
+  review: true
+  tools_all: [findings_list, spend_compare, cashflow_get, cards_value, networth_explain_change]
+  expect_sections: [Spending, Subscriptions, Credits, Runway, Net worth]
+- id: review-mine
+  category: review
+  scope: mine
+  question: "Review July."
+  review: true
+  tools_all: [findings_list, spend_compare, cashflow_get, cards_value, networth_explain_change]
+  expect_sections: [Spending, Subscriptions, Credits, Runway, Net worth]
+- id: review-spending-figure
+  category: review
+  scope: household
+  question: "Review July."
+  review: true
+  facts: [spend_last_month]
+  tools_all: [findings_list, spend_compare, cashflow_get, cards_value, networth_explain_change]
+  expect_sections: [Spending, Subscriptions, Credits, Runway, Net worth]

@@ -37,13 +37,16 @@ from typing import Any
 
 from sqlalchemy import (
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSON, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -60,6 +63,7 @@ def _check(
 
 
 VIEWS = ("mine", "household")
+KINDS = ("chat", "review")
 TURN_STATUSES = ("streaming", "complete", "cancelled", "failed", "refused")
 GROUNDINGS = ("verified", "flagged", "none")
 FEEDBACK = ("good", "flagged")
@@ -68,7 +72,23 @@ ROLES = ("user", "assistant", "context", "tool_results")
 
 class AdvisorConversation(Base):
     __tablename__ = "advisor_conversations"
-    __table_args__ = (_check("view", VIEWS, "ck_advisor_conversations_view"),)
+    __table_args__ = (
+        _check("view", VIEWS, "ck_advisor_conversations_view"),
+        _check("kind", KINDS, "ck_advisor_conversations_kind"),
+        # A review names the month it reviews; a chat never does.
+        CheckConstraint(
+            "(kind = 'review') = (review_month IS NOT NULL)",
+            name="ck_advisor_conversations_review_month",
+        ),
+        # One review of a month per person (plan 119).
+        Index(
+            "uq_advisor_conversations_review",
+            "user_id",
+            "review_month",
+            unique=True,
+            postgresql_where=text("kind = 'review'"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     #: Each person sees only their own conversations. RESTRICT, like stakes: members are
@@ -77,6 +97,10 @@ class AdvisorConversation(Base):
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     view: Mapped[str] = mapped_column(String(16), nullable=False)
+    #: `chat`, or a `review` of one month (plan 119).
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, server_default="chat")
+    #: The first day of the month a review covers; NULL for a chat.
+    review_month: Mapped[dt.date | None] = mapped_column(Date)
     #: The first question, truncated. Typed by the owner, and treated as untrusted anyway.
     title_text: Mapped[str] = mapped_column(String(120), nullable=False)
     created_at: Mapped[dt.datetime] = mapped_column(

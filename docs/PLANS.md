@@ -191,7 +191,7 @@ advisor route stubbed at `501`, every model and the SSE event union generated in
   plans that serve its data; they are not blockers.
 - **Only 081, 095's re-freeze, and the Wave 11–12 schema plans edit `api-types.ts`.**
   Anything else needing a shape change stops and re-freezes, per ADR 0006.
-- **Migrations serialise: 095 → 108 → 109 → 112 → 113.** One in flight at a time.
+- **Migrations serialise: 095 → 108 → 109 → 112 → 113 → 119.** One in flight at a time.
 - Lane L's evals (101) depend on lanes T and S having landed their tools. That is the one
   cross-lane blocker, and it is at the end of the lane rather than the start.
 

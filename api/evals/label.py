@@ -23,7 +23,7 @@ def pending(report: dict[str, Any], labels: list[dict[str, Any]]) -> list[dict[s
     done = {label_key(label["case_id"], label["answer"]) for label in labels}
     out: list[dict[str, Any]] = []
     for run in report["runs"]:
-        if run["category"] != ADVICE or not run.get("answer"):
+        if run["category"] not in ADVICE or not run.get("answer"):
             continue
         key = label_key(run["case_id"], run["answer"]["text"])
         if key not in done:

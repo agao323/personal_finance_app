@@ -202,6 +202,15 @@ class AdvisorErrorCode(enum.StrEnum):
     MODEL_ERROR = "model_error"
 
 
+class ReviewOffer(Schema):
+    """A review of the month just ended, offered until it is taken (plan 119)."""
+
+    month: dt.date = Field(description="The first day of the month the review covers.")
+    estimated_cost_cents: Cents | None = Field(
+        description="About what the review costs on the configured model. Null: free (local)."
+    )
+
+
 class AdvisorStatus(Schema):
     """Whether a question can be asked right now, and what this month has cost."""
 
@@ -214,6 +223,11 @@ class AdvisorStatus(Schema):
     month_spent_cents: Cents
     month_cap_cents: Cents
     resets_on: dt.date = Field(description="The first day of next month, UTC.")
+    review_offer: ReviewOffer | None = Field(
+        default=None,
+        description="Set while the advisor is on and last month has no review yet. Nothing is "
+        "generated until the offer is taken.",
+    )
 
 
 class LimitationKind(enum.StrEnum):
@@ -362,8 +376,18 @@ class TurnRead(Schema):
     finished_at: dt.datetime | None = None
 
 
+class ConversationKind(enum.StrEnum):
+    CHAT = "chat"
+    REVIEW = "review"
+
+
 class ConversationCreate(Schema):
     view: ViewScope = Field(description="Mine or Household. Spend is never split either way.")
+    kind: ConversationKind = Field(
+        default=ConversationKind.CHAT,
+        description="review: a review of the month just ended. Its first question is answered "
+        "from a fixed set of lookups; after that it is a conversation like any other.",
+    )
 
 
 class ConversationSummary(Schema):
@@ -371,6 +395,10 @@ class ConversationSummary(Schema):
 
     id: uuid.UUID
     view: ViewScope
+    kind: ConversationKind = ConversationKind.CHAT
+    review_month: dt.date | None = Field(
+        default=None, description="The first day of the month a review covers."
+    )
     title: str
     created_at: dt.datetime
     last_turn_at: dt.datetime | None = None

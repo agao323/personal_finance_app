@@ -4,7 +4,7 @@
 
 Every plan, generated from its header. How to work one: [PLANS.md](../PLANS.md). Known debt that is not a plan: [tech-debt-tracker.md](../exec-plans/tech-debt-tracker.md).
 
-122 plans: 7 active, 115 completed, in waves 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 9–13. No plan file for: 065.
+122 plans: 6 active, 116 completed, in waves 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 9–13. No plan file for: 065.
 
 ## Active
 
@@ -16,7 +16,6 @@ Every plan, generated from its header. How to work one: [PLANS.md](../PLANS.md).
 | 060 | [Seeding a card's perks from a catalogue](../exec-plans/active/060-seeding-a-cards-perks-from-a-catalogue.md) | todo — needs a decision, see below | 7 | — | 057 |
 | 075 | [SimpleFIN connector: transactions, and credits marked from them](../exec-plans/active/075-simplefin-connector.md) | planning | 8 | — | none — 017 is done; the production restore drill it left pending gates real data (see below) |
 | 107 | [Switch it on: the advisor in production](../exec-plans/active/107-switch-the-advisor-on.md) | in-progress | 10 | — | 099, 100, 102, 103, 105, 106 — and the gates in DECISIONS.md, 2026-09-27 |
-| 119 | [The monthly review, on request and in the app only (optional)](../exec-plans/active/119-monthly-review.md) | todo — optional; build only if the owner wants it after using Wave 10 | 13 | — | 107, 111 |
 
 ## Completed
 
@@ -134,6 +133,7 @@ Every plan, generated from its header. How to work one: [PLANS.md](../PLANS.md).
 | 116 | [Allocation: the household's mix, drift from target, and cash drag](../exec-plans/completed/116-allocation-analysis.md) | done | 12 |
 | 117 | [Projections to PRODUCT's FIRE bar](../exec-plans/completed/117-projection-engine.md) | done | 12 |
 | 118 | [FIRE and what-if tools, and their evals](../exec-plans/completed/118-fire-and-what-if-tools.md) | done | 12 |
+| 119 | [The monthly review, on request and in the app only](../exec-plans/completed/119-monthly-review.md) | done | 13 |
 | 120 | [A local model for development and evals, so building the advisor costs nothing](../exec-plans/completed/120-local-model-adapter.md) | done | 10 |
 | 121 | [The single-date net worth lists accounts in id order](../exec-plans/completed/121-net-worth-account-order.md) | done | 10 |
 | 122 | [AI advisor: questions answered, trends explained, recommendations grounded](../exec-plans/completed/122-ai-advisor-plan.md) | done — cut into plans 081–121, each done or open on its own | 9–13 |

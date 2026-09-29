@@ -148,12 +148,21 @@ class Store:
     # ── conversations and turns ───────────────────────────────────────────────
 
     def create_conversation(
-        self, user_id: int, view: str, title: str, now: dt.datetime
+        self,
+        user_id: int,
+        view: str,
+        title: str,
+        now: dt.datetime,
+        *,
+        review_month: dt.date | None = None,
     ) -> uuid.UUID:
+        """A chat, or with `review_month` a review of that month (plan 119)."""
         with self._tx() as session:
             conversation = AdvisorConversation(
                 user_id=user_id,
                 view=view,
+                kind="chat" if review_month is None else "review",
+                review_month=review_month,
                 title_text=title[:120],
                 created_at=now,
                 expires_at=now + CONVERSATION_TTL,
@@ -337,6 +346,17 @@ class Store:
                 )
             ).all()
             return [(conversation, int(count)) for conversation, count in rows]
+
+    def review_for(self, user_id: int, month: dt.date) -> AdvisorConversation | None:
+        """This person's review of `month`, if one has been started and not deleted."""
+        with self._tx() as session:
+            return session.execute(
+                select(AdvisorConversation).where(
+                    AdvisorConversation.user_id == user_id,
+                    AdvisorConversation.kind == "review",
+                    AdvisorConversation.review_month == month,
+                )
+            ).scalar_one_or_none()
 
     def conversation(self, conversation_id: uuid.UUID, user_id: int) -> AdvisorConversation | None:
         """The conversation if it is this user's. Another member's is the same as none."""

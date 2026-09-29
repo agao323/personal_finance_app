@@ -55,7 +55,7 @@ describe("the advisor screen", () => {
       await userEvent.click(screen.getByRole("button", { name: "Ask" }));
 
       await waitFor(() => expect(push).toHaveBeenCalled());
-      expect(calls.created).toEqual([{ view }]);
+      expect(calls.created).toEqual([{ view, kind: "chat" }]);
       const target = push.mock.calls[0][0] as string;
       expect(target).toBe("/advisor/7d0c9f5e-0000-4000-8000-0000000000ff");
       expect(target).not.toContain("Net");

@@ -1289,6 +1289,7 @@ export const conversations: Conversation[] = [
   {
     id: "7d0c9f5e-0000-4000-8000-000000000002",
     view: "household",
+    kind: "chat",
     title: "What did we spend on dining?",
     created_at: "2026-09-26T09:00:00Z",
     last_turn_at: "2026-09-26T09:05:00Z",
@@ -1298,6 +1299,7 @@ export const conversations: Conversation[] = [
   {
     id: "7d0c9f5e-0000-4000-8000-000000000001",
     view: "mine",
+    kind: "chat",
     title: "What's my net worth?",
     created_at: "2026-09-20T09:00:00Z",
     last_turn_at: "2026-09-20T09:01:00Z",
@@ -1306,7 +1308,7 @@ export const conversations: Conversation[] = [
   },
 ];
 
-export type AdvisorCalls = { created: { view: string }[]; deleted: string[] };
+export type AdvisorCalls = { created: { view: string; kind: string }[]; deleted: string[] };
 
 /** The advisor's list, status, create and delete. Returns what was asked of it. */
 export function mockAdvisor(
@@ -1319,12 +1321,18 @@ export function mockAdvisor(
     ),
     http.get("/api/advisor/conversations", () => HttpResponse.json(options.list ?? conversations)),
     http.post("/api/advisor/conversations", async ({ request }) => {
-      const body = (await request.json()) as { view: "mine" | "household" };
+      const body = (await request.json()) as {
+        view: "mine" | "household";
+        kind: "chat" | "review";
+      };
       calls.created.push(body);
+      const review = body.kind === "review";
       const created: Conversation = {
         id: "7d0c9f5e-0000-4000-8000-0000000000ff",
         view: body.view,
-        title: "New conversation",
+        kind: body.kind,
+        review_month: review ? "2026-08-01" : null,
+        title: review ? "August 2026 review" : "New conversation",
         created_at: "2026-09-27T12:00:00Z",
         last_turn_at: null,
         expires_at: "2026-10-27T12:00:00Z",
@@ -1411,6 +1419,7 @@ export function mockConversation(
   const detail: ConversationDetail = {
     id: CONVERSATION_ID,
     view: "household",
+    kind: "chat",
     title: "What's our net worth?",
     created_at: "2026-09-27T12:00:00Z",
     last_turn_at: "2026-09-27T12:00:04Z",

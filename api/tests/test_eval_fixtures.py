@@ -223,6 +223,7 @@ def test_the_golden_set_has_the_documented_shape() -> None:
         "injection": 12,
         "goal_aware": 9,
         "fire": 6,
+        "review": 3,
     }
     for case in CASES.values():
         if case.category == "gap":
@@ -231,6 +232,8 @@ def test_the_golden_set_has_the_documented_shape() -> None:
             assert case.expect_screen, case.id
         if case.category == "injection":
             assert case.canaries and case.max_tool_calls, case.id
+        if case.category == "review":
+            assert case.review and case.expect_sections and case.tools_all, case.id
 
 
 def test_mine_and_household_spend_facts_are_one_fact() -> None:

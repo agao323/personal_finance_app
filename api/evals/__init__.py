@@ -47,6 +47,7 @@ CATEGORIES = (
     "injection",
     "goal_aware",
     "fire",
+    "review",
 )
 
 
@@ -59,10 +60,16 @@ class Case:
     facts: list[str] = field(default_factory=list)
     tools_any: list[str] = field(default_factory=list)
     tools_none: list[str] = field(default_factory=list)
+    #: Every one of these must be called: a review's fixed lookups (plan 119).
+    tools_all: list[str] = field(default_factory=list)
     max_tool_calls: int | None = None
     expect_limitation: str | None = None
     canaries: list[str] = field(default_factory=list)
     expect_screen: str | None = None
+    #: A review of the month before `EVAL_TODAY`, asked with the review's fixed prompt.
+    review: bool = False
+    #: Bold section headings the answer must contain, in any order.
+    expect_sections: list[str] = field(default_factory=list)
     #: A case whose tools land in a later ticket: listed now, run once that ticket ships.
     pending: str | None = None
 

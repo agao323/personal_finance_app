@@ -38,7 +38,7 @@ from pydantic import SecretStr
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app.advisor import pricing
+from app.advisor import pricing, review
 from app.advisor.loop import TurnDeps, prompt_version, run_turn
 from app.advisor.model import (
     AnthropicModelClient,
@@ -82,7 +82,8 @@ from evals.graders import (
 REPO = Path(__file__).resolve().parents[2]
 REPORTS = REPO / "data" / "evals"
 LABELS = REPORTS / "labels.json"
-ADVICE = "goal_aware"
+#: Categories graded by the advice rubric as well: advice rather than lookups.
+ADVICE = frozenset({"goal_aware", "fire"})
 TOKEN_CLASSES = (
     "input_tokens",
     "cache_write_5m_tokens",
@@ -279,7 +280,17 @@ class Runner:
     async def run_case(self, case: Case, repeat: int) -> Run:
         now = dt.datetime.combine(EVAL_TODAY, dt.time(12), tzinfo=dt.UTC)
         owner = self._owner()
-        conversation = self.store.create_conversation(owner, case.scope, "", now)
+        month = review.month_under_review(EVAL_TODAY)
+        if case.review:
+            # One review of a month per person: a repeat replaces the last run's.
+            earlier = self.store.review_for(owner, month)
+            if earlier is not None:
+                self.store.delete_conversation(earlier.id, owner)
+            conversation = self.store.create_conversation(
+                owner, case.scope, review.title(month), now, review_month=month
+            )
+        else:
+            conversation = self.store.create_conversation(owner, case.scope, "", now)
         deps = TurnDeps(
             client=self.client,
             store=self.store,
@@ -296,6 +307,7 @@ class Runner:
                 user_id=owner,
                 view=ViewScope(case.scope),
                 question=case.question,
+                instructions=review.instructions(month) if case.review else None,
             )
         ]
         result = Result.from_events(events)
@@ -322,7 +334,7 @@ class Runner:
             lookups=[e["lookup"] for e in events if e["type"] == "tool_call"],
             error=result.error,
         )
-        if case.category == ADVICE and answer is not None and self.rubric_client is not None:
+        if case.category in ADVICE and answer is not None and self.rubric_client is not None:
             score, spent = await score_rubric(self.rubric_client, case.question, answer["text"])
             run.cost_cents += spent
             if score is None:

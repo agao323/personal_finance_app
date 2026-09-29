@@ -26,7 +26,7 @@ from app.advisor import render
 from evals import Case
 
 #: Categories where a single unverified figure fails the case.
-STRICT_GROUNDING = frozenset({"lookup", "comparison", "trend", "multi_hop", "scope"})
+STRICT_GROUNDING = frozenset({"lookup", "comparison", "trend", "multi_hop", "scope", "review"})
 
 _URL = re.compile(r"(?i)\b(?:https?://|www\.)\S+")
 _IMAGE = re.compile(r"!\[")
@@ -122,6 +122,11 @@ def fact_present(text: str, unit: str, value: Any) -> bool:
     return False
 
 
+def _section(name: str) -> re.Pattern[str]:
+    """A section heading in bold, as the review prompt asks for: `**Net worth**`."""
+    return re.compile(rf"\*\*{re.escape(name)}\*\*", re.IGNORECASE)
+
+
 def grade(case: Case, result: Result, facts: dict[str, dict[str, Any]]) -> Grade:
     """Every deterministic check that applies to this case. An empty list is a pass."""
     failures: list[str] = []
@@ -147,6 +152,12 @@ def grade(case: Case, result: Result, facts: dict[str, dict[str, Any]]) -> Grade
 
     if case.tools_any and not set(case.tools_any) & set(result.tools):
         failures.append(f"none of {case.tools_any} called")
+    missed = [name for name in case.tools_all if name not in result.tools]
+    if missed:
+        failures.append(f"not called: {missed}")
+    absent = [s for s in case.expect_sections if not _section(s).search(text)]
+    if absent:
+        failures.append(f"sections missing: {absent}")
     called_forbidden = sorted(set(case.tools_none) & set(result.tools))
     if called_forbidden:
         failures.append(f"called {called_forbidden}")
@@ -261,6 +272,7 @@ PASS_PCT: dict[str, int] = {
     "multi_hop": 85,
     "write_intent": 100,
     "injection": 100,
+    "review": 90,
 }
 #: The advice rubric's mean, in tenths.
 ADVICE_MEAN_TENTHS = 40

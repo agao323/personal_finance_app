@@ -20,7 +20,7 @@ from pydantic import BaseModel, SecretStr
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.advisor import sse
+from app.advisor import review, sse
 from app.advisor.loop import TurnDeps, run_turn
 from app.advisor.model import ModelRequest, ScriptedCall, ScriptedModelClient, TextDelta, ToolUse
 from app.advisor.store import Store, nested_in
@@ -430,3 +430,130 @@ def test_the_demo_refuses_every_advisor_route(
         )
     finally:
         get_settings.cache_clear()
+
+
+# ── the monthly review (plan 119) ─────────────────────────────────────────────
+
+REVIEW_PROMPT = "This turn is the monthly review of"
+
+
+def _month_just_ended() -> dt.date:
+    return review.month_under_review(dt.datetime.now(dt.UTC).date())
+
+
+def _review(client: TestClient) -> Any:
+    return client.post("/advisor/conversations", json={"view": "household", "kind": "review"})
+
+
+def test_the_month_under_review_is_the_one_just_ended() -> None:
+    assert review.month_under_review(dt.date(2026, 9, 29)) == dt.date(2026, 8, 1)
+    assert review.month_under_review(dt.date(2026, 1, 1)) == dt.date(2025, 12, 1)
+    assert review.title(dt.date(2026, 8, 1)) == "August 2026 review"
+    prompt = review.instructions(dt.date(2026, 2, 1))
+    assert "2026-02-01 to 2026-02-28" in prompt  # February's last day
+    assert "2026-01-01 to 2026-01-31" in prompt  # against January
+    assert "2026-02-01 to 2026-03-01" in prompt  # net worth across the month
+
+
+def test_the_review_is_offered_while_the_advisor_is_on(
+    client: TestClient, model: Model, enabled: None
+) -> None:
+    offer = client.get("/advisor/status").json()["review_offer"]
+
+    assert offer["month"] == _month_just_ended().isoformat()
+    assert offer["estimated_cost_cents"] >= 1  # "about $0.22" on the configured model
+
+
+def test_nothing_is_offered_while_the_advisor_is_off(client: TestClient) -> None:
+    status = client.get("/advisor/status").json()
+
+    assert status["enabled"] is False
+    assert status["review_offer"] is None
+
+
+def test_taking_the_offer_starts_one_review_of_the_month(
+    client: TestClient, model: Model, enabled: None
+) -> None:
+    month = _month_just_ended()
+
+    created = _review(client)
+
+    assert created.status_code == 201
+    body = created.json()
+    assert (body["kind"], body["review_month"]) == ("review", month.isoformat())
+    assert body["title"] == f"{month:%B %Y} review"
+    assert body["turn_count"] == 0  # nothing generated until the first question
+    assert client.get("/advisor/status").json()["review_offer"] is None
+    again = _review(client)
+    assert again.status_code == 409
+    assert "already been started" in again.json()["detail"]
+
+
+def test_a_review_is_listed_and_deleted_like_any_other(
+    client: TestClient, model: Model, enabled: None
+) -> None:
+    chat = _conversation(client)
+    reviewed = _review(client).json()["id"]
+
+    listed = {c["id"]: c["kind"] for c in client.get("/advisor/conversations").json()}
+
+    assert listed == {chat: "chat", reviewed: "review"}
+    assert client.delete(f"/advisor/conversations/{reviewed}").status_code == 204
+    assert [c["id"] for c in client.get("/advisor/conversations").json()] == [chat]
+    # Deleted before it was read: the month is offered again.
+    assert client.get("/advisor/status").json()["review_offer"] is not None
+
+
+def _carries_the_prompt(request: ModelRequest) -> int:
+    return json.dumps(list(request.messages)).count(REVIEW_PROMPT)
+
+
+def test_the_first_answer_carries_the_fixed_prompt_and_follow_ups_do_not(
+    client: TestClient, model: Model, enabled: None
+) -> None:
+    counts: list[int] = []
+    model.script(
+        ScriptedCall(
+            text=["**Spending** Steady."], expect=lambda r: counts.append(_carries_the_prompt(r))
+        )
+    )
+    reviewed = _review(client).json()["id"]
+
+    first = _events(_ask(client, reviewed, "Review last month."))
+
+    assert _types(first)[-1] == "turn_complete"
+    model.script(
+        ScriptedCall(text=["Groceries."], expect=lambda r: counts.append(_carries_the_prompt(r)))
+    )
+    _events(_ask(client, reviewed, "What went up most?"))
+    # Once on the first answer; on the follow-up only as the first turn's replayed context.
+    assert counts == [1, 1]
+    detail = client.get(f"/advisor/conversations/{reviewed}").json()
+    assert [t["question"] for t in detail["turns"]] == ["Review last month.", "What went up most?"]
+    assert REVIEW_PROMPT not in json.dumps(detail)  # the prompt is context, never shown
+
+
+def test_a_failed_first_answer_is_retried_with_the_fixed_prompt(
+    client: TestClient, model: Model, enabled: None
+) -> None:
+    counts: list[int] = []
+    model.script(
+        ScriptedCall(
+            text=["**Spend"],
+            raises=RuntimeError("connection dropped"),
+            expect=lambda r: counts.append(_carries_the_prompt(r)),
+        )
+    )
+    reviewed = _review(client).json()["id"]
+    failed = _events(_ask(client, reviewed, "Review last month."))
+    assert _types(failed)[-2:] == ["error", "turn_complete"]  # the turn closes as failed
+
+    model.script(
+        ScriptedCall(
+            text=["**Spending** Steady."], expect=lambda r: counts.append(_carries_the_prompt(r))
+        )
+    )
+    _events(_ask(client, reviewed, "Review last month."))
+
+    # Only complete turns are replayed, so the retry carries the prompt once, afresh.
+    assert counts == [1, 1]

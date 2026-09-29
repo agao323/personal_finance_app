@@ -53,14 +53,19 @@ What an investment account holds by asset class, effective-dated like a stake.
 | `id` | UUID | no | python: callable | PK |
 | `user_id` | INTEGER | no |  | FK → `users.id` ON DELETE RESTRICT |
 | `view` | VARCHAR(16) | no |  |  |
+| `kind` | VARCHAR(16) | no | server: `chat` |  |
+| `review_month` | DATE | yes |  |  |
 | `title_text` | VARCHAR(120) | no |  |  |
 | `created_at` | TIMESTAMP WITH TIME ZONE | no | server: `now()` |  |
 | `last_turn_at` | TIMESTAMP WITH TIME ZONE | yes |  |  |
 | `expires_at` | TIMESTAMP WITH TIME ZONE | no |  |  |
 
+- CHECK `ck_advisor_conversations_kind`: `kind IN ('chat', 'review')`
+- CHECK `ck_advisor_conversations_review_month`: `(kind = 'review') = (review_month IS NOT NULL)`
 - CHECK `ck_advisor_conversations_view`: `view IN ('mine', 'household')`
 - INDEX `ix_advisor_conversations_expires_at`: (expires_at)
 - INDEX `ix_advisor_conversations_user_id`: (user_id)
+- INDEX `uq_advisor_conversations_review` unique: (user_id, review_month) where `kind = 'review'`
 
 ## advisor_messages
 

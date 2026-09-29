@@ -11,6 +11,9 @@
  * **Settled lists stay on screen.** Deleting a conversation removes that row and nothing
  * else; nothing here ever collapses to a skeleton once it has loaded.
  *
+ * **The monthly review is offered here and only here** (plan 119): taking it starts a review
+ * conversation whose first question travels like any other; nothing is generated before that.
+ *
  * On the public demo this screen is replaced by recorded examples (ADR 0014).
  */
 
@@ -20,6 +23,7 @@ import { useEffect, useState } from "react";
 import { ConversationList } from "@/components/advisor/conversation-list";
 import { DemoExamples } from "@/components/advisor/demo-examples";
 import { QuestionBox } from "@/components/advisor/question-box";
+import { ReviewOffer, dismissedFor, monthName } from "@/components/advisor/review-offer";
 import { StatusLine } from "@/components/advisor/status-line";
 import { ErrorState, Skeleton } from "@/components/states";
 import { ViewToggle, useViewScope } from "@/components/view-toggle";
@@ -39,6 +43,7 @@ export function AdvisorScreen() {
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
+  const [offerHidden, setOfferHidden] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -62,12 +67,28 @@ export function AdvisorScreen() {
     try {
       const created = await apiFetch("/advisor/conversations", {
         method: "post",
-        body: { view },
+        body: { view, kind: "chat" },
       });
       stashQuestion(created.id, question);
       router.push(`/advisor/${created.id}`);
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : "Could not start a conversation.");
+      setAsking(false);
+    }
+  }
+
+  async function review(month: string) {
+    setAsking(true);
+    setError(null);
+    try {
+      const created = await apiFetch("/advisor/conversations", {
+        method: "post",
+        body: { view, kind: "review" },
+      });
+      stashQuestion(created.id, `Review ${monthName(month)}.`);
+      router.push(`/advisor/${created.id}`);
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : "Could not start the review.");
       setAsking(false);
     }
   }
@@ -91,6 +112,15 @@ export function AdvisorScreen() {
         <h1 className="text-xl font-semibold">Advisor</h1>
         <StatusLine status={status} />
       </header>
+
+      {status.review_offer && !offerHidden && !dismissedFor(status.review_offer.month) ? (
+        <ReviewOffer
+          offer={status.review_offer}
+          busy={asking}
+          onAccept={() => review(status.review_offer!.month)}
+          onDismiss={() => setOfferHidden(true)}
+        />
+      ) : null}
 
       <section aria-label="Ask" className="border-hairline bg-surface-1 rounded-xl border p-4">
         <div className="mb-3 flex items-center justify-between gap-2">

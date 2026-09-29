@@ -286,8 +286,13 @@ async def run_turn(
     user_id: int,
     view: ViewScope,
     question: str,
+    instructions: str | None = None,
 ) -> AsyncIterator[BaseModel]:
-    """Answer one question. Yields `AdvisorEvent` members in docs/ADVISOR.md#one-turn order."""
+    """Answer one question. Yields `AdvisorEvent` members in docs/ADVISOR.md#one-turn order.
+
+    `instructions` travel with this turn's context message — a monthly review's fixed prompt
+    (plan 119) — and are replayed with it, never shown as the question.
+    """
     settings = deps.settings
     store = deps.store
     started_at = deps.now()
@@ -300,13 +305,18 @@ async def run_turn(
         return
 
     store.purge(started_at)
+    context = turn_context(today, view)
+    if instructions:
+        context = f"{context}\n\n{instructions}"
 
     # Worst case of the first call, for the precondition caps: everything sent at the
     # uncached rate, plus a full `max_tokens` of output.
     tools = deps.registry.definitions()
     prefix_tokens = _estimate_tokens([system_prompt(), _tools_payload(tools)])
     replayed = [m.content for m in store.history(conversation_id, before_seq=2**31 - 1)]
-    first_call = _worst_case(deps, prefix_tokens + _estimate_tokens([replayed, question]), today)
+    first_call = _worst_case(
+        deps, prefix_tokens + _estimate_tokens([replayed, question, context]), today
+    )
     if store.month_spent(today) + first_call > settings.advisor_monthly_cap_cents:
         yield _error(AdvisorErrorCode.MONTHLY_CAP, resets_on)
         return
@@ -321,7 +331,7 @@ async def run_turn(
         turn = store.start_turn(
             conversation_id,
             question=question,
-            context=turn_context(today, view),
+            context=context,
             now=started_at,
             model=deps.client.model,
             prompt_version=prompt_version(),
@@ -361,9 +371,7 @@ async def run_turn(
         regenerated = False
         this_turn: list[StoredMessage] = [
             StoredMessage(turn.turn_id, "user", [{"type": "text", "text": question}]),
-            StoredMessage(
-                turn.turn_id, "context", [{"type": "text", "text": turn_context(today, view)}]
-            ),
+            StoredMessage(turn.turn_id, "context", [{"type": "text", "text": context}]),
         ]
         # The input tokens already known from the last call's usage; what has been added
         # since is estimated from its size.

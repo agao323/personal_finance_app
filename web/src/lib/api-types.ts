@@ -225,7 +225,7 @@ export interface paths {
     put?: never;
     /**
      * Create Conversation
-     * @description Start a conversation in the Mine or Household view.
+     * @description Start a conversation in the Mine or Household view — or the review of last month.
      */
     post: operations["create_conversation_advisor_conversations_post"];
     delete?: never;
@@ -1504,6 +1504,8 @@ export interface components {
        * @description The first day of next month, UTC.
        */
       resets_on: string;
+      /** @description Set while the advisor is on and last month has no review yet. Nothing is generated until the offer is taken. */
+      review_offer?: components["schemas"]["ReviewOffer"] | null;
     };
     /**
      * AllocationCreate
@@ -1876,6 +1878,11 @@ export interface components {
     };
     /** ConversationCreate */
     ConversationCreate: {
+      /**
+       * @description review: a review of the month just ended. Its first question is answered from a fixed set of lookups; after that it is a conversation like any other.
+       * @default chat
+       */
+      kind: components["schemas"]["ConversationKind"];
       /** @description Mine or Household. Spend is never split either way. */
       view: components["schemas"]["ViewScope"];
     };
@@ -1897,8 +1904,15 @@ export interface components {
        * Format: uuid
        */
       id: string;
+      /** @default chat */
+      kind: components["schemas"]["ConversationKind"];
       /** Last Turn At */
       last_turn_at?: string | null;
+      /**
+       * Review Month
+       * @description The first day of the month a review covers.
+       */
+      review_month?: string | null;
       /** Title */
       title: string;
       /** Turn Count */
@@ -1907,6 +1921,11 @@ export interface components {
       turns: components["schemas"]["TurnRead"][];
       view: components["schemas"]["ViewScope"];
     };
+    /**
+     * ConversationKind
+     * @enum {string}
+     */
+    ConversationKind: "chat" | "review";
     /**
      * ConversationSummary
      * @description A conversation in the list. Each person sees only their own.
@@ -1928,8 +1947,15 @@ export interface components {
        * Format: uuid
        */
       id: string;
+      /** @default chat */
+      kind: components["schemas"]["ConversationKind"];
       /** Last Turn At */
       last_turn_at?: string | null;
+      /**
+       * Review Month
+       * @description The first day of the month a review covers.
+       */
+      review_month?: string | null;
       /** Title */
       title: string;
       /** Turn Count */
@@ -3113,6 +3139,23 @@ export interface components {
        * @enum {string}
        */
       type: "regenerating";
+    };
+    /**
+     * ReviewOffer
+     * @description A review of the month just ended, offered until it is taken (plan 119).
+     */
+    ReviewOffer: {
+      /**
+       * Estimated Cost Cents
+       * @description About what the review costs on the configured model. Null: free (local).
+       */
+      estimated_cost_cents: number | null;
+      /**
+       * Month
+       * Format: date
+       * @description The first day of the month the review covers.
+       */
+      month: string;
     };
     /**
      * RiskTolerance

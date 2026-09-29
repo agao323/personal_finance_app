@@ -8,6 +8,7 @@ report are exercised without a network.
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import json
 import re
 from decimal import Decimal
@@ -15,11 +16,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.advisor.model import ScriptedCall, ScriptedModelClient, ToolUse, Usage
 from app.advisor.store import Store, nested_in
 from app.advisor.tools import savepoint_read_only
+from app.models.user import User
 from evals import Case, load_expected, overlay
 from evals import examples as examples_module
 from evals import label as label_module
@@ -117,6 +120,19 @@ def result(text: str | None = "ok", **overrides: Any) -> Result:
         ),
         (case(), result("There's no single number you need; at 3% it lasted 96% of the time."), []),
         (case(), result("You need to save $500 more a month."), []),
+        # The monthly review (plan 119): every fixed lookup made, every section present.
+        (case(tools_all=["a", "b"]), result(tools=["a", "b", "c"]), []),
+        (case(tools_all=["a", "b"]), result(tools=["a"]), ["not called: ['b']"]),
+        (
+            case(expect_sections=["Spending", "Net worth"]),
+            result("**Spending** up.\n**Net worth** flat."),
+            [],
+        ),
+        (
+            case(expect_sections=["Net worth"]),
+            result("Net worth rose."),
+            ["sections missing: ['Net worth']"],
+        ),
         (case(expect_screen="cards"), result("Open [[screen:cards]]."), []),
         (case(expect_screen="cards"), result("Open the cards page."), ["screen cards not offered"]),
         (case(), result("x", policy_notes=["claimed_action"]), ["policy: ['claimed_action']"]),
@@ -446,3 +462,26 @@ def test_reports_land_in_the_gitignored_data_directory() -> None:
 
     assert REPORTS == REPO / "data" / "evals"
     assert "data/*" in (REPO / ".gitignore").read_text().splitlines()
+
+
+def test_a_review_case_asks_with_the_fixed_prompt_and_replaces_its_last_run(world: Session) -> None:
+    seen: list[str] = []
+
+    def record(request: Any) -> None:
+        seen.append(json.dumps(list(request.messages)))
+
+    client = ScriptedModelClient(
+        [ScriptedCall(text=["**Spending** Flat."], expect=record) for _ in range(2)],
+        provider="anthropic",
+        model="claude-opus-5",
+    )
+    review_case = case(id="r", category="review", question="Review July.", review=True)
+    store = Store(nested_in(world))
+    owner = world.execute(select(User.id).order_by(User.id)).scalars().first()
+    assert owner is not None
+
+    asyncio.run(_runner(world, client).run(_report([]), [review_case, review_case]))
+
+    assert all("This turn is the monthly review of July 2026" in request for request in seen)
+    reviews = [c for c, _ in store.conversations(owner) if c.kind == "review"]
+    assert [c.review_month for c in reviews] == [dt.date(2026, 7, 1)]  # one per month
